@@ -14,7 +14,7 @@ RUN apt-get update \
        > /etc/apt/sources.list.d/llvm-21.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-       clang-21 libclang-21-dev llvm-21-dev \
+       clang-21 libclang-21-dev libclang-rt-21-dev llvm-21-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs \

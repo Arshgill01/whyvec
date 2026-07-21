@@ -172,3 +172,16 @@ Safeguards: the unit fixtures now create a repository-local file named
 host tool dependency. The pinned image installs `build-essential` explicitly.
 All fifteen focused optimization tests and strict workspace Clippy pass locally;
 the replacement hosted run must still execute the complete image.
+
+## 2026-07-21T19:27:00Z — Clean jobs omitted recorded LLVM and sanitizer runtimes
+
+Run `29861326463` passed the portable Rust job and the compiler product's clean
+CLI/helper installation. Its cross-frontend fixture then refused because
+`opt-22`, required for the recorded Rust/LLVM-22 surrogate, was absent. The
+judge image built and installed the plugin successfully, then Clang could not
+link the ASan runtime during exact-candidate validation.
+
+Safeguard: the Ubuntu 22.04 product job now installs `llvm-22` from the matching
+pinned apt.llvm.org suite, and both clean surfaces install
+`libclang-rt-21-dev`. These packages satisfy explicit recorded validation
+inputs; neither failure is reclassified as a compiler or candidate result.
