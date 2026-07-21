@@ -251,10 +251,11 @@ fn print_opt_human(report: &OptimizationReport) {
     println!("OPTIMIZATION CAUSALITY");
     println!("  baseline: {}", report.monolithic_baseline.classification);
     println!("  pipeline fidelity: {}", report.pipeline_fidelity);
-    println!(
-        "  loop fingerprint: {}",
-        report.subject.structural_fingerprint
-    );
+    if let Some(subject) = &report.subject {
+        println!("  loop fingerprint: {}", subject.structural_fingerprint);
+    } else {
+        println!("  loop fingerprint: unavailable");
+    }
     if let Some(finding) = &report.finding {
         println!(
             "  smallest sufficient set found: {}",

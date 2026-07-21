@@ -10,16 +10,16 @@
     "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
     "query_kind": { "const": "optimization_causality" },
     "adapter": { "const": "clang_llvm" },
-    "pipeline_fidelity": { "const": "equivalent_confirmed" },
+    "pipeline_fidelity": { "enum": ["equivalent_confirmed", "not_evaluated"] },
     "toolchain": { "$ref": "#/$defs/toolchain" },
     "repository": { "type": "string", "minLength": 1 },
     "source": { "type": "string", "minLength": 1 },
     "source_digest": { "$ref": "#/$defs/sha256" },
     "pipeline_digest": { "$ref": "#/$defs/sha256" },
-    "subject": { "$ref": "#/$defs/identity" },
+    "subject": { "oneOf": [{ "$ref": "#/$defs/identity" }, { "type": "null" }] },
     "candidates": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/candidate" } },
     "monolithic_baseline": { "$ref": "#/$defs/outcome" },
-    "replay_baseline": { "$ref": "#/$defs/outcome" },
+    "replay_baseline": { "oneOf": [{ "$ref": "#/$defs/outcome" }, { "type": "null" }] },
     "experiments": { "type": "array", "items": { "$ref": "#/$defs/experiment" } },
     "minimality": { "enum": ["no_successful_set_found", "smallest_set_found", "minimal_in_declared_search", "unique_minimal_in_declared_search", "unknown_minimality"] },
     "stop_reason": { "enum": ["not_started", "declared_space_exhausted", "first_successful_cardinality_completed", "evaluation_budget_exhausted"] },
@@ -69,8 +69,10 @@
     },
     "replay": {
       "type": "object", "additionalProperties": false,
-      "required": ["max_evaluations", "max_cardinality"],
+      "required": ["function", "line", "max_evaluations", "max_cardinality"],
       "properties": {
+        "function": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
         "max_evaluations": { "type": "integer", "minimum": 1 },
         "max_cardinality": { "type": "integer", "minimum": 1 }
       }
@@ -116,7 +118,7 @@
     },
     "experiment": {
       "type": "object", "additionalProperties": false,
-      "required": ["experiment_id", "assumptions", "verdict", "unresolved_reason", "ir_verified", "delta_isolated", "loop_identity", "outcome"],
+      "required": ["experiment_id", "assumptions", "verdict", "unresolved_reason", "ir_verified", "delta_isolated", "loop_identity", "decline", "outcome"],
       "properties": {
         "experiment_id": { "type": "string", "pattern": "^exp_[a-f0-9]{16}$" },
         "assumptions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
@@ -124,8 +126,9 @@
         "unresolved_reason": { "type": ["string", "null"] },
         "ir_verified": { "type": "boolean" },
         "delta_isolated": { "type": "boolean" },
-        "loop_identity": { "$ref": "#/$defs/identity" },
-        "outcome": { "$ref": "#/$defs/outcome" }
+        "loop_identity": { "oneOf": [{ "$ref": "#/$defs/identity" }, { "type": "null" }] },
+        "decline": { "oneOf": [{ "$ref": "#/$defs/decline" }, { "type": "null" }] },
+        "outcome": { "oneOf": [{ "$ref": "#/$defs/outcome" }, { "type": "null" }] }
       }
     },
     "finding": {

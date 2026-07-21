@@ -7,6 +7,7 @@ Fixtures are executable semantic cases, not illustrative snippets. Each case def
 - `bound-alias` — baseline misses and a bound-parameter noalias counterfactual vectorizes.
 - `rust-bound-alias` — rustc emits the same missed decision for a raw-pointer FFI-shaped loop; the paired LLVM surrogate establishes cross-frontend experiment feasibility without authorizing a Rust repair.
 - `already-vectorized` — LLVM runtime versions a conventional input/output alias case; WhyVec must decline further search.
+- `ambiguous-loop` — two loops share one function/debug line; the integrated query must retain an identity decline without selecting either loop.
 - `refusal` — volatile pointer-loaded bound invalidates ordinary obligation and repair reasoning.
 
 ## Fixture rules

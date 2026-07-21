@@ -26,6 +26,14 @@ confirmation consistency, tool fingerprints, structured optimization records,
 and immutable artifacts. These two development reports must still converge on
 the adapter-aware major-version envelope before the shared schema gate closes.
 
+When initial loop identity is absent or ambiguous, `subject` and
+`replay_baseline` are null, pipeline fidelity is `not_evaluated`, and the report
+contains a stable `baseline.loop_absent` or `identity.ambiguous` decline. This
+shape records that selection stopped; it does not synthesize a loop identity or
+claim split-pipeline equivalence. If identity becomes unresolved only after a
+typed delta, that experiment has null outcome, a typed identity decline, and an
+unresolved verdict.
+
 The development build report also retains SHA-256-addressed intervention and
 compiler-stream artifacts, proxy-aware Cargo/rustc identities, an aggregate
 input and command digest, replay limits, and a normalized semantic digest.

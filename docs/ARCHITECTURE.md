@@ -99,6 +99,12 @@ variant, confirms successful outcomes, and retains structured YAML records and
 IR. Automatic compilation-database and source-parameter mapping remain product
 gates; explicit mappings are evidence inputs, not inferred facts.
 
+Identity selection is a reportable stage outcome. If the helper finds no unique
+loop, the report retains its raw identity streams, leaves `subject` and the
+split-pipeline baseline absent, records `not_evaluated` pipeline fidelity, and
+returns a stable decline without executing any variant. Variant identity loss
+or drift is retained as an unresolved experiment, never negative evidence.
+
 `replay-opt` verifies the retained artifact manifest and normalized report
 digest, requires the recorded source and Clang/LLVM/helper fingerprints to be
 unchanged, reruns the declared bounded search, and compares its semantic

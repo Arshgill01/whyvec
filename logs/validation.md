@@ -329,3 +329,31 @@ Results:
   fields.
 - `replay-opt` reproduced the positive report's semantic digest. Deliberate
   mutation of a retained artifact was refused by its digest/size check.
+
+## 2026-07-21T13:03:39Z — Integrated identity-decline validation
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 scripts/verify_llvm_transformer.py
+python3 scripts/verify_llvm_loop_identity.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- All twenty-nine Rust tests and every repository/compiler integration script
+  passed with the new manifest-backed ambiguous-loop fixture.
+- The direct helper still reported two matches without selecting one; public
+  `explain-opt` converted that evidence to a schema-valid retained
+  `identity.ambiguous` decline.
+- The ambiguity report omitted subject, replay baseline, variants, and finding,
+  used `not_evaluated` pipeline fidelity, and reproduced through `replay-opt`.
+- Positive, already-vectorized, ambiguous, and no-success reports all validated
+  against the updated Draft 2020-12 schema.

@@ -77,8 +77,9 @@ pub struct OptimizationExperiment {
     pub unresolved_reason: Option<String>,
     pub ir_verified: bool,
     pub delta_isolated: bool,
-    pub loop_identity: LoopIdentity,
-    pub outcome: OptimizationOutcome,
+    pub loop_identity: Option<LoopIdentity>,
+    pub decline: Option<OptimizationDecline>,
+    pub outcome: Option<OptimizationOutcome>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -117,6 +118,8 @@ pub struct OptimizationToolchain {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OptimizationReplay {
+    pub function: String,
+    pub line: u64,
     pub max_evaluations: usize,
     pub max_cardinality: usize,
 }
@@ -141,10 +144,10 @@ pub struct OptimizationReport {
     pub source: String,
     pub source_digest: String,
     pub pipeline_digest: String,
-    pub subject: LoopIdentity,
+    pub subject: Option<LoopIdentity>,
     pub candidates: Vec<OptimizationCandidateReport>,
     pub monolithic_baseline: OptimizationOutcome,
-    pub replay_baseline: OptimizationOutcome,
+    pub replay_baseline: Option<OptimizationOutcome>,
     pub experiments: Vec<OptimizationExperiment>,
     pub minimality: String,
     pub stop_reason: String,
@@ -164,6 +167,14 @@ pub struct OptimizationCandidateReport {
     pub source_name: String,
     pub ir_index: usize,
     pub attribute: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct IdentityDeclineWire {
+    status: String,
+    code: String,
+    message: String,
+    matches: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -340,7 +351,30 @@ pub fn explain_optimization(
     artifacts.push(store.retain("baseline/pipeline.txt", pipeline.as_bytes(), "text/plain")?);
     let pipeline_digest = digest(pipeline.as_bytes());
 
-    let subject = inspect_identity(request, &preopt, &repository)?;
+    let (identity, identity_artifacts) =
+        inspect_identity(request, &preopt, &repository, &store, "baseline/identity")?;
+    artifacts.extend(identity_artifacts);
+    let subject = match identity {
+        Ok(subject) => subject,
+        Err(decline) => {
+            let mut report = base_report(
+                &analysis_id,
+                &repository,
+                &source,
+                source_digest,
+                pipeline_digest,
+                toolchain,
+                None,
+                request,
+                monolithic_baseline,
+                None,
+                &root.join("report.json"),
+            );
+            report.decline = Some(decline);
+            finalize_report(&store, &mut report, artifacts)?;
+            return Ok(report);
+        }
+    };
     let replay_output = temporary.join("baseline.opt.ll");
     let replay_run = optimize(request, &preopt, &pipeline, &replay_output, &repository)?;
     let mut replay_baseline = retain_outcome(
@@ -371,10 +405,10 @@ pub fn explain_optimization(
         source_digest,
         pipeline_digest,
         toolchain,
-        subject.clone(),
+        Some(subject.clone()),
         request,
         monolithic_baseline,
-        replay_baseline,
+        Some(replay_baseline),
         &root.join("report.json"),
     );
     if report.monolithic_baseline.classification == "vectorized" {
@@ -387,7 +421,10 @@ pub fn explain_optimization(
         return Ok(report);
     }
     if report.monolithic_baseline.classification != "missed"
-        || report.replay_baseline.classification != "missed"
+        || report
+            .replay_baseline
+            .as_ref()
+            .is_none_or(|baseline| baseline.classification != "missed")
     {
         return Err(OptimizationError::ToolFailure(
             "monolithic and replay baselines do not both observe the selected miss".to_owned(),
@@ -622,22 +659,78 @@ fn inspect_identity(
     request: &OptimizationRequest,
     input: &Path,
     current_dir: &Path,
-) -> Result<LoopIdentity, OptimizationError> {
-    let result = require_success(
-        execute(
-            &request.identity_tool,
-            [
-                input.as_os_str().to_os_string(),
-                OsString::from("--function"),
-                OsString::from(&request.function),
-                OsString::from("--line"),
-                OsString::from(request.line.to_string()),
-            ],
-            current_dir,
-        )?,
-        "match LLVM loop identity",
+    store: &ArtifactStore,
+    prefix: &str,
+) -> Result<
+    (
+        Result<LoopIdentity, OptimizationDecline>,
+        Vec<ArtifactReference>,
+    ),
+    OptimizationError,
+> {
+    let result = execute(
+        &request.identity_tool,
+        [
+            input.as_os_str().to_os_string(),
+            OsString::from("--function"),
+            OsString::from(&request.function),
+            OsString::from("--line"),
+            OsString::from(request.line.to_string()),
+        ],
+        current_dir,
     )?;
-    Ok(serde_json::from_slice(&result.stdout)?)
+    let artifacts = vec![
+        store.retain(
+            &format!("{prefix}.stdout"),
+            &result.stdout,
+            "application/json",
+        )?,
+        store.retain(
+            &format!("{prefix}.stderr"),
+            &result.stderr,
+            "application/json",
+        )?,
+    ];
+    if result.exit_code == Some(0)
+        && !result.timed_out
+        && !result.stdout_truncated
+        && !result.stderr_truncated
+    {
+        return Ok((Ok(serde_json::from_slice(&result.stdout)?), artifacts));
+    }
+    if result.exit_code == Some(2)
+        && !result.timed_out
+        && !result.stdout_truncated
+        && !result.stderr_truncated
+    {
+        let wire: IdentityDeclineWire = serde_json::from_slice(&result.stderr)?;
+        if wire.status != "declined" || !wire.code.starts_with("identity.") {
+            return Err(OptimizationError::ToolFailure(
+                "identity helper returned an invalid decline".to_owned(),
+            ));
+        }
+        let code = match wire.code.as_str() {
+            "identity.loop_ambiguous" => "identity.ambiguous",
+            "identity.loop_absent" | "identity.function_absent" => "baseline.loop_absent",
+            _ => &wire.code,
+        };
+        let explanation = wire.matches.map_or(wire.message.clone(), |matches| {
+            format!("{} ({matches} matches)", wire.message)
+        });
+        return Ok((
+            Err(OptimizationDecline {
+                code: code.to_owned(),
+                explanation,
+            }),
+            artifacts,
+        ));
+    }
+    Err(OptimizationError::ToolFailure(format!(
+        "match LLVM loop identity: exit={:?}, timeout={}, truncated={}",
+        result.exit_code,
+        result.timed_out,
+        result.stdout_truncated || result.stderr_truncated
+    )))
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
@@ -689,17 +782,57 @@ fn execute_variant(
         )?);
         input = output;
     }
-    let identity = inspect_identity(request, &input, current_dir)?;
-    if &identity != subject {
-        return Err(OptimizationError::ToolFailure(
-            "loop identity changed before optimization".to_owned(),
-        ));
-    }
     retained.push(store.retain(
         &format!("variants/{experiment_id}/input.bc"),
         &fs::read(&input)?,
         "application/vnd.llvm.bitcode",
     )?);
+    let (identity, identity_artifacts) = inspect_identity(
+        request,
+        &input,
+        current_dir,
+        store,
+        &format!("variants/{experiment_id}/identity"),
+    )?;
+    retained.extend(identity_artifacts);
+    let identity = match identity {
+        Ok(identity) => identity,
+        Err(decline) => {
+            return Ok((
+                OptimizationExperiment {
+                    experiment_id,
+                    assumptions: subset.iter().map(|item| item.as_str().to_owned()).collect(),
+                    verdict: "unresolved".to_owned(),
+                    unresolved_reason: Some("loop_identity_unresolved".to_owned()),
+                    ir_verified: true,
+                    delta_isolated: true,
+                    loop_identity: None,
+                    decline: Some(decline),
+                    outcome: None,
+                },
+                retained,
+            ));
+        }
+    };
+    if &identity != subject {
+        return Ok((
+            OptimizationExperiment {
+                experiment_id,
+                assumptions: subset.iter().map(|item| item.as_str().to_owned()).collect(),
+                verdict: "unresolved".to_owned(),
+                unresolved_reason: Some("loop_identity_changed".to_owned()),
+                ir_verified: true,
+                delta_isolated: true,
+                loop_identity: Some(identity),
+                decline: Some(OptimizationDecline {
+                    code: "identity.transformed_beyond_match".to_owned(),
+                    explanation: "loop identity changed before optimization".to_owned(),
+                }),
+                outcome: None,
+            },
+            retained,
+        ));
+    }
     let optimized = directory.join("optimized.ll");
     let run = optimize(request, &input, pipeline, &optimized, current_dir)?;
     let mut outcome = retain_outcome(
@@ -776,8 +909,9 @@ fn execute_variant(
             unresolved_reason,
             ir_verified: true,
             delta_isolated: true,
-            loop_identity: identity,
-            outcome,
+            loop_identity: Some(identity),
+            decline: None,
+            outcome: Some(outcome),
         },
         retained,
     ))
@@ -865,16 +999,63 @@ fn base_report(
     source_digest: String,
     pipeline_digest: String,
     toolchain: OptimizationToolchain,
-    subject: LoopIdentity,
+    subject: Option<LoopIdentity>,
     request: &OptimizationRequest,
     monolithic_baseline: OptimizationOutcome,
-    replay_baseline: OptimizationOutcome,
+    replay_baseline: Option<OptimizationOutcome>,
     artifact_path: &Path,
 ) -> OptimizationReport {
+    let pipeline_replayed = replay_baseline.is_some();
+    let pipeline_fidelity = if pipeline_replayed {
+        "equivalent_confirmed"
+    } else {
+        "not_evaluated"
+    };
+    let pipeline_caveat = if pipeline_replayed {
+        "Clang's printable pipeline is best-effort; fidelity is equivalent_confirmed, not exact."
+    } else {
+        "The printable pipeline was retained but not replayed because loop identity selection declined."
+    };
     OptimizationReport {
-        schema_version: "2.0.0-dev".to_owned(), analysis_id: analysis_id.to_owned(), query_kind: "optimization_causality".to_owned(), adapter: "clang_llvm".to_owned(), pipeline_fidelity: "equivalent_confirmed".to_owned(), toolchain, repository: repository.to_string_lossy().into_owned(), source: source.to_string_lossy().into_owned(), source_digest, pipeline_digest, subject,
-        candidates: request.candidates.iter().map(|candidate| OptimizationCandidateReport { id: candidate_id(candidate), source_name: candidate.source_name.clone(), ir_index: candidate.ir_index, attribute: "noalias".to_owned() }).collect(),
-        monolithic_baseline, replay_baseline, experiments: Vec::new(), minimality: "no_successful_set_found".to_owned(), stop_reason: "not_started".to_owned(), declared_subsets: 0, finding: None, decline: None, replay: OptimizationReplay { max_evaluations: request.max_evaluations, max_cardinality: request.max_cardinality }, semantic_digest: String::new(), artifacts: Vec::new(), artifact_path: artifact_path.to_string_lossy().into_owned(), caveats: vec!["Clang's printable pipeline is best-effort; fidelity is equivalent_confirmed, not exact.".to_owned()],
+        schema_version: "2.0.0-dev".to_owned(),
+        analysis_id: analysis_id.to_owned(),
+        query_kind: "optimization_causality".to_owned(),
+        adapter: "clang_llvm".to_owned(),
+        pipeline_fidelity: pipeline_fidelity.to_owned(),
+        toolchain,
+        repository: repository.to_string_lossy().into_owned(),
+        source: source.to_string_lossy().into_owned(),
+        source_digest,
+        pipeline_digest,
+        subject,
+        candidates: request
+            .candidates
+            .iter()
+            .map(|candidate| OptimizationCandidateReport {
+                id: candidate_id(candidate),
+                source_name: candidate.source_name.clone(),
+                ir_index: candidate.ir_index,
+                attribute: "noalias".to_owned(),
+            })
+            .collect(),
+        monolithic_baseline,
+        replay_baseline,
+        experiments: Vec::new(),
+        minimality: "no_successful_set_found".to_owned(),
+        stop_reason: "not_started".to_owned(),
+        declared_subsets: 0,
+        finding: None,
+        decline: None,
+        replay: OptimizationReplay {
+            function: request.function.clone(),
+            line: request.line,
+            max_evaluations: request.max_evaluations,
+            max_cardinality: request.max_cardinality,
+        },
+        semantic_digest: String::new(),
+        artifacts: Vec::new(),
+        artifact_path: artifact_path.to_string_lossy().into_owned(),
+        caveats: vec![pipeline_caveat.to_owned()],
     }
 }
 
@@ -956,8 +1137,8 @@ pub fn replay_optimization(
     let request = OptimizationRequest {
         repository: repository.clone(),
         source,
-        function: original.subject.function.clone(),
-        line: original.subject.line,
+        function: original.replay.function.clone(),
+        line: original.replay.line,
         candidates: original
             .candidates
             .iter()

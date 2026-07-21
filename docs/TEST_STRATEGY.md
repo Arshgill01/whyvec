@@ -39,6 +39,11 @@ The LLVM identity helper is additionally tested with two distinct loops that
 share one function and debug line. It must return the match count and a typed
 ambiguity decline rather than choosing either loop.
 
+The same ambiguity also runs through public `explain-opt`: the resulting report
+must have no subject, split-pipeline baseline, experiments, or finding; must
+retain the helper streams and `identity.ambiguous`; and must reproduce through
+`replay-opt` without upgrading `not_evaluated` pipeline fidelity.
+
 ### Obligation derivation tests
 
 Supported positive shapes cover:

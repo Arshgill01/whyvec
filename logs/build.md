@@ -16,3 +16,15 @@
   as outcome changes.
 - Closed the shared immutable runtime's optimization-adapter integration gate;
   retained query-level loop-ambiguity reporting remains an R4 gate.
+
+## 2026-07-21T13:03:39Z — Retained optimization identity declines
+
+- Integrated the LLVM identity helper's typed declines into the optimization
+  report instead of converting them to generic tool errors.
+- Made the selected subject and replay baseline explicitly absent when no
+  unique loop exists, retained raw identity streams, and labeled pipeline
+  fidelity `not_evaluated`.
+- Represented post-delta identity loss or drift as an unresolved experiment
+  with a typed decline and no optimizer outcome.
+- Added a manifest-backed two-loop/same-line fixture and semantic replay for its
+  retained `identity.ambiguous` result, closing R4's final exit gate.

@@ -211,3 +211,29 @@ Evidence strength and limitation:
 - This reproduced the counterfactual observation on the recorded local
   toolchain. The report points to the original repository and helper binaries;
   it is not yet a portable or redacted reproduction bundle.
+
+## 2026-07-21T13:03:39Z — Integrated ambiguous-loop refusal
+
+Command shape:
+
+```console
+whyvec explain-opt fixtures/cases/ambiguous-loop/kernel.c:2 \
+  --function ambiguous --parameter output:0 --parameter input:1 \
+  --transformer <pinned-helper> --identity-tool <pinned-helper> --format json
+```
+
+Observed results:
+
+- The pre-optimization function contained two distinct loops starting at the
+  selected debug line.
+- The public query retained both identity-helper streams and returned
+  `identity.ambiguous` with two matches.
+- The report had no selected subject, split-pipeline baseline, experiments, or
+  finding, and labeled pipeline fidelity `not_evaluated`.
+- `replay-opt` reproduced the same decline semantic digest.
+
+Evidence strength and limitation:
+
+- This is an evidence-backed refusal. No claim is made about either loop's
+  individual optimization outcome because the supplied location did not
+  uniquely identify one.

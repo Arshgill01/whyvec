@@ -25,3 +25,5 @@ The format follows Keep a Changelog principles, and releases use semantic versio
   records, and typed already-vectorized/no-success conclusions.
 - Tamper-detecting `replay-opt` with source and four-tool fingerprint drift
   checks plus normalized semantic outcome comparison.
+- Retained `identity.ambiguous` query reports and unresolved variant identity
+  outcomes that stop without inventing a loop or treating uncertainty as a miss.

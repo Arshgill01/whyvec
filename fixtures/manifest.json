@@ -45,6 +45,18 @@
       "expected_decline": "baseline.already_vectorized"
     },
     {
+      "id": "ambiguous-loop",
+      "frontend": "clang",
+      "toolchain_profile": "clang-21-x86_64-v3",
+      "source": "cases/ambiguous-loop/kernel.c",
+      "selector": {
+        "function": "ambiguous",
+        "line": 2
+      },
+      "expected_baseline": "vectorized",
+      "expected_decline": "identity.ambiguous"
+    },
+    {
       "id": "volatile-bound-refusal",
       "frontend": "clang",
       "toolchain_profile": "clang-21-x86_64-v3",

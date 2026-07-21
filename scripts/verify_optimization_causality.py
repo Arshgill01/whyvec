@@ -121,6 +121,7 @@ def main() -> int:
         shutil.copytree(
             ROOT / "fixtures/cases/already-vectorized", repository / "already-vectorized"
         )
+        shutil.copytree(ROOT / "fixtures/cases/ambiguous-loop", repository / "ambiguous-loop")
         shutil.copytree(ROOT / "fixtures/cases/refusal", repository / "refusal")
         run(["git", "init", "--quiet"], repository)
 
@@ -203,6 +204,31 @@ def main() -> int:
             raise RuntimeError("declined baseline executed or reported counterfactuals")
         validate_artifacts(declined)
 
+        ambiguous = invoke(
+            binary,
+            repository,
+            "ambiguous-loop/kernel.c",
+            2,
+            "ambiguous",
+            ["output:0", "input:1"],
+            transformer,
+            identity,
+        )
+        if ambiguous.get("decline", {}).get("code") != "identity.ambiguous":
+            raise RuntimeError(f"ambiguous loop was not declined: {ambiguous}")
+        if ambiguous.get("pipeline_fidelity") != "not_evaluated":
+            raise RuntimeError("ambiguous query overstated pipeline fidelity")
+        if ambiguous.get("subject") is not None:
+            raise RuntimeError("ambiguous query fabricated a selected loop identity")
+        if ambiguous.get("replay_baseline") is not None or ambiguous.get("experiments") != []:
+            raise RuntimeError("ambiguous query continued after identity refusal")
+        validate_artifacts(ambiguous)
+        ambiguous_replay = json.loads(
+            run([str(binary), "replay-opt", str(ambiguous["artifact_path"])]).stdout
+        )
+        if ambiguous_replay.get("semantic_digest") != ambiguous.get("semantic_digest"):
+            raise RuntimeError("ambiguous decline did not replay semantically")
+
         no_success = invoke(
             binary,
             repository,
@@ -231,6 +257,7 @@ def main() -> int:
         jsonschema.Draft202012Validator.check_schema(schema)
         jsonschema.validate(report, schema)
         jsonschema.validate(declined, schema)
+        jsonschema.validate(ambiguous, schema)
         jsonschema.validate(no_success, schema)
 
         declined_path = Path(str(declined["artifact_path"]))

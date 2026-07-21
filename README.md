@@ -63,6 +63,10 @@ The current development surface requires separately built pinned-LLVM helper
 paths. It records `equivalent_confirmed` fidelity and never converts a
 successful LLVM assumption into source authorization.
 
+If a source location maps to more than one LLVM loop, the query retains
+`identity.ambiguous` with the helper evidence and stops before pipeline replay
+or variants. It does not select a nearby loop heuristically.
+
 Completed optimization queries can be re-executed from their retained inputs:
 
 ```console
