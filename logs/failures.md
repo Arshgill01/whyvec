@@ -211,3 +211,14 @@ validators and could not evaluate the repository's Draft 2020-12 schemas.
 Safeguard: that job now installs `jsonschema==4.25.1` through Python's user
 site before validation. The schema remains Draft 2020-12; no assertion or
 report contract was downgraded.
+
+## 2026-07-21T19:42:30Z — Cross-adapter job lacked the GCC C++ frontend
+
+Run `29862353329` passed the portable and container jobs, clean installation,
+and the complete build-causality script. The cross-adapter script reached its
+GCC fixture, but the minimal product job did not provide `g++`; the baseline
+therefore produced zero structured diagnostics and WhyVec correctly refused.
+
+Safeguard: the product dependency step now installs `build-essential`
+explicitly before the cross-adapter suite. No zero-diagnostic baseline is
+accepted as compiler evidence.
