@@ -273,3 +273,32 @@ Results:
 - An adversarial IR fixture containing two distinct loops at the same function
   and debug line returned `identity.loop_ambiguous` with two matches; neither
   loop was selected by proximity.
+
+## 2026-07-21T12:41:24Z — Retained optimization-causality CLI validation
+
+Passed commands:
+
+```console
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- Twenty-nine Rust tests passed, including optimization request validation,
+  assumption identity, and vector-factor parsing.
+- The public Rust `explain-opt` query observed the monolithic and replay
+  baseline misses, matched the same pre-optimization loop, evaluated all three
+  typed singleton assumptions, and retained the non-unique
+  `minimal_in_declared_search` result.
+- `count noalias` and `output noalias` consistently vectorized in two runs each
+  at width 8/interleave 4; `input noalias` remained a negative singleton.
+- The already-vectorized fixture returned `baseline.already_vectorized` without
+  running variants. The volatile-bound fixture exhausted its singleton space
+  and returned `search.no_successful_assumption` without a finding.
+- Tool binary digests/versions, source and pipeline digests, pre/optimized IR,
+  structured YAML optimization records, mutation JSON, raw streams, and every
+  artifact size/digest were retained read-only. Positive and decline reports
+  validated against the Draft 2020-12 development schema.

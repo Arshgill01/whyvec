@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whyvec.dev/schemas/whyvec-optimization-report.schema.json",
+  "title": "WhyVec optimization-causality report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "analysis_id", "query_kind", "adapter", "pipeline_fidelity", "toolchain", "source", "source_digest", "pipeline_digest", "subject", "candidates", "monolithic_baseline", "replay_baseline", "experiments", "minimality", "stop_reason", "declared_subsets", "finding", "decline", "artifacts", "artifact_path", "caveats"],
+  "properties": {
+    "schema_version": { "const": "2.0.0-dev" },
+    "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
+    "query_kind": { "const": "optimization_causality" },
+    "adapter": { "const": "clang_llvm" },
+    "pipeline_fidelity": { "const": "equivalent_confirmed" },
+    "toolchain": { "$ref": "#/$defs/toolchain" },
+    "source": { "type": "string", "minLength": 1 },
+    "source_digest": { "$ref": "#/$defs/sha256" },
+    "pipeline_digest": { "$ref": "#/$defs/sha256" },
+    "subject": { "$ref": "#/$defs/identity" },
+    "candidates": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/candidate" } },
+    "monolithic_baseline": { "$ref": "#/$defs/outcome" },
+    "replay_baseline": { "$ref": "#/$defs/outcome" },
+    "experiments": { "type": "array", "items": { "$ref": "#/$defs/experiment" } },
+    "minimality": { "enum": ["no_successful_set_found", "smallest_set_found", "minimal_in_declared_search", "unique_minimal_in_declared_search", "unknown_minimality"] },
+    "stop_reason": { "enum": ["not_started", "declared_space_exhausted", "first_successful_cardinality_completed", "evaluation_budget_exhausted"] },
+    "declared_subsets": { "type": "integer", "minimum": 0 },
+    "finding": { "oneOf": [{ "$ref": "#/$defs/finding" }, { "type": "null" }] },
+    "decline": { "oneOf": [{ "$ref": "#/$defs/decline" }, { "type": "null" }] },
+    "artifacts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/artifact" } },
+    "artifact_path": { "type": "string", "minLength": 1 },
+    "caveats": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "size", "media_type"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^(inputs|baseline|variants)/" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size": { "type": "integer", "minimum": 0 },
+        "media_type": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tool": {
+      "type": "object", "additionalProperties": false,
+      "required": ["invocation_path", "resolved_path", "binary_digest", "version"],
+      "properties": {
+        "invocation_path": { "type": "string", "minLength": 1 },
+        "resolved_path": { "type": "string", "minLength": 1 },
+        "binary_digest": { "$ref": "#/$defs/sha256" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "toolchain": {
+      "type": "object", "additionalProperties": false,
+      "required": ["clang", "optimizer", "transformer", "identity_tool", "optimization", "cpu", "normalized_flags"],
+      "properties": {
+        "clang": { "$ref": "#/$defs/tool" },
+        "optimizer": { "$ref": "#/$defs/tool" },
+        "transformer": { "$ref": "#/$defs/tool" },
+        "identity_tool": { "$ref": "#/$defs/tool" },
+        "optimization": { "type": "string", "minLength": 1 },
+        "cpu": { "type": "string", "minLength": 1 },
+        "normalized_flags": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["function", "line", "column", "loop_depth", "block_count", "structural_fingerprint", "mapping_confidence"],
+      "properties": {
+        "function": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 0 },
+        "loop_depth": { "type": "integer", "minimum": 1 },
+        "block_count": { "type": "integer", "minimum": 1 },
+        "structural_fingerprint": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "mapping_confidence": { "enum": ["high", "medium", "low", "ambiguous"] }
+      }
+    },
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "source_name", "ir_index", "attribute"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^parameter\\.[a-z][a-z0-9_]*\\.noalias$" },
+        "source_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "ir_index": { "type": "integer", "minimum": 0 },
+        "attribute": { "const": "noalias" }
+      }
+    },
+    "outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["classification", "vector_factor", "interleave_count", "selected_remarks", "exit_code", "timed_out", "output_truncated", "confirmation_runs", "consistent", "artifacts"],
+      "properties": {
+        "classification": { "enum": ["vectorized", "missed", "loop_absent", "tool_failed", "timed_out", "non_deterministic"] },
+        "vector_factor": { "type": ["integer", "null"], "minimum": 1 },
+        "interleave_count": { "type": ["integer", "null"], "minimum": 1 },
+        "selected_remarks": { "type": "array", "items": { "type": "string" } },
+        "exit_code": { "type": ["integer", "null"] },
+        "timed_out": { "type": "boolean" },
+        "output_truncated": { "type": "boolean" },
+        "confirmation_runs": { "type": "integer", "minimum": 1 },
+        "consistent": { "type": "boolean" },
+        "artifacts": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/artifact" } }
+      }
+    },
+    "experiment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["experiment_id", "assumptions", "verdict", "unresolved_reason", "ir_verified", "delta_isolated", "loop_identity", "outcome"],
+      "properties": {
+        "experiment_id": { "type": "string", "pattern": "^exp_[a-f0-9]{16}$" },
+        "assumptions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "verdict": { "enum": ["observed", "not_observed", "unresolved"] },
+        "unresolved_reason": { "type": ["string", "null"] },
+        "ir_verified": { "type": "boolean" },
+        "delta_isolated": { "type": "boolean" },
+        "loop_identity": { "$ref": "#/$defs/identity" },
+        "outcome": { "$ref": "#/$defs/outcome" }
+      }
+    },
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_strength", "sufficient_assumptions", "minimality", "summary", "caveats"],
+      "properties": {
+        "evidence_strength": { "const": "counterfactual_observation" },
+        "sufficient_assumptions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "minimality": { "enum": ["smallest_set_found", "minimal_in_declared_search", "unique_minimal_in_declared_search"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "caveats": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "decline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "explanation"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^(baseline|search|identity|variant)\\.[a-z0-9._-]+$" },
+        "explanation": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

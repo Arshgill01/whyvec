@@ -46,6 +46,23 @@ compiler streams. Re-execute and compare the normalized semantic result with:
 whyvec replay-build .whyvec/analyses/<analysis-id>/report.json
 ```
 
+## Optimization causality
+
+The first executable optimization pack accepts an explicit Clang source/IR
+mapping and evaluates typed LLVM parameter assumptions:
+
+```console
+whyvec explain-opt src/kernel.c:5 \
+  --function add_vectors_ \
+  --parameter output:0 --parameter input:1 --parameter count:2 \
+  --transformer /path/to/whyvec-llvm-transform \
+  --identity-tool /path/to/whyvec-llvm-loop-identity
+```
+
+The current development surface requires separately built pinned-LLVM helper
+paths. It records `equivalent_confirmed` fidelity and never converts a
+successful LLVM assumption into source authorization.
+
 ## Product contract
 
 WhyVec separates three kinds of reasoning that must never be conflated:
@@ -128,6 +145,7 @@ NEXT ACTION
 - [integrations/codex/whyvec](integrations/codex/whyvec) — installable Codex plugin and workflow skill.
 - [crates/whyvec-domain](crates/whyvec-domain) — compileable evidence and lifecycle invariants.
 - [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle, evidence-safe minimality, and adapter-neutral immutable artifact storage.
+- [crates/whyvec-opt](crates/whyvec-opt) — retained Clang/LLVM optimization-causality query and report assembly.
 - [crates/whyvec-build](crates/whyvec-build) — isolated Git/Cargo build oracle, rustc diagnostic identity, and causal report generation.
 - [crates/whyvec-cli](crates/whyvec-cli) — `whyvec explain-build` command-line product surface.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.

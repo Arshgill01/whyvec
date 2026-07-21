@@ -20,7 +20,7 @@ This is the living implementation plan. Phase documents contain detailed accepta
 | R1 | Generic compiler-question and experiment domain | active | Query, observation, intervention, three-valued oracle, and pipeline-fidelity types compile |
 | R2 | Per-adapter toolchain and fixture system | active | Clang 21 and rustc 1.96.1/LLVM 22 fixtures execute; Rust split pipeline remains labeled surrogate |
 | R3 | Immutable counterfactual experiment runtime | verifying | Deterministic search, bounded argv-only process execution, create-new artifact retention, digest verification, read-only finalization, and build-query semantic replay share one adapter-neutral runtime; optimization-pack integration is the remaining gate audit |
-| R4 | LLVM optimization-causality pack | active | Typed LLVM variants, recorded printable-pipeline replay, and exact function/debug-line plus structural loop identity execute with `equivalent_confirmed` fidelity; retained optimization query reports remain |
+| R4 | LLVM optimization-causality pack | active | Public `explain-opt` composes typed variants, recorded pipeline replay, structural loop identity, confirmation runs, finite search, tool fingerprints, structured records, and immutable reports; optimization replay and integrated ambiguity reports remain |
 | R5 | Build-causality query | active | Cargo/rustc diagnostic identity, nested file-to-hunk search, isolated worktrees, removal witnesses, CLI, and end-to-end tests execute; syntax-aware grouping and OS sandboxing remain |
 | R6 | C++, Rust, TypeScript, and GCC adapter expansion | queued | Depends on shared experiment runtime and adapter conformance suite |
 | R7 | Source-action, validation, and measurement | queued | Depends on family- and language-specific obligation models |

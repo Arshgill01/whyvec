@@ -14,6 +14,7 @@ path = "src/main.rs"
 [dependencies]
 serde_json.workspace = true
 whyvec-build = { path = "../whyvec-build" }
+whyvec-opt = { path = "../whyvec-opt" }
 
 [lints]
 workspace = true

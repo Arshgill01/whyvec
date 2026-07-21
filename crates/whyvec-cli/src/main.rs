@@ -4,6 +4,9 @@ use whyvec_build::{
     BuildCausalityReport, BuildCausalityRequest, BuildCommand, DiagnosticSelector, explain_build,
     replay_build,
 };
+use whyvec_opt::{
+    OptimizationReport, OptimizationRequest, ParameterCandidate, explain_optimization,
+};
 
 fn main() {
     match run() {
@@ -20,6 +23,9 @@ fn run() -> Result<(), String> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
     if arguments.first().map(String::as_str) == Some("replay-build") {
         return run_replay(&arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("explain-opt") {
+        return run_explain_opt(&arguments[1..]);
     }
     if arguments.first().map(String::as_str) != Some("explain-build") {
         return Err(usage());
@@ -134,6 +140,130 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
+fn run_explain_opt(arguments: &[String]) -> Result<(), String> {
+    let location = arguments
+        .first()
+        .ok_or_else(|| "explain-opt requires <source>:<line>".to_owned())?;
+    let (source, line) = location
+        .rsplit_once(':')
+        .ok_or_else(|| "source location must be <path>:<line>".to_owned())?;
+    let line = line
+        .parse::<u64>()
+        .map_err(|_| "source line must be a positive integer".to_owned())?;
+    if line == 0 {
+        return Err("source line must be positive".to_owned());
+    }
+    let mut repository = PathBuf::from(".");
+    let mut function = None;
+    let mut candidates = Vec::new();
+    let mut clang = PathBuf::from("clang-21");
+    let mut optimizer = PathBuf::from("opt-21");
+    let mut transformer = None;
+    let mut identity_tool = None;
+    let mut cpu = "x86-64-v3".to_owned();
+    let mut max_evaluations = 256;
+    let mut max_cardinality = None;
+    let mut format = "human";
+    let mut index = 1;
+    while index < arguments.len() {
+        let option = &arguments[index];
+        let value = |index: &mut usize| -> Result<String, String> {
+            *index += 1;
+            arguments
+                .get(*index)
+                .cloned()
+                .ok_or_else(|| format!("{option} requires a value"))
+        };
+        match option.as_str() {
+            "--repository" => repository = PathBuf::from(value(&mut index)?),
+            "--function" => function = Some(value(&mut index)?),
+            "--parameter" => {
+                let parameter = value(&mut index)?;
+                let (name, raw_index) = parameter
+                    .split_once(':')
+                    .ok_or_else(|| "--parameter must be <source-name>:<ir-index>".to_owned())?;
+                candidates.push(ParameterCandidate {
+                    source_name: name.to_owned(),
+                    ir_index: raw_index
+                        .parse()
+                        .map_err(|_| "IR parameter index must be non-negative".to_owned())?,
+                });
+            }
+            "--clang" => clang = PathBuf::from(value(&mut index)?),
+            "--opt" => optimizer = PathBuf::from(value(&mut index)?),
+            "--transformer" => transformer = Some(PathBuf::from(value(&mut index)?)),
+            "--identity-tool" => identity_tool = Some(PathBuf::from(value(&mut index)?)),
+            "--cpu" => cpu = value(&mut index)?,
+            "--max-evaluations" => {
+                max_evaluations = parse_positive("--max-evaluations", &value(&mut index)?)?;
+            }
+            "--max-cardinality" => {
+                max_cardinality = Some(parse_positive("--max-cardinality", &value(&mut index)?)?);
+            }
+            "--format" => {
+                let selected = value(&mut index)?;
+                if selected != "human" && selected != "json" {
+                    return Err("--format must be human or json".to_owned());
+                }
+                format = if selected == "json" { "json" } else { "human" };
+            }
+            _ => return Err(format!("unknown explain-opt option: {option}")),
+        }
+        index += 1;
+    }
+    let function = function.ok_or_else(|| "--function is required".to_owned())?;
+    let transformer = transformer.ok_or_else(|| "--transformer is required".to_owned())?;
+    let identity_tool = identity_tool.ok_or_else(|| "--identity-tool is required".to_owned())?;
+    let cardinality = max_cardinality.unwrap_or(candidates.len());
+    let report = explain_optimization(&OptimizationRequest {
+        repository,
+        source: PathBuf::from(source),
+        function,
+        line,
+        candidates,
+        clang,
+        optimizer,
+        transformer,
+        identity_tool,
+        optimization: "O3".to_owned(),
+        cpu,
+        max_evaluations,
+        max_cardinality: cardinality,
+    })
+    .map_err(|error| error.to_string())?;
+    if format == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+        );
+    } else {
+        print_opt_human(&report);
+    }
+    Ok(())
+}
+
+fn print_opt_human(report: &OptimizationReport) {
+    println!("OPTIMIZATION CAUSALITY");
+    println!("  baseline: {}", report.monolithic_baseline.classification);
+    println!("  pipeline fidelity: {}", report.pipeline_fidelity);
+    println!(
+        "  loop fingerprint: {}",
+        report.subject.structural_fingerprint
+    );
+    if let Some(finding) = &report.finding {
+        println!(
+            "  smallest sufficient set found: {}",
+            finding.sufficient_assumptions.join(", ")
+        );
+        println!("  {}", finding.summary);
+    }
+    if let Some(decline) = &report.decline {
+        println!("  declined: {} — {}", decline.code, decline.explanation);
+    }
+    println!("  report: {}", report.artifact_path);
+}
+
 fn run_replay(arguments: &[String]) -> Result<(), String> {
     let [report] = arguments else {
         return Err("usage: whyvec replay-build <report.json>".to_owned());
@@ -238,5 +368,5 @@ fn print_human(report: &BuildCausalityReport) {
 }
 
 fn usage() -> String {
-    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]\n       whyvec replay-build <report.json>".to_owned()
+    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]".to_owned()
 }

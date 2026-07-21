@@ -20,3 +20,6 @@ The format follows Keep a Changelog principles, and releases use semantic versio
   proxy-aware Cargo/rustc provenance, and tamper-detecting semantic replay.
 - A pinned LLVM API transformer for verified parameter-level `noalias`
   interventions with exact-delta and typed-refusal validation.
+- A public retained `explain-opt` query with structural loop identity,
+  recorded-pipeline replay, confirmed sufficient-set search, structured LLVM
+  records, and typed already-vectorized/no-success conclusions.

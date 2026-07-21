@@ -4,6 +4,7 @@ members = [
     "crates/whyvec-cli",
     "crates/whyvec-domain",
     "crates/whyvec-experiment",
+    "crates/whyvec-opt",
 ]
 resolver = "2"
 

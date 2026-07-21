@@ -156,3 +156,32 @@ Evidence strength and limitation:
   toolchain and an `equivalent_confirmed` pipeline. It is not an `exact`
   pipeline claim, because LLVM's printable pass string is best-effort, and it
   does not establish that the source-level alias contract is true.
+
+## 2026-07-21T12:41:24Z — Public retained Clang optimization query
+
+Command shape:
+
+```console
+whyvec explain-opt <fixture>/kernel.c:5 --function add_vectors_ \
+  --parameter output:0 --parameter input:1 --parameter count:2 \
+  --transformer <pinned-helper> --identity-tool <pinned-helper> --format json
+```
+
+Observed results:
+
+- The monolithic and recorded-pipeline baselines both missed the structurally
+  matched loop.
+- All declared singletons were evaluated. `count noalias` and `output noalias`
+  were observed sufficient; `input noalias` was not observed sufficient.
+- Both successful singleton outcomes repeated consistently with width 8 and
+  interleave count 4. The report therefore states
+  `minimal_in_declared_search`, not unique minimality.
+- A separate already-vectorized baseline declined before search, and the
+  volatile-bound search completed without a successful supported assumption.
+
+Evidence strength and limitation:
+
+- Counterfactual observation under the fingerprinted tools and
+  `equivalent_confirmed` pipeline. The explicit source-to-IR mapping is an input
+  to this development query. No source obligation or repair authority is
+  claimed by this report.

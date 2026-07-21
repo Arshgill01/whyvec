@@ -92,6 +92,13 @@ Responsibilities:
 
 It does not parse compiler prose to infer semantic facts.
 
+The executable `explain-opt` development path currently takes explicit
+source-to-IR parameter mappings. It records the observed monolithic baseline,
+replays Clang's printable pipeline, validates identity before every optimized
+variant, confirms successful outcomes, and retains structured YAML records and
+IR. Automatic compilation-database and source-parameter mapping remain product
+gates; explicit mappings are evidence inputs, not inferred facts.
+
 ### Compilation command resolver
 
 Responsibilities:

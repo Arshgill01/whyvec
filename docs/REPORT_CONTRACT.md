@@ -18,6 +18,14 @@ refinements retain their parent sufficient file set, fixed atoms, independent
 search trace, and full-patch removal witness. It does not silently redefine the
 version 1 optimization report.
 
+The executable Clang/LLVM development vertical similarly emits the separate
+[optimization report schema](../schemas/whyvec-optimization-report.schema.json)
+with `2.0.0-dev`. It retains pipeline fidelity, typed candidates, monolithic
+and replay baselines, stable loop identity, three-valued experiment verdicts,
+confirmation consistency, tool fingerprints, structured optimization records,
+and immutable artifacts. These two development reports must still converge on
+the adapter-aware major-version envelope before the shared schema gate closes.
+
 The development build report also retains SHA-256-addressed intervention and
 compiler-stream artifacts, proxy-aware Cargo/rustc identities, an aggregate
 input and command digest, replay limits, and a normalized semantic digest.
