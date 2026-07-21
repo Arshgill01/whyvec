@@ -36,7 +36,7 @@
     "schema_version": { "const": "2.0.0-dev" },
     "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
     "query_kind": { "const": "build_causality" },
-    "adapter": { "const": "cargo_rustc" },
+    "adapter": { "enum": ["cargo_rustc", "clang", "gcc", "typescript"] },
     "evidence_strength": { "const": "counterfactual_observation" },
     "repository": { "type": "string", "minLength": 1 },
     "base_commit": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
@@ -125,14 +125,38 @@
     "toolchain": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rustup_toolchain", "sandbox", "cargo", "delegated_cargo", "rustc", "delegated_rustc"],
+      "required": ["adapter", "sandbox", "tools", "support_files"],
       "properties": {
-        "rustup_toolchain": { "type": ["string", "null"] },
+        "adapter": { "enum": ["cargo_rustc", "clang", "gcc", "typescript"] },
         "sandbox": { "$ref": "#/$defs/sandbox" },
-        "cargo": { "$ref": "#/$defs/tool" },
-        "delegated_cargo": { "oneOf": [{ "$ref": "#/$defs/tool" }, { "type": "null" }] },
-        "rustc": { "$ref": "#/$defs/tool" },
-        "delegated_rustc": { "oneOf": [{ "$ref": "#/$defs/tool" }, { "type": "null" }] }
+        "tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/named_tool" }
+        },
+        "support_files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/support_file" }
+        }
+      }
+    },
+    "named_tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "identity"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "identity": { "$ref": "#/$defs/tool" }
+      }
+    },
+    "support_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path", "sha256"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
     "sandbox": {
@@ -198,8 +222,8 @@
         "rendered"
       ],
       "properties": {
-        "id": { "type": "string", "pattern": "^rustc:[^:]+:[a-f0-9]{20}$" },
-        "adapter": { "const": "rustc" },
+        "id": { "type": "string", "pattern": "^(rustc|clang|gcc|typescript):[^:]+:[a-f0-9]{20}$" },
+        "adapter": { "enum": ["rustc", "clang", "gcc", "typescript"] },
         "code": { "type": ["string", "null"] },
         "level": { "type": "string", "minLength": 1 },
         "message": { "type": "string" },

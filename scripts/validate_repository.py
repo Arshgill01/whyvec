@@ -11,7 +11,7 @@ from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[1]
-IGNORED_DIRECTORIES = {".git", "target"}
+IGNORED_DIRECTORIES = {".git", ".whyvec", "node_modules", "target"}
 
 REQUIRED_PATHS = (
     "README.md",
@@ -34,6 +34,7 @@ REQUIRED_PATHS = (
     "schemas/whyvec-config.schema.json",
     "schemas/whyvec-report.schema.json",
     "schemas/whyvec-build-report.schema.json",
+    "schemas/whyvec-gcc-observation-report.schema.json",
     "schemas/fixture-manifest.schema.json",
     "fixtures/manifest.json",
     "toolchains/clang-21/profile.json",
@@ -47,6 +48,9 @@ REQUIRED_PATHS = (
     "crates/whyvec-cli/Cargo.toml",
     "crates/whyvec-cli/src/main.rs",
     "scripts/verify_build_causality.py",
+    "scripts/verify_cross_adapter_build_causality.py",
+    "tools/typescript-adapter/diagnostics.mjs",
+    "tools/typescript-adapter/package-lock.json",
 )
 
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")

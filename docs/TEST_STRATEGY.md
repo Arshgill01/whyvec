@@ -133,6 +133,19 @@ partial function edits as independent candidates, and reproduce the grouped
 search through the public replay command. Malformed or non-Rust source must use
 declared text-hunk fallback groups.
 
+The cross-adapter build fixture runs TypeScript 7 through its compiler API and
+GCC through native JSON diagnostics. Each starts from a passing Git base,
+introduces one causal API edit plus an unrelated edit, finds the same stable
+diagnostic by code and full identity, uses declared text-hunk fallback,
+validates the shared schema, retains a removal witness, and reproduces by
+semantic replay.
+
+GCC optimization conformance uses `-fsave-optimization-record`, retains both
+compressed and decompressed native records, replaces process-local pass IDs
+with pass names, and compares the selected observed classification with the
+integrity-checked Clang/LLVM report. Public replay must match, while deliberate
+record mutation must be refused.
+
 ## Determinism protocol
 
 Run identical analyses in fresh artifact directories and compare normalized reports. Timestamps, durations, random identifiers, absolute ephemeral paths, and run-artifact references are excluded from semantic comparison; toolchain, outcome, search, finding, and obligation semantics must match, while every retained artifact must independently pass its recorded digest and size check.

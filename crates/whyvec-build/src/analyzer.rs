@@ -15,7 +15,7 @@ use whyvec_experiment::{
 
 use crate::diagnostics::{
     DiagnosticRecord, DiagnosticSelectionError, DiagnosticSelector, parse_cargo_json,
-    select_diagnostic,
+    parse_clang_sarif, parse_gcc_json, parse_typescript_json, select_diagnostic,
 };
 use crate::git::{
     ChangeAtom, ChangeAtomSummary, GitError, GitRepository, SyntaxEditGroup,
@@ -41,17 +41,52 @@ impl BuildCommand {
     }
 
     fn adapter_arguments(&self) -> Result<Vec<OsString>, AnalysisError> {
-        if self.program != "cargo" {
-            return Err(AnalysisError::UnsupportedBuildCommand(self.program.clone()));
-        }
-        validate_message_format(&self.arguments)?;
+        let adapter = self.adapter()?;
         let mut arguments = self
             .arguments
             .iter()
             .map(OsString::from)
             .collect::<Vec<_>>();
-        if !has_message_format(&self.arguments) {
-            arguments.push(OsString::from("--message-format=json"));
+        match adapter {
+            BuildAdapter::CargoRustc => {
+                validate_message_format(&self.arguments)?;
+                if !has_message_format(&self.arguments) {
+                    arguments.push(OsString::from("--message-format=json"));
+                }
+            }
+            BuildAdapter::Clang => {
+                reject_compiler_plugins(&self.arguments)?;
+                if let Some(format) = diagnostic_format(&self.arguments) {
+                    if format != "sarif" {
+                        return Err(AnalysisError::UnsupportedDiagnosticFormat {
+                            adapter: "clang".to_owned(),
+                            format: format.to_owned(),
+                        });
+                    }
+                } else {
+                    arguments.push(OsString::from("-fdiagnostics-format=sarif"));
+                }
+            }
+            BuildAdapter::Gcc => {
+                reject_compiler_plugins(&self.arguments)?;
+                if let Some(format) = diagnostic_format(&self.arguments) {
+                    if !matches!(format, "json" | "json-stderr") {
+                        return Err(AnalysisError::UnsupportedDiagnosticFormat {
+                            adapter: "gcc".to_owned(),
+                            format: format.to_owned(),
+                        });
+                    }
+                } else {
+                    arguments.push(OsString::from("-fdiagnostics-format=json-stderr"));
+                }
+            }
+            BuildAdapter::TypeScript => {
+                if arguments.len() != 1 {
+                    return Err(AnalysisError::UnsupportedBuildCommand(
+                        "whyvec-typescript requires exactly one tsconfig path".to_owned(),
+                    ));
+                }
+            }
         }
         Ok(arguments)
     }
@@ -65,6 +100,51 @@ impl BuildCommand {
                 .map(|argument| argument.to_string_lossy().into_owned())
                 .collect(),
         })
+    }
+
+    fn adapter(&self) -> Result<BuildAdapter, AnalysisError> {
+        if self.program == "cargo" {
+            return Ok(BuildAdapter::CargoRustc);
+        }
+        if self.program == "whyvec-typescript" {
+            return Ok(BuildAdapter::TypeScript);
+        }
+        if Path::new(&self.program).components().count() != 1 {
+            return Err(AnalysisError::UnsupportedBuildCommand(self.program.clone()));
+        }
+        let name = Path::new(&self.program)
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if matches!(name, "clang" | "clang++")
+            || name.starts_with("clang-")
+            || name.starts_with("clang++-")
+        {
+            return Ok(BuildAdapter::Clang);
+        }
+        if matches!(name, "gcc" | "g++") || name.starts_with("gcc-") || name.starts_with("g++-") {
+            return Ok(BuildAdapter::Gcc);
+        }
+        Err(AnalysisError::UnsupportedBuildCommand(self.program.clone()))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BuildAdapter {
+    CargoRustc,
+    Clang,
+    Gcc,
+    TypeScript,
+}
+
+impl BuildAdapter {
+    const fn report_name(self) -> &'static str {
+        match self {
+            Self::CargoRustc => "cargo_rustc",
+            Self::Clang => "clang",
+            Self::Gcc => "gcc",
+            Self::TypeScript => "typescript",
+        }
     }
 }
 
@@ -112,12 +192,23 @@ pub struct ToolIdentity {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct BuildToolchainProvenance {
-    pub rustup_toolchain: Option<String>,
+    pub adapter: String,
     pub sandbox: BuildSandboxProvenance,
-    pub cargo: ToolIdentity,
-    pub delegated_cargo: Option<ToolIdentity>,
-    pub rustc: ToolIdentity,
-    pub delegated_rustc: Option<ToolIdentity>,
+    pub tools: Vec<NamedToolIdentity>,
+    pub support_files: Vec<SupportFileIdentity>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NamedToolIdentity {
+    pub role: String,
+    pub identity: ToolIdentity,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SupportFileIdentity {
+    pub role: String,
+    pub path: String,
+    pub sha256: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -226,6 +317,7 @@ pub enum AnalysisError {
     CandidateSucceeded,
     UnsupportedBuildCommand(String),
     UnsupportedMessageFormat(String),
+    UnsupportedDiagnosticFormat { adapter: String, format: String },
     InterventionId(String),
     MissingCachedEvaluation(Vec<String>),
     RefinementDidNotReproduce(Vec<String>),
@@ -262,6 +354,10 @@ impl std::fmt::Display for AnalysisError {
                 formatter,
                 "Cargo message format must be JSON for diagnostic evidence, received {format}"
             ),
+            Self::UnsupportedDiagnosticFormat { adapter, format } => write!(
+                formatter,
+                "{adapter} diagnostic format must be structured JSON or SARIF, received {format}"
+            ),
             Self::InterventionId(identifier) => {
                 write!(formatter, "invalid generated intervention id: {identifier}")
             }
@@ -281,7 +377,7 @@ impl std::fmt::Display for AnalysisError {
                 "replay input digest changed (expected {expected}, observed {observed})"
             ),
             Self::ReplayToolchainChanged => formatter.write_str(
-                "replay toolchain fingerprint differs from the recorded Cargo/rustc toolchain",
+                "replay toolchain fingerprint differs from the recorded adapter toolchain",
             ),
             Self::ReplayOutcomeChanged { expected, observed } => write!(
                 formatter,
@@ -340,7 +436,7 @@ impl From<ArtifactError> for AnalysisError {
     }
 }
 
-/// Executes a Cargo build-causality query in isolated detached worktrees.
+/// Executes a build-causality query in isolated detached worktrees.
 ///
 /// # Errors
 ///
@@ -361,7 +457,9 @@ pub fn explain_build(
     fs::create_dir_all(&artifact_parent)?;
     fs::create_dir(&artifact_root)?;
     let command = request.command.normalized()?;
+    let adapter = command.adapter()?;
     let toolchain = capture_toolchain(&repository.root, &command)?;
+    let (driver_path, driver_prefix) = execution_driver(&toolchain)?;
     let input_digest = input_digest(&repository, &atoms);
     let command_digest = command_digest(&command, &toolchain);
     let artifact_store = ArtifactStore::new(&artifact_root);
@@ -389,14 +487,16 @@ pub fn explain_build(
     let temporary_root = std::env::temp_dir().join(format!("whyvec-{analysis_id}"));
     fs::create_dir(&temporary_root)?;
     let _temporary_guard = DirectoryCleanup(temporary_root.clone());
-    let target_dir = temporary_root.join("cargo-target");
+    let target_dir = temporary_root.join("build-output");
     fs::create_dir_all(&target_dir)?;
 
     let mut session = AnalysisSession {
         repository,
         atoms,
         command: command.clone(),
-        cargo_path: PathBuf::from(&toolchain.cargo.invocation_path),
+        adapter,
+        driver_path,
+        driver_prefix,
         sandbox_path: PathBuf::from(&toolchain.sandbox.tool.invocation_path),
         target_dir,
         worktree_root: temporary_root.join("worktrees"),
@@ -564,7 +664,7 @@ pub fn explain_build(
         schema_version: "2.0.0-dev".to_owned(),
         analysis_id,
         query_kind: "build_causality".to_owned(),
-        adapter: "cargo_rustc".to_owned(),
+        adapter: adapter.report_name().to_owned(),
         evidence_strength: "counterfactual_observation".to_owned(),
         repository: session.repository.root.to_string_lossy().into_owned(),
         base_commit: session.repository.base_commit.clone(),
@@ -589,7 +689,7 @@ pub fn explain_build(
         caveats: vec![
             "A sufficient edit set changes the selected compiler observation; it does not prove the edit is semantically wrong.".to_owned(),
             "Tracked text files are refined to zero-context Git hunks; these are executable edit regions, not syntax-tree-level semantic units.".to_owned(),
-            "Cargo runs in a Bubblewrap mount, process, and network sandbox; the host root is read-only and only the fresh worktree, Cargo target directory, and private temporary filesystem are writable.".to_owned(),
+            "Compiler runs use a Bubblewrap mount, process, and network sandbox; the host root is read-only and only the fresh worktree, build-output directory, and private temporary filesystem are writable.".to_owned(),
         ],
     };
     if report.candidate.output_truncated
@@ -622,7 +722,9 @@ struct AnalysisSession {
     repository: GitRepository,
     atoms: Vec<ChangeAtom>,
     command: BuildCommand,
-    cargo_path: PathBuf,
+    adapter: BuildAdapter,
+    driver_path: PathBuf,
+    driver_prefix: Vec<OsString>,
     sandbox_path: PathBuf,
     target_dir: PathBuf,
     worktree_root: PathBuf,
@@ -768,34 +870,42 @@ impl AnalysisSession {
             OsString::from("--chdir"),
             worktree.as_os_str().to_os_string(),
             OsString::from("--"),
-            self.cargo_path.as_os_str().to_os_string(),
+            self.driver_path.as_os_str().to_os_string(),
         ];
+        sandbox_arguments.extend(self.driver_prefix.iter().cloned());
         sandbox_arguments.extend(self.command.adapter_arguments()?);
         let mut process_request =
             process_request(&self.sandbox_path, sandbox_arguments, Path::new("/"));
         process_request.timeout = BUILD_TIMEOUT;
         process_request.output_limit = BUILD_OUTPUT_LIMIT;
-        process_request.environment.extend([
-            (
-                OsString::from("CARGO_TARGET_DIR"),
-                self.target_dir.as_os_str().to_os_string(),
-            ),
-            (OsString::from("CARGO_NET_OFFLINE"), OsString::from("true")),
-            (OsString::from("CARGO_TERM_COLOR"), OsString::from("never")),
-        ]);
+        if self.adapter == BuildAdapter::CargoRustc {
+            process_request.environment.extend([
+                (
+                    OsString::from("CARGO_TARGET_DIR"),
+                    self.target_dir.as_os_str().to_os_string(),
+                ),
+                (OsString::from("CARGO_NET_OFFLINE"), OsString::from("true")),
+                (OsString::from("CARGO_TERM_COLOR"), OsString::from("never")),
+            ]);
+        }
         let result = run_process(&process_request)?;
-        let diagnostics = parse_cargo_json(&result.stdout, worktree);
+        let diagnostics = match self.adapter {
+            BuildAdapter::CargoRustc => parse_cargo_json(&result.stdout, worktree),
+            BuildAdapter::Clang => parse_clang_sarif(&result.stderr, worktree),
+            BuildAdapter::Gcc => parse_gcc_json(&result.stderr, worktree),
+            BuildAdapter::TypeScript => parse_typescript_json(&result.stdout, worktree),
+        };
         let run_name = run_artifact_name(identifiers);
         let artifact_store = ArtifactStore::new(&self.artifact_root);
         let stdout = artifact_store.retain(
-            &format!("runs/{run_name}/stdout.jsonl"),
+            &format!("runs/{run_name}/stdout.bin"),
             &result.stdout,
-            "application/jsonl",
+            "application/octet-stream",
         )?;
         let stderr = artifact_store.retain(
-            &format!("runs/{run_name}/stderr.txt"),
+            &format!("runs/{run_name}/stderr.bin"),
             &result.stderr,
-            "text/plain",
+            "application/octet-stream",
         )?;
         Ok(BuildRunSummary {
             subset: identifiers.to_vec(),
@@ -1098,6 +1208,33 @@ fn validate_message_format(arguments: &[String]) -> Result<(), AnalysisError> {
     Ok(())
 }
 
+fn diagnostic_format(arguments: &[String]) -> Option<&str> {
+    arguments
+        .iter()
+        .find_map(|argument| argument.strip_prefix("-fdiagnostics-format="))
+}
+
+fn reject_compiler_plugins(arguments: &[String]) -> Result<(), AnalysisError> {
+    let denied = arguments.iter().find(|argument| {
+        matches!(argument.as_str(), "-Xclang" | "-load" | "-load-pass-plugin")
+            || argument.starts_with('@')
+            || argument.starts_with("-fplugin")
+            || argument.starts_with("-fpass-plugin")
+            || argument.starts_with("-load-pass-plugin=")
+            || argument.starts_with("-specs")
+            || argument.starts_with("-wrapper")
+            || argument == &"-B"
+            || (argument.starts_with("-B") && argument.len() > 2)
+            || argument.starts_with("--config")
+    });
+    if let Some(argument) = denied {
+        return Err(AnalysisError::UnsupportedBuildCommand(format!(
+            "compiler plugin argument is denied: {argument}"
+        )));
+    }
+    Ok(())
+}
+
 fn verdict_strings(verdict: ExperimentVerdict) -> (&'static str, Option<&'static str>) {
     match verdict {
         ExperimentVerdict::Observed => ("observed", None),
@@ -1255,40 +1392,73 @@ fn rustup_which(tool: &str, current_dir: &Path) -> Option<PathBuf> {
     (!path.is_empty()).then(|| PathBuf::from(path))
 }
 
-fn rustup_active_toolchain(current_dir: &Path) -> Option<String> {
-    let rustup = resolve_program("rustup").ok()?;
-    let request = process_request(
-        rustup.as_os_str(),
-        ["show", "active-toolchain"],
-        current_dir,
-    );
-    let output = run_process(&request).ok()?;
-    if output.timed_out || output.exit_code != Some(0) || output.stdout_truncated {
-        return None;
-    }
-    let value = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    (!value.is_empty()).then_some(value)
-}
-
 fn capture_toolchain(
     current_dir: &Path,
     command: &BuildCommand,
 ) -> Result<BuildToolchainProvenance, AnalysisError> {
-    let cargo_path = resolve_program(&command.program)?;
-    let rustc_path = resolve_program("rustc")?;
+    let adapter = command.adapter()?;
     let sandbox_path = resolve_program("bwrap")?;
-    let cargo = capture_tool(&cargo_path, &["-Vv"], current_dir)?;
-    let rustc = capture_tool(&rustc_path, &["-vV"], current_dir)?;
-    let delegated_cargo = rustup_which("cargo", current_dir)
-        .filter(|path| path != &cargo_path)
-        .map(|path| capture_tool(&path, &["-Vv"], current_dir))
-        .transpose()?;
-    let delegated_rustc = rustup_which("rustc", current_dir)
-        .filter(|path| path != &rustc_path)
-        .map(|path| capture_tool(&path, &["-vV"], current_dir))
-        .transpose()?;
+    let mut tools = Vec::new();
+    let mut support_files = Vec::new();
+    match adapter {
+        BuildAdapter::CargoRustc => {
+            let cargo_path = resolve_program(&command.program)?;
+            let rustc_path = resolve_program("rustc")?;
+            tools.push(named_tool(
+                "driver",
+                capture_tool(&cargo_path, &["-Vv"], current_dir)?,
+            ));
+            tools.push(named_tool(
+                "compiler",
+                capture_tool(&rustc_path, &["-vV"], current_dir)?,
+            ));
+            if let Some(path) =
+                rustup_which("cargo", current_dir).filter(|path| path != &cargo_path)
+            {
+                tools.push(named_tool(
+                    "delegated_driver",
+                    capture_tool(&path, &["-Vv"], current_dir)?,
+                ));
+            }
+            if let Some(path) =
+                rustup_which("rustc", current_dir).filter(|path| path != &rustc_path)
+            {
+                tools.push(named_tool(
+                    "delegated_compiler",
+                    capture_tool(&path, &["-vV"], current_dir)?,
+                ));
+            }
+        }
+        BuildAdapter::Clang | BuildAdapter::Gcc => {
+            let driver_path = resolve_program(&command.program)?;
+            tools.push(named_tool(
+                "driver",
+                capture_tool(&driver_path, &["--version"], current_dir)?,
+            ));
+        }
+        BuildAdapter::TypeScript => {
+            let root = typescript_adapter_root()?;
+            let node_path = resolve_program("node")?;
+            let compiler_path = typescript_native_compiler(&root)?;
+            tools.push(named_tool(
+                "driver",
+                capture_tool(&node_path, &["--version"], current_dir)?,
+            ));
+            tools.push(named_tool(
+                "compiler",
+                capture_tool(&compiler_path, &["--version"], current_dir)?,
+            ));
+            support_files.push(support_file("adapter", &root.join("diagnostics.mjs"))?);
+            support_files.push(support_file(
+                "dependency_lock",
+                &root.join("package-lock.json"),
+            )?);
+        }
+    }
+    tools.sort_by(|left, right| left.role.cmp(&right.role));
+    support_files.sort_by(|left, right| left.role.cmp(&right.role));
     Ok(BuildToolchainProvenance {
-        rustup_toolchain: rustup_active_toolchain(current_dir),
+        adapter: adapter.report_name().to_owned(),
         sandbox: BuildSandboxProvenance {
             provider: "bubblewrap".to_owned(),
             tool: capture_tool(&sandbox_path, &["--version"], current_dir)?,
@@ -1296,11 +1466,85 @@ fn capture_toolchain(
             host_root_read_only: true,
             private_tmp: true,
         },
-        cargo,
-        delegated_cargo,
-        rustc,
-        delegated_rustc,
+        tools,
+        support_files,
     })
+}
+
+fn named_tool(role: &str, identity: ToolIdentity) -> NamedToolIdentity {
+    NamedToolIdentity {
+        role: role.to_owned(),
+        identity,
+    }
+}
+
+fn support_file(role: &str, path: &Path) -> Result<SupportFileIdentity, AnalysisError> {
+    let path = path.canonicalize()?;
+    Ok(SupportFileIdentity {
+        role: role.to_owned(),
+        path: path.to_string_lossy().into_owned(),
+        sha256: full_digest(&Sha256::digest(fs::read(&path)?)),
+    })
+}
+
+fn typescript_adapter_root() -> Result<PathBuf, AnalysisError> {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tools/typescript-adapter")
+        .canonicalize()
+        .map_err(AnalysisError::Io)
+}
+
+fn typescript_native_compiler(root: &Path) -> Result<PathBuf, AnalysisError> {
+    let packages = root.join("node_modules/@typescript");
+    let mut candidates = fs::read_dir(&packages)
+        .map_err(|error| {
+            AnalysisError::ArtifactIntegrity(format!(
+                "TypeScript adapter dependencies are absent at {}; run npm ci in {}: {error}",
+                packages.display(),
+                root.display()
+            ))
+        })?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path().join("lib/tsc"))
+        .filter(|path| path.is_file())
+        .collect::<Vec<_>>();
+    candidates.sort();
+    match candidates.as_slice() {
+        [only] => Ok(only.clone()),
+        [] => Err(AnalysisError::ArtifactIntegrity(format!(
+            "TypeScript native compiler is absent; run npm ci in {}",
+            root.display()
+        ))),
+        _ => Err(AnalysisError::ArtifactIntegrity(format!(
+            "multiple TypeScript native compilers were found in {}",
+            packages.display()
+        ))),
+    }
+}
+
+fn execution_driver(
+    toolchain: &BuildToolchainProvenance,
+) -> Result<(PathBuf, Vec<OsString>), AnalysisError> {
+    let driver = toolchain
+        .tools
+        .iter()
+        .find(|tool| tool.role == "driver")
+        .ok_or_else(|| AnalysisError::ArtifactIntegrity("toolchain driver is absent".to_owned()))?;
+    let prefix = if toolchain.adapter == "typescript" {
+        let adapter = toolchain
+            .support_files
+            .iter()
+            .find(|file| file.role == "adapter")
+            .ok_or_else(|| {
+                AnalysisError::ArtifactIntegrity(
+                    "TypeScript adapter support file is absent".to_owned(),
+                )
+            })?;
+        vec![OsString::from(&adapter.path)]
+    } else {
+        Vec::new()
+    };
+    Ok((PathBuf::from(&driver.identity.invocation_path), prefix))
 }
 
 fn semantic_digest(report: &BuildCausalityReport) -> Result<String, AnalysisError> {
@@ -1561,6 +1805,52 @@ mod tests {
         assert!(matches!(
             command.adapter_arguments(),
             Err(AnalysisError::UnsupportedBuildCommand(program)) if program == "./cargo"
+        ));
+    }
+
+    #[test]
+    fn build_adapter_rejects_compiler_paths_and_code_loading_flags() {
+        for command in [
+            BuildCommand {
+                program: "./gcc".to_owned(),
+                arguments: vec!["-fsyntax-only".to_owned(), "source.c".to_owned()],
+            },
+            BuildCommand {
+                program: "clang".to_owned(),
+                arguments: vec!["@untrusted.rsp".to_owned()],
+            },
+            BuildCommand {
+                program: "g++".to_owned(),
+                arguments: vec!["-fplugin=untrusted.so".to_owned()],
+            },
+        ] {
+            assert!(matches!(
+                command.adapter_arguments(),
+                Err(AnalysisError::UnsupportedBuildCommand(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn build_adapter_rejects_unstructured_native_diagnostics() {
+        let clang = BuildCommand {
+            program: "clang".to_owned(),
+            arguments: vec!["-fdiagnostics-format=text".to_owned()],
+        };
+        assert!(matches!(
+            clang.adapter_arguments(),
+            Err(AnalysisError::UnsupportedDiagnosticFormat { adapter, format })
+                if adapter == "clang" && format == "text"
+        ));
+
+        let gcc = BuildCommand {
+            program: "gcc".to_owned(),
+            arguments: vec!["-fdiagnostics-format=text".to_owned()],
+        };
+        assert!(matches!(
+            gcc.adapter_arguments(),
+            Err(AnalysisError::UnsupportedDiagnosticFormat { adapter, format })
+                if adapter == "gcc" && format == "text"
         ));
     }
 

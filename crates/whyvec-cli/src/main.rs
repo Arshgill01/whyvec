@@ -5,7 +5,8 @@ use whyvec_build::{
     replay_build,
 };
 use whyvec_opt::{
-    OptimizationReport, OptimizationRequest, ParameterCandidate, explain_optimization,
+    GccObservationReport, GccObservationRequest, OptimizationReport, OptimizationRequest,
+    ParameterCandidate, explain_optimization, observe_gcc_optimization, replay_gcc_observation,
     replay_optimization,
 };
 
@@ -28,6 +29,12 @@ fn run() -> Result<(), String> {
     if arguments.first().map(String::as_str) == Some("replay-opt") {
         return run_opt_replay(&arguments[1..]);
     }
+    if arguments.first().map(String::as_str) == Some("replay-gcc-opt") {
+        return run_gcc_replay(&arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("observe-gcc-opt") {
+        return run_observe_gcc(&arguments[1..]);
+    }
     if arguments.first().map(String::as_str) == Some("explain-opt") {
         return run_explain_opt(&arguments[1..]);
     }
@@ -41,7 +48,7 @@ fn run() -> Result<(), String> {
     let options = &arguments[1..separator];
     let command = &arguments[separator + 1..];
     if command.is_empty() {
-        return Err("a Cargo command is required after --".to_owned());
+        return Err("a supported build command is required after --".to_owned());
     }
 
     let mut base = "HEAD".to_owned();
@@ -104,13 +111,16 @@ fn run() -> Result<(), String> {
     }
 
     let diagnostic = diagnostic.ok_or_else(|| "--diagnostic is required".to_owned())?;
-    let identity = diagnostic.starts_with("rustc:").then(|| diagnostic.clone());
+    let identity = ["rustc:", "clang:", "gcc:", "typescript:"]
+        .iter()
+        .any(|prefix| diagnostic.starts_with(prefix))
+        .then(|| diagnostic.clone());
     let diagnostic_code = if identity.is_some() {
         diagnostic
             .split(':')
             .nth(1)
             .filter(|code| !code.is_empty())
-            .ok_or_else(|| "invalid rustc diagnostic identity".to_owned())?
+            .ok_or_else(|| "invalid diagnostic identity".to_owned())?
             .to_owned()
     } else {
         diagnostic
@@ -269,6 +279,91 @@ fn print_opt_human(report: &OptimizationReport) {
     println!("  report: {}", report.artifact_path);
 }
 
+fn run_observe_gcc(arguments: &[String]) -> Result<(), String> {
+    let location = arguments
+        .first()
+        .ok_or_else(|| "observe-gcc-opt requires <source>:<line>".to_owned())?;
+    let (source, line) = location
+        .rsplit_once(':')
+        .ok_or_else(|| "source location must be <path>:<line>".to_owned())?;
+    let line = line
+        .parse::<u64>()
+        .map_err(|_| "source line must be a positive integer".to_owned())?;
+    if line == 0 {
+        return Err("source line must be positive".to_owned());
+    }
+    let mut repository = PathBuf::from(".");
+    let mut function = None;
+    let mut gcc = PathBuf::from("gcc");
+    let mut gzip = PathBuf::from("gzip");
+    let mut cpu = "x86-64-v3".to_owned();
+    let mut llvm_report = None;
+    let mut format = "human";
+    let mut index = 1;
+    while index < arguments.len() {
+        let option = &arguments[index];
+        let value = |index: &mut usize| -> Result<String, String> {
+            *index += 1;
+            arguments
+                .get(*index)
+                .cloned()
+                .ok_or_else(|| format!("{option} requires a value"))
+        };
+        match option.as_str() {
+            "--repository" => repository = PathBuf::from(value(&mut index)?),
+            "--function" => function = Some(value(&mut index)?),
+            "--gcc" => gcc = PathBuf::from(value(&mut index)?),
+            "--gzip" => gzip = PathBuf::from(value(&mut index)?),
+            "--cpu" => cpu = value(&mut index)?,
+            "--llvm-report" => llvm_report = Some(PathBuf::from(value(&mut index)?)),
+            "--format" => {
+                let selected = value(&mut index)?;
+                if selected != "human" && selected != "json" {
+                    return Err("--format must be human or json".to_owned());
+                }
+                format = if selected == "json" { "json" } else { "human" };
+            }
+            _ => return Err(format!("unknown observe-gcc-opt option: {option}")),
+        }
+        index += 1;
+    }
+    let report = observe_gcc_optimization(&GccObservationRequest {
+        repository,
+        source: PathBuf::from(source),
+        function: function.ok_or_else(|| "--function is required".to_owned())?,
+        line,
+        gcc,
+        gzip,
+        optimization: "O3".to_owned(),
+        cpu,
+        llvm_report,
+    })
+    .map_err(|error| error.to_string())?;
+    if format == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?
+        );
+    } else {
+        print_gcc_human(&report);
+    }
+    Ok(())
+}
+
+fn print_gcc_human(report: &GccObservationReport) {
+    println!("GCC OPTIMIZATION OBSERVATION");
+    println!("  outcome: {}", report.outcome.classification);
+    println!(
+        "  selected records: {}",
+        report.outcome.selected_remarks.len()
+    );
+    if let Some(comparison) = &report.comparison {
+        println!("  LLVM comparison: {}", comparison.relation);
+        println!("  {}", comparison.explanation);
+    }
+    println!("  report: {}", report.artifact_path);
+}
+
 fn run_replay(arguments: &[String]) -> Result<(), String> {
     let [report] = arguments else {
         return Err("usage: whyvec replay-build <report.json>".to_owned());
@@ -286,6 +381,19 @@ fn run_opt_replay(arguments: &[String]) -> Result<(), String> {
         return Err("usage: whyvec replay-opt <report.json>".to_owned());
     };
     let result = replay_optimization(&PathBuf::from(report)).map_err(|error| error.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+fn run_gcc_replay(arguments: &[String]) -> Result<(), String> {
+    let [report] = arguments else {
+        return Err("usage: whyvec replay-gcc-opt <report.json>".to_owned());
+    };
+    let result =
+        replay_gcc_observation(&PathBuf::from(report)).map_err(|error| error.to_string())?;
     println!(
         "{}",
         serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
@@ -381,9 +489,12 @@ fn print_human(report: &BuildCausalityReport) {
     println!();
     println!("EVIDENCE");
     println!("  report: {}", report.artifact_path);
-    println!("  claim:  tested sufficiency under the recorded Cargo build");
+    println!(
+        "  claim:  tested sufficiency under the recorded {} build",
+        report.adapter
+    );
 }
 
 fn usage() -> String {
-    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]\n       whyvec replay-opt <report.json>".to_owned()
+    "usage: whyvec explain-build --diagnostic <code-or-id> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- <cargo|clang|gcc|whyvec-typescript> [arguments]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]\n       whyvec replay-opt <report.json>\n       whyvec observe-gcc-opt <source>:<line> --function <name> [--gcc <path>] [--llvm-report <report.json>] [--format human|json]\n       whyvec replay-gcc-opt <report.json>".to_owned()
 }

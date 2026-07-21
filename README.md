@@ -21,7 +21,8 @@ The full re-foundation and defect register live in
 
 ## Build causality
 
-The first executable cross-language-facing query targets failing Cargo changes:
+The executable build query supports Cargo/rustc, direct Clang and GCC
+translation units, and TypeScript projects:
 
 ```console
 cargo run -p whyvec-cli -- explain-build \
@@ -46,6 +47,17 @@ compiler streams. Re-execute and compare the normalized semantic result with:
 ```console
 whyvec replay-build .whyvec/analyses/<analysis-id>/report.json
 ```
+
+TypeScript uses the pinned compiler API adapter:
+
+```console
+cd tools/typescript-adapter && npm ci
+whyvec explain-build --diagnostic TS2345 --at src/consumer.ts \
+  -- whyvec-typescript tsconfig.json
+```
+
+GCC and Clang receive native structured-diagnostic flags inside the same
+Bubblewrap isolation boundary, for example `-- g++ -fsyntax-only src/main.cpp`.
 
 ## Optimization causality
 
@@ -77,6 +89,18 @@ whyvec replay-opt .whyvec/analyses/<analysis-id>/report.json
 Replay verifies every declared artifact, the report's normalized semantic
 digest, the source digest, and all four tool fingerprints before rerunning the
 same bounded search. It refuses changed evidence, inputs, tools, or outcomes.
+
+GCC has a separate observation surface because its records and cost model are
+not LLVM assumptions:
+
+```console
+whyvec observe-gcc-opt src/kernel.c:5 --function add_vectors_ \
+  --llvm-report .whyvec/analyses/<llvm-analysis>/report.json
+whyvec replay-gcc-opt .whyvec/analyses/<gcc-analysis>/report.json
+```
+
+The optional comparison reports only whether the two recorded compiler
+classifications agree or diverge for the same canonical source subject.
 
 ## Product contract
 
@@ -161,7 +185,7 @@ NEXT ACTION
 - [crates/whyvec-domain](crates/whyvec-domain) — compileable evidence and lifecycle invariants.
 - [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle, evidence-safe minimality, and adapter-neutral immutable artifact storage.
 - [crates/whyvec-opt](crates/whyvec-opt) — retained Clang/LLVM optimization-causality query and report assembly.
-- [crates/whyvec-build](crates/whyvec-build) — isolated Git/Cargo build oracle, rustc diagnostic identity, and causal report generation.
+- [crates/whyvec-build](crates/whyvec-build) — isolated Git/compiler build oracle, adapter-owned diagnostic identity, and causal report generation.
 - [crates/whyvec-cli](crates/whyvec-cli) — build and optimization explain/replay command-line product surface.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.
 - [tools/whyvec-llvm-transform.cpp](tools/whyvec-llvm-transform.cpp) — pinned-LLVM typed IR intervention helper used by the optimization pack.

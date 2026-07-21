@@ -43,7 +43,8 @@ WhyVec sits between an existing native-code repository, a pinned Clang/LLVM tool
 
 ### Build-causality runtime
 
-The Cargo/rustc vertical is executable and consists of:
+The Cargo/rustc, direct Clang/GCC, and TypeScript verticals are executable and
+share this adapter-neutral runtime:
 
 ```text
 Git base + working tree
@@ -52,7 +53,7 @@ Git base + working tree
 file-atom capture ──► detached worktree materializer
         │                         │
         │                         ▼
-        │                 Cargo JSON build oracle
+        │               structured diagnostic oracle
         │                         │
         ▼                         ▼
 sufficient-set search ◄── stable diagnostic identity
@@ -77,7 +78,7 @@ The implementation and exact safety boundary are specified in
 
 Completed build queries retain digested atom payloads and bounded raw compiler
 streams. Replay first verifies those files, then requires identical aggregate
-input, normalized command, and Cargo/rustc fingerprints before re-executing the
+input, normalized command, and adapter toolchain fingerprints before re-executing the
 search and comparing its normalized semantic digest.
 
 ### CLI and application service
@@ -111,6 +112,15 @@ unchanged, reruns the declared bounded search, and compares its semantic
 projection. Analysis identifiers, artifact locations and bytes, and repository
 location are excluded from that comparison; compiler outcomes, loop identity,
 pipeline and source digests, search trace, and conclusions are not.
+
+`observe-gcc-opt` is a sibling observation adapter, not another LLVM
+intervention family. It compiles in a fresh temporary output directory with a
+fixed `-fsave-optimization-record` command, fingerprints GCC and gzip, maps
+GCC's process-local pass identifiers to recorded pass names, and selects
+structured remarks by canonical function and source line. Optional comparison
+verifies the complete retained LLVM report before labeling the two observed
+classifications as agreeing, diverging, or not comparable. `replay-gcc-opt`
+refuses artifact, source, toolchain, comparison-report, or semantic drift.
 
 ### Compilation command resolver
 

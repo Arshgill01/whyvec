@@ -422,3 +422,62 @@ Results:
   optimization schema and retained `text/x-c++` source evidence.
 - The C++ macro case returned a retained `identity.ambiguous` report without a
   selected loop or variant execution.
+
+## 2026-07-21T13:49:45Z — TypeScript and GCC build-adapter validation
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_build_causality.py
+python3 scripts/verify_cross_adapter_build_causality.py
+```
+
+Results:
+
+- All thirty-four Rust tests passed, including native GCC JSON, Clang SARIF,
+  and TypeScript compiler-API diagnostic parsing.
+- The public TypeScript 7 query opened one pinned `tsconfig.json`, observed
+  `TS2345`, found `src/api.ts` as the tested sufficient edit, retained the
+  removal witness, and reproduced its semantic digest.
+- The public GCC query observed `-fpermissive` through GCC's native JSON,
+  found `src/api.hpp` as the tested sufficient edit, retained the removal
+  witness, and reproduced its semantic digest.
+- Both adapters selected the same observation by full stable diagnostic ID,
+  used explicit text-hunk fallback, and validated against the shared build
+  report schema.
+- The existing Cargo/rustc ambiguity, syntax-grouping, hostile-build,
+  artifact-tamper, and replay checks remained passing after generic toolchain
+  provenance replaced the Cargo-specific report shape.
+
+## 2026-07-21T14:05:18Z — R6 cross-frontend and GCC observation exit validation
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_cross_adapter_build_causality.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- Thirty-eight Rust tests passed. Direct compiler paths, response files,
+  plugin-loading options, and non-structured diagnostic formats are refused by
+  the native build adapters.
+- Cargo/rustc, Clang 21 SARIF, GCC 15 JSON, and TypeScript 7 compiler-API build
+  queries selected stable diagnostics by code and full identity, retained
+  tested sufficient edit sets and removal witnesses, validated their schema,
+  and replayed semantically.
+- `observe-gcc-opt` classified the native GCC 15 record for `add_vectors_` as
+  missed, mapped the record's process-local pass IDs to stable names, and
+  retained compressed and decompressed records.
+- The integrity-checked LLVM comparison reported `agrees` for the same
+  canonical subject. `replay-gcc-opt` matched the semantic digest, and a
+  deliberately modified GCC record was refused.

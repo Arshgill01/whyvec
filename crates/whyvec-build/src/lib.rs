@@ -11,12 +11,13 @@ mod syntax;
 
 pub use analyzer::{
     AnalysisError, BuildCausalityReport, BuildCausalityRequest, BuildCommand, BuildRunSummary,
-    BuildSandboxProvenance, BuildToolchainProvenance, CausalSetReport, ReplayResult,
-    ReplaySpecification, SearchEvaluationSummary, ToolIdentity, explain_build, replay_build,
+    BuildSandboxProvenance, BuildToolchainProvenance, CausalSetReport, NamedToolIdentity,
+    ReplayResult, ReplaySpecification, SearchEvaluationSummary, SupportFileIdentity, ToolIdentity,
+    explain_build, replay_build,
 };
 pub use diagnostics::{
     DiagnosticRecord, DiagnosticSelectionError, DiagnosticSelector, SourceSpan, parse_cargo_json,
-    select_diagnostic,
+    parse_clang_sarif, parse_gcc_json, parse_typescript_json, select_diagnostic,
 };
 pub use git::{ChangeAtomSummary, SyntaxEditGroupSummary};
 pub use whyvec_experiment::ArtifactReference;

@@ -196,6 +196,42 @@ def main() -> int:
         if replay.get("semantic_digest") != report.get("semantic_digest"):
             raise RuntimeError("optimization replay returned a different semantic digest")
 
+        gcc_report = json.loads(
+            run(
+                [
+                    str(binary),
+                    "observe-gcc-opt",
+                    f"{repository / 'bound-alias/kernel.c'}:5",
+                    "--repository",
+                    str(repository),
+                    "--function",
+                    "add_vectors_",
+                    "--gcc",
+                    tool("gcc"),
+                    "--llvm-report",
+                    str(report["artifact_path"]),
+                    "--format",
+                    "json",
+                ]
+            ).stdout
+        )
+        if gcc_report.get("outcome", {}).get("classification") != "missed":
+            raise RuntimeError(f"unexpected GCC observation: {gcc_report}")
+        if gcc_report.get("comparison", {}).get("relation") != "agrees":
+            raise RuntimeError(f"unexpected GCC/LLVM comparison: {gcc_report}")
+        validate_artifacts(gcc_report)
+        gcc_replay = json.loads(
+            run(
+                [
+                    str(binary),
+                    "replay-gcc-opt",
+                    str(gcc_report["artifact_path"]),
+                ]
+            ).stdout
+        )
+        if gcc_replay.get("matched") is not True:
+            raise RuntimeError(f"GCC observation replay did not match: {gcc_replay}")
+
         cpp_report = invoke(
             binary,
             repository,
@@ -323,6 +359,32 @@ def main() -> int:
         jsonschema.validate(ambiguous, schema)
         jsonschema.validate(macro_ambiguous, schema)
         jsonschema.validate(no_success, schema)
+        gcc_schema = json.loads(
+            (ROOT / "schemas/whyvec-gcc-observation-report.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        jsonschema.Draft202012Validator.check_schema(gcc_schema)
+        jsonschema.validate(gcc_report, gcc_schema)
+
+        gcc_artifact = gcc_report["artifacts"][0]
+        gcc_artifact_path = (
+            Path(str(gcc_report["artifact_path"])).parent / gcc_artifact["path"]
+        )
+        gcc_artifact_path.chmod(gcc_artifact_path.stat().st_mode | stat.S_IWUSR)
+        gcc_artifact_path.write_bytes(gcc_artifact_path.read_bytes() + b"tampered\n")
+        gcc_rejected = subprocess.run(
+            [str(binary), "replay-gcc-opt", str(gcc_report["artifact_path"])],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if gcc_rejected.returncode == 0 or "digest or size mismatch" not in gcc_rejected.stderr:
+            raise RuntimeError(
+                f"GCC replay accepted a modified artifact: {gcc_rejected.stderr}"
+            )
 
         declined_path = Path(str(declined["artifact_path"]))
         declined_path.chmod(declined_path.stat().st_mode | stat.S_IWUSR)

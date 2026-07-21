@@ -2,6 +2,14 @@
 
 #![forbid(unsafe_code)]
 
+mod gcc;
+
+pub use gcc::{
+    GccComparison, GccGenerator, GccObservationOutcome, GccObservationReplay,
+    GccObservationReplayResult, GccObservationReport, GccObservationRequest,
+    GccObservationToolchain, GccRemark, observe_gcc_optimization, replay_gcc_observation,
+};
+
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::fmt::Write as _;

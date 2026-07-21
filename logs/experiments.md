@@ -314,3 +314,58 @@ Evidence strength and limitation:
 
 - These are C++ compiler counterfactual observations. They do not establish
   `__restrict` validity, template-wide contracts, or safe changes at any caller.
+
+## 2026-07-21T13:49:45Z — Cross-adapter diagnostic causality
+
+Command:
+
+```console
+python3 scripts/verify_cross_adapter_build_causality.py
+```
+
+Observed results:
+
+- TypeScript 7's compiler API reported `TS2345` in a consumer after an API
+  parameter edit. The API file alone was a tested sufficient edit under the
+  recorded project graph, while the unrelated edit was negative.
+- GCC 15's native structured stream reported `-fpermissive` in a translation
+  unit after a header API edit. The header alone was a tested sufficient edit,
+  while the unrelated header was negative.
+- Removing each tested sufficient edit from its full patch suppressed the
+  selected observation. Full stable-ID reruns and semantic replay selected the
+  same diagnostic.
+
+Evidence strength and limitation:
+
+- These are compiler observations on covered build executions. They do not
+  establish that either API edit is incorrect or that the tested sufficient
+  set is the only possible cause. GCC optimization-record divergence is not
+  evaluated by this experiment.
+
+## 2026-07-21T14:05:18Z — GCC native optimization-record observation
+
+Commands:
+
+```console
+whyvec observe-gcc-opt fixtures/cases/bound-alias/kernel.c:5 \
+  --function add_vectors_ --gcc gcc --llvm-report <retained-llvm-report>
+whyvec replay-gcc-opt <retained-gcc-report>
+```
+
+Observed results:
+
+- GCC 15 emitted a native `-fsave-optimization-record` document whose selected
+  `vect` failures included `not vectorized: number of iterations cannot be
+  computed` and `couldn't vectorize loop` at the requested function and line.
+- The adapter classified the result as missed and retained the exact compressed
+  record, decompressed JSON, source, compiler streams, generator target/version,
+  and GCC/gzip fingerprints.
+- The retained Clang/LLVM report identified the same canonical source subject
+  and also classified its monolithic baseline as missed, so the comparison was
+  observed agreement. Replay reproduced the GCC semantic digest.
+
+Evidence strength and limitation:
+
+- This is a GCC compiler observation plus a cross-compiler classification
+  comparison. It is not an LLVM counterfactual, does not establish identical
+  pass pipelines or cost models, and does not authorize a source action.

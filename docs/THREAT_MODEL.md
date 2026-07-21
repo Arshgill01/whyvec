@@ -27,6 +27,10 @@ Trusted computing base:
 - the operating-system isolation primitives actually enabled for the run.
 
 Clang/LLVM is trusted for the observed compiler result but not assumed immune to malicious input, crashes, or resource exhaustion.
+The same boundary applies to GCC and the TypeScript native compiler. GCC
+observation uses a fixed argv in a fresh output directory and accepts no
+project-supplied plugin or response-file arguments; operating-system sandboxing
+for optimization-only adapters remains distribution-hardening work.
 
 ## Threats and controls
 
@@ -42,11 +46,12 @@ Controls:
 - disable network access in isolated execution;
 - expose every rejected command component in a redacted policy report.
 
-Current build-causality status: the Cargo command is explicit, tokenized, run
-with an environment allowlist, bounded, and forced offline for dependency
-resolution. It is executed through mandatory fingerprinted Bubblewrap with all
+Current build-causality status: Cargo, direct Clang/GCC, and the logical
+TypeScript project command are explicit, tokenized, run with an environment
+allowlist, bounded, and forced offline for dependency resolution where
+applicable. They execute through mandatory fingerprinted Bubblewrap with all
 namespaces unshared, including the network; a read-only host root; a private
-`/tmp`; and host writes limited to the fresh detached worktree and Cargo target
+`/tmp`; and host writes limited to the fresh detached worktree and build-output
 directory. There is no unsandboxed fallback. Seccomp and enforced cgroup quotas
 remain residual distribution-hardening work.
 
@@ -62,7 +67,7 @@ Controls:
 - output-path rewriting;
 - explicit source-edit authority only in the later Codex repair stage.
 
-The Cargo adapter materializes every variant in a fresh detached Git worktree
+Every build adapter materializes each variant in a fresh detached Git worktree
 at the recorded base commit. It never applies an atom to the user's worktree or
 index. Bubblewrap exposes the original repository only through the read-only
 host-root mount. Worktree removal failure is a fatal analysis result.

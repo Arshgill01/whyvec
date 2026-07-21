@@ -39,9 +39,9 @@ whyvec explain-build \
 report is written beneath `.whyvec/analyses/<analysis-id>/report.json`.
 
 `whyvec replay-build <report.json>` verifies every retained artifact digest,
-requires the same captured working-tree input and Cargo/rustc toolchain
+requires the same captured working-tree input and adapter toolchain
 fingerprints, reruns the query, and compares a normalized semantic digest. Raw
-Cargo JSON and stderr are retained for every executed subset. Artifact paths,
+compiler streams are retained for every executed subset. Artifact paths,
 analysis identifiers, rendered diagnostic prose, and repository location are
 excluded from the semantic comparison; diagnostic identities, outcomes,
 search traces, causal sets, and provenance digests are not.
@@ -53,10 +53,10 @@ search traces, causal sets, and provenance digests are not.
    and unstaged content.
 3. Capture untracked, non-ignored files as explicit atoms.
 4. Create a detached temporary worktree at the base commit.
-5. Run the Cargo command with no atoms and require a passing baseline.
+5. Run the selected adapter command with no atoms and require a passing baseline.
 6. Create a fresh worktree, apply every atom, and require the selected
    diagnostic to exist in the candidate build.
-7. Parse Cargo `compiler-message` JSON and establish a stable diagnostic
+7. Parse the adapter's structured diagnostics and establish a stable diagnostic
    identity.
 8. Evaluate atom subsets in deterministic cardinality-first order.
 9. Classify each run through a three-valued oracle.
@@ -88,11 +88,12 @@ therefore receives the same captured intervention even if the source working
 tree changes while the analysis is running.
 
 The report records a SHA-256 digest for each atom payload, an aggregate input
-digest, the normalized executed Cargo command digest, Cargo and rustc proxy and
-delegated-binary fingerprints where rustup exposes them, and a digest/size for
-every retained artifact. Replay currently requires the recorded Git repository
-and base object to remain locally available; a portable source-bearing export
-bundle is a later distribution gate.
+digest, the normalized command digest, adapter-owned tool fingerprints, and a
+digest/size for every retained artifact. Cargo records its rustc and delegated
+rustup binaries when available. TypeScript records Node, the native TypeScript
+compiler, the compiler-API adapter, and its lockfile. Replay currently requires
+the recorded Git repository and base object to remain locally available; a
+portable source-bearing export bundle is a later distribution gate.
 
 ## Diagnostic identity
 
@@ -115,8 +116,18 @@ them for display. This allows a diagnostic to move without becoming a different
 observation. Two diagnostics with the same code but different source excerpts
 remain distinct.
 
-Diagnostic identity is adapter-owned. Clang SARIF, TypeScript compiler API, and
-GCC JSON diagnostics will require different identity evidence.
+Diagnostic identity is adapter-owned:
+
+- Cargo parses rustc `compiler-message` JSON;
+- Clang parses SARIF and uses its rule identifier;
+- GCC parses native JSON and uses the diagnostic option, with an explicit
+  severity code only when GCC supplies no option;
+- TypeScript opens the exact `tsconfig.json` through the pinned compiler API and
+  uses `TS` diagnostic codes from that program graph.
+
+Every adapter also fingerprints severity, normalized message, relative primary
+path, and source excerpt. Locations remain report evidence but are excluded
+from identity so insertions above an unchanged observation do not split it.
 
 ## Change atoms
 
@@ -206,18 +217,21 @@ causality.
 - Cargo network resolution is forced offline.
 - Non-JSON Cargo message formats are rejected instead of silently losing
   diagnostic evidence.
+- Direct Clang/GCC compiler and pass-plugin loading flags are rejected.
+- TypeScript accepts exactly one project configuration and executes the pinned
+  adapter script through a fingerprinted Node binary.
 - stdout and stderr are drained with retained-size bounds.
 - timeouts terminate the process group, not only its parent process.
-- Cargo and every transitive `build.rs` run inside fingerprinted Bubblewrap
+- Every adapter, including Cargo and transitive `build.rs` processes, runs inside fingerprinted Bubblewrap
   mount, user, PID, IPC, UTS, cgroup, and network namespaces.
-- The host root is read-only; only the fresh detached worktree and shared Cargo
-  target directory are host-writable, and `/tmp` is a private tmpfs.
+- The host root is read-only; only the fresh detached worktree and shared
+  build-output directory are host-writable, and `/tmp` is a private tmpfs.
 - untracked symlinks resolving outside the repository are rejected.
 - unmerged paths and non-UTF-8 paths currently decline.
 - every temporary Git worktree is explicitly removed, including after build
   failures.
 
-The current Cargo adapter requires Linux Bubblewrap with unprivileged namespace
+The current build adapters require Linux Bubblewrap with unprivileged namespace
 support. It refuses to start if `bwrap` cannot be resolved or fingerprinted;
 there is no unsandboxed fallback. Resource cgroup quotas and syscall filtering
 remain distribution-hardening work beyond the existing wall-clock, process
@@ -225,9 +239,11 @@ group, and output bounds.
 
 ## Current refusal and limitation surface
 
-- The base revision must pass the exact Cargo command.
+- The base revision must pass the exact normalized adapter command.
 - The full change must fail and contain one uniquely selected diagnostic.
-- Cargo is the only executable build adapter.
+- Cargo/rustc, direct Clang and GCC, and one TypeScript `tsconfig.json` are the
+  executable build adapters. Build-system wrappers and compilation-database
+  resolution remain unsupported.
 - Rust text patches use parsed syntax-item grouping; other languages and Rust
   parse failures retain explicit one-hunk text fallback groups.
 - Dirty submodules, unmerged files, non-UTF-8 paths, and special untracked files

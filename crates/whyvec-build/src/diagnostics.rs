@@ -109,7 +109,7 @@ impl std::fmt::Display for DiagnosticSelectionError {
 
 impl std::error::Error for DiagnosticSelectionError {}
 
-/// Selects one unique error diagnostic from a Cargo compiler-message stream.
+/// Selects one unique error diagnostic from a normalized compiler stream.
 ///
 /// # Errors
 ///
@@ -184,6 +184,7 @@ pub fn parse_cargo_json(output: &[u8], worktree: &Path) -> Vec<DiagnosticRecord>
             .and_then(Value::as_str)
             .map(str::to_owned);
         let id = fingerprint(
+            "rustc",
             code.as_deref(),
             level,
             text,
@@ -202,6 +203,225 @@ pub fn parse_cargo_json(output: &[u8], worktree: &Path) -> Vec<DiagnosticRecord>
         });
     }
     deduplicate(diagnostics)
+}
+
+#[must_use]
+pub fn parse_gcc_json(output: &[u8], worktree: &Path) -> Vec<DiagnosticRecord> {
+    let Ok(values) = serde_json::from_slice::<Vec<Value>>(output) else {
+        return Vec::new();
+    };
+    let diagnostics = values.into_iter().filter_map(|value| {
+        let level = value.get("kind")?.as_str()?;
+        let message = value.get("message")?.as_str()?;
+        let code = value
+            .get("option")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .or_else(|| Some(format!("gcc-{level}")));
+        let primary_span = value
+            .get("locations")
+            .and_then(Value::as_array)
+            .and_then(|locations| locations.first())
+            .and_then(|location| location.get("caret"))
+            .and_then(|caret| machine_span(caret, value.get("locations"), worktree));
+        let id = fingerprint(
+            "gcc",
+            code.as_deref(),
+            level,
+            message,
+            None,
+            primary_span.as_ref(),
+        );
+        Some(DiagnosticRecord {
+            id,
+            adapter: "gcc".to_owned(),
+            code,
+            level: level.to_owned(),
+            message: normalize_whitespace(message),
+            target: None,
+            primary_span,
+            rendered: None,
+        })
+    });
+    deduplicate(diagnostics)
+}
+
+#[must_use]
+pub fn parse_clang_sarif(output: &[u8], worktree: &Path) -> Vec<DiagnosticRecord> {
+    let text = String::from_utf8_lossy(output);
+    let (Some(start), Some(end)) = (text.find('{'), text.rfind('}')) else {
+        return Vec::new();
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&text[start..=end]) else {
+        return Vec::new();
+    };
+    let mut diagnostics = Vec::new();
+    for run in value
+        .get("runs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let artifacts = run.get("artifacts").and_then(Value::as_array);
+        for result in run
+            .get("results")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let level = result
+                .get("level")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let message = result
+                .get("message")
+                .and_then(|message| message.get("text"))
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let code = result
+                .get("ruleId")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .or_else(|| Some(format!("clang-{level}")));
+            let primary_span = result
+                .get("locations")
+                .and_then(Value::as_array)
+                .and_then(|locations| locations.first())
+                .and_then(|location| location.get("physicalLocation"))
+                .and_then(|location| sarif_span(location, artifacts, worktree));
+            let id = fingerprint(
+                "clang",
+                code.as_deref(),
+                level,
+                message,
+                None,
+                primary_span.as_ref(),
+            );
+            diagnostics.push(DiagnosticRecord {
+                id,
+                adapter: "clang".to_owned(),
+                code,
+                level: level.to_owned(),
+                message: normalize_whitespace(message),
+                target: None,
+                primary_span,
+                rendered: None,
+            });
+        }
+    }
+    deduplicate(diagnostics)
+}
+
+#[must_use]
+pub fn parse_typescript_json(output: &[u8], worktree: &Path) -> Vec<DiagnosticRecord> {
+    let Ok(value) = serde_json::from_slice::<Value>(output) else {
+        return Vec::new();
+    };
+    let diagnostics = value
+        .get("diagnostics")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|diagnostic| {
+            let code = diagnostic.get("code")?.as_str()?.to_owned();
+            let level = diagnostic.get("category")?.as_str()?;
+            let message = diagnostic.get("message")?.as_str()?;
+            let primary_span = diagnostic
+                .get("file")
+                .and_then(Value::as_str)
+                .and_then(|file| {
+                    let location = diagnostic.get("location")?;
+                    let line = location.get("line")?.as_u64()?;
+                    let column = location.get("column")?.as_u64()?;
+                    Some(SourceSpan {
+                        file: normalize_path(file, worktree),
+                        line,
+                        column,
+                        label: None,
+                        source_excerpt: read_source_excerpt(file, line, worktree),
+                    })
+                });
+            let id = fingerprint(
+                "typescript",
+                Some(&code),
+                level,
+                message,
+                None,
+                primary_span.as_ref(),
+            );
+            Some(DiagnosticRecord {
+                id,
+                adapter: "typescript".to_owned(),
+                code: Some(code),
+                level: level.to_owned(),
+                message: normalize_whitespace(message),
+                target: None,
+                primary_span,
+                rendered: None,
+            })
+        });
+    deduplicate(diagnostics)
+}
+
+fn machine_span(caret: &Value, locations: Option<&Value>, worktree: &Path) -> Option<SourceSpan> {
+    let file = caret.get("file")?.as_str()?;
+    let line = caret.get("line")?.as_u64()?;
+    let column = caret
+        .get("column")
+        .or_else(|| caret.get("display-column"))?
+        .as_u64()?;
+    let label = locations
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("label"))
+        .and_then(Value::as_str)
+        .map(normalize_whitespace);
+    Some(SourceSpan {
+        file: normalize_path(file, worktree),
+        line,
+        column,
+        label,
+        source_excerpt: read_source_excerpt(file, line, worktree),
+    })
+}
+
+fn sarif_span(
+    location: &Value,
+    artifacts: Option<&Vec<Value>>,
+    worktree: &Path,
+) -> Option<SourceSpan> {
+    let artifact = location.get("artifactLocation")?;
+    let uri = artifact.get("uri").and_then(Value::as_str).or_else(|| {
+        let index = usize::try_from(artifact.get("index")?.as_u64()?).ok()?;
+        artifacts?.get(index)?.get("location")?.get("uri")?.as_str()
+    })?;
+    let file = uri.strip_prefix("file://").unwrap_or(uri);
+    let region = location.get("region")?;
+    let line = region.get("startLine")?.as_u64()?;
+    let column = region.get("startColumn")?.as_u64()?;
+    Some(SourceSpan {
+        file: normalize_path(file, worktree),
+        line,
+        column,
+        label: None,
+        source_excerpt: read_source_excerpt(file, line, worktree),
+    })
+}
+
+fn read_source_excerpt(file: &str, line: u64, worktree: &Path) -> Option<String> {
+    let path = Path::new(file);
+    let path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        worktree.join(path)
+    };
+    let index = usize::try_from(line.checked_sub(1)?).ok()?;
+    std::fs::read_to_string(path)
+        .ok()?
+        .lines()
+        .nth(index)
+        .map(str::trim)
+        .map(str::to_owned)
 }
 
 fn parse_span(value: &Value, worktree: &Path) -> Option<SourceSpan> {
@@ -235,6 +455,7 @@ fn parse_span(value: &Value, worktree: &Path) -> Option<SourceSpan> {
 }
 
 fn fingerprint(
+    adapter: &str,
     code: Option<&str>,
     level: &str,
     message: &str,
@@ -243,7 +464,7 @@ fn fingerprint(
 ) -> String {
     let mut digest = Sha256::new();
     for field in [
-        "rustc",
+        adapter,
         code.unwrap_or(""),
         level,
         &normalize_whitespace(message),
@@ -258,7 +479,7 @@ fn fingerprint(
     }
     let bytes = digest.finalize();
     let short = crate::hex_prefix(&bytes, 10);
-    format!("rustc:{}:{short}", code.unwrap_or("uncoded"))
+    format!("{adapter}:{}:{short}", code.unwrap_or("uncoded"))
 }
 
 fn normalize_path(file_name: &str, worktree: &Path) -> String {
@@ -319,5 +540,39 @@ mod tests {
             select_diagnostic(&diagnostics, &selector),
             Err(DiagnosticSelectionError::Ambiguous { .. })
         ));
+    }
+
+    #[test]
+    fn parses_gcc_native_json_identity() {
+        let output = br#"[{"kind":"error","message":"invalid conversion","option":"-fpermissive","locations":[{"caret":{"file":"/tmp/repo/main.cpp","line":3,"column":7},"label":"const char*"}]}]"#;
+        let diagnostics = parse_gcc_json(output, Path::new("/tmp/repo"));
+        assert_eq!(diagnostics[0].adapter, "gcc");
+        assert_eq!(diagnostics[0].code.as_deref(), Some("-fpermissive"));
+        assert_eq!(
+            diagnostics[0].primary_span.as_ref().unwrap().file,
+            "main.cpp"
+        );
+    }
+
+    #[test]
+    fn parses_clang_sarif_after_driver_warning() {
+        let output = br#"clang: warning: SARIF is unstable
+{"runs":[{"artifacts":[{"location":{"uri":"file:///tmp/repo/main.cpp"}}],"results":[{"level":"error","message":{"text":"cannot initialize"},"ruleId":"3986","locations":[{"physicalLocation":{"artifactLocation":{"index":0},"region":{"startLine":2,"startColumn":4}}}]}]}]}"#;
+        let diagnostics = parse_clang_sarif(output, Path::new("/tmp/repo"));
+        assert_eq!(diagnostics[0].adapter, "clang");
+        assert_eq!(diagnostics[0].code.as_deref(), Some("3986"));
+        assert_eq!(
+            diagnostics[0].primary_span.as_ref().unwrap().file,
+            "main.cpp"
+        );
+    }
+
+    #[test]
+    fn parses_typescript_compiler_api_json() {
+        let output = br#"{"adapter":"typescript","diagnostics":[{"code":"TS2322","category":"error","message":"Type string is not assignable to number","file":"/tmp/repo/src/index.ts","location":{"line":1,"column":14,"length":5}}]}"#;
+        let diagnostics = parse_typescript_json(output, Path::new("/tmp/repo"));
+        assert_eq!(diagnostics[0].adapter, "typescript");
+        assert_eq!(diagnostics[0].code.as_deref(), Some("TS2322"));
+        assert!(diagnostics[0].id.starts_with("typescript:TS2322:"));
     }
 }

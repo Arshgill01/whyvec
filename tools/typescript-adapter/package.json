@@ -1,0 +1,9 @@
+{
+  "name": "whyvec-typescript-adapter",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "typescript": "7.0.2"
+  }
+}

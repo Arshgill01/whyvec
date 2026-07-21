@@ -13,6 +13,7 @@
 # Build systems
 /build/
 /out/
+node_modules/
 compile_commands.json
 __pycache__/
 *.py[cod]

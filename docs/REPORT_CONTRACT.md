@@ -10,7 +10,7 @@ requires a major-version report schema before the shared experiment runtime is
 considered complete. No generic query may be forced into the version 1 loop
 fields.
 
-The executable Cargo/rustc build vertical currently emits the deliberately
+The executable Cargo/rustc, Clang, GCC, and TypeScript build adapters emit the deliberately
 separate [build report schema](../schemas/whyvec-build-report.schema.json). Its
 `2.0.0-dev` identifier makes the incompatibility explicit while diagnostic,
 file/hunk intervention, and artifact contracts are hardened. Nested hunk
@@ -36,12 +36,13 @@ typed delta, that experiment has null outcome, a typed identity decline, and an
 unresolved verdict.
 
 The development build report also retains SHA-256-addressed intervention and
-compiler-stream artifacts, proxy-aware Cargo/rustc identities, an aggregate
-input and command digest, replay limits, and a normalized semantic digest.
+compiler-stream artifacts, adapter-owned diagnostic and tool identities, an
+aggregate input and command digest, replay limits, and a normalized semantic digest.
 `replay-build` verifies content before executing and rejects input, toolchain,
 or semantic drift rather than reporting a reproduced result.
 
-Build toolchain provenance includes the Bubblewrap invocation/resolved binary,
+Build toolchain provenance contains a stable adapter name, named driver and
+compiler identities, digested support files where applicable, and the Bubblewrap invocation/resolved binary,
 digests and version plus asserted network, host-root, and temporary-filesystem
 isolation properties. The sandbox fingerprint participates in the command and
 semantic digests, so replay refuses a changed or missing containment provider.
@@ -54,6 +55,14 @@ fingerprint drift, or a changed semantic result. The digest intentionally
 excludes analysis identifiers, repository and artifact locations, and artifact
 references while retaining source and pipeline digests, stable loop identity,
 outcomes, search trace, minimality, finding, and decline semantics.
+
+The GCC observation adapter emits
+[a dedicated report](../schemas/whyvec-gcc-observation-report.schema.json).
+It retains GCC's native compressed optimization record and a decompressed JSON
+copy, generator metadata, stable pass names, selected source remarks, tool
+fingerprints, semantic replay, and an optional integrity-checked LLVM
+comparison. A comparison says `agrees`, `diverges`, or `not_comparable`; it does
+not translate GCC records into LLVM interventions or source obligations.
 
 ## Compatibility
 
