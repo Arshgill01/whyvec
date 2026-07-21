@@ -4,6 +4,7 @@ use whyvec_build::{
     BuildCausalityReport, BuildCausalityRequest, BuildCommand, DiagnosticSelector, explain_build,
     replay_build,
 };
+use whyvec_obligation::{ObligationRequest, derive_obligation, replay_obligation};
 use whyvec_opt::{
     GccObservationReport, GccObservationRequest, OptimizationReport, OptimizationRequest,
     ParameterCandidate, explain_optimization, observe_gcc_optimization, replay_gcc_observation,
@@ -31,6 +32,12 @@ fn run() -> Result<(), String> {
     }
     if arguments.first().map(String::as_str) == Some("replay-gcc-opt") {
         return run_gcc_replay(&arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("replay-obligation") {
+        return run_obligation_replay(&arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("derive-obligation") {
+        return run_derive_obligation(&arguments[1..]);
     }
     if arguments.first().map(String::as_str) == Some("observe-gcc-opt") {
         return run_observe_gcc(&arguments[1..]);
@@ -401,6 +408,56 @@ fn run_gcc_replay(arguments: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn run_derive_obligation(arguments: &[String]) -> Result<(), String> {
+    let [report, rest @ ..] = arguments else {
+        return Err(
+            "usage: whyvec derive-obligation <optimization-report.json> [--format human|json]"
+                .to_owned(),
+        );
+    };
+    let format = match rest {
+        [] => "human",
+        [option, value] if option == "--format" && matches!(value.as_str(), "human" | "json") => {
+            value
+        }
+        _ => return Err("--format must be human or json".to_owned()),
+    };
+    let result = derive_obligation(&ObligationRequest {
+        optimization_report: PathBuf::from(report),
+    })
+    .map_err(|error| error.to_string())?;
+    if format == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
+        );
+    } else {
+        println!("SOURCE OBLIGATION");
+        if let Some(obligation) = &result.obligation {
+            println!("  status: derived candidate obligation");
+            println!("  family: {}", obligation.family);
+            println!("  predicate: {}", obligation.predicate);
+            println!("  source action: repository evidence required");
+        } else if let Some(decline) = &result.decline {
+            println!("  declined: {} — {}", decline.code, decline.explanation);
+        }
+        println!("  report: {}", result.artifact_path);
+    }
+    Ok(())
+}
+
+fn run_obligation_replay(arguments: &[String]) -> Result<(), String> {
+    let [report] = arguments else {
+        return Err("usage: whyvec replay-obligation <report.json>".to_owned());
+    };
+    let result = replay_obligation(&PathBuf::from(report)).map_err(|error| error.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
 fn parse_positive(name: &str, value: &str) -> Result<usize, String> {
     let parsed = value
         .parse::<usize>()
@@ -496,5 +553,5 @@ fn print_human(report: &BuildCausalityReport) {
 }
 
 fn usage() -> String {
-    "usage: whyvec explain-build --diagnostic <code-or-id> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- <cargo|clang|gcc|whyvec-typescript> [arguments]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]\n       whyvec replay-opt <report.json>\n       whyvec observe-gcc-opt <source>:<line> --function <name> [--gcc <path>] [--llvm-report <report.json>] [--format human|json]\n       whyvec replay-gcc-opt <report.json>".to_owned()
+    "usage: whyvec explain-build --diagnostic <code-or-id> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- <cargo|clang|gcc|whyvec-typescript> [arguments]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]\n       whyvec replay-opt <report.json>\n       whyvec observe-gcc-opt <source>:<line> --function <name> [--gcc <path>] [--llvm-report <report.json>] [--format human|json]\n       whyvec replay-gcc-opt <report.json>\n       whyvec derive-obligation <optimization-report.json> [--format human|json]\n       whyvec replay-obligation <report.json>".to_owned()
 }

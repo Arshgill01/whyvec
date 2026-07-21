@@ -53,6 +53,13 @@ compiler observations authorize a C++ source contract.
 
 ### Obligation derivation tests
 
+The executable first family consumes the retained positive optimization report,
+uses Clang's JSON AST to name `count`, `output`, the zero-based unit-step domain,
+and four-byte scalar extents, and derives the expected bound-object versus
+modified-region predicate. Public replay must reproduce it. The volatile-bound
+optimization report must instead retain `obligation.volatile_bound`; modified
+AST or source evidence must be refused.
+
 Supported positive shapes cover:
 
 - signed and unsigned pointer-loaded bounds;

@@ -194,6 +194,7 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "whyvec-build",
+ "whyvec-obligation",
  "whyvec-opt",
 ]
 
@@ -208,6 +209,17 @@ dependencies = [
  "serde",
  "sha2",
  "whyvec-domain",
+]
+
+[[package]]
+name = "whyvec-obligation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "whyvec-experiment",
+ "whyvec-opt",
 ]
 
 [[package]]

@@ -342,6 +342,65 @@ def main() -> int:
             raise RuntimeError("no-success search fabricated a finding")
         validate_artifacts(no_success)
 
+        obligation = json.loads(
+            run(
+                [
+                    str(binary),
+                    "derive-obligation",
+                    str(report["artifact_path"]),
+                    "--format",
+                    "json",
+                ]
+            ).stdout
+        )
+        derived = obligation.get("obligation")
+        if not isinstance(derived, dict) or derived.get("family") != (
+            "bound_object_disjoint_from_modified_region"
+        ):
+            raise RuntimeError(f"positive obligation was not derived: {obligation}")
+        access = derived.get("access_summary", {})
+        if access.get("bound_object", {}).get("name") != "count":
+            raise RuntimeError(f"bound source entity was not retained: {access}")
+        if [write.get("base_parameter") for write in access.get("writes", [])] != [
+            "output"
+        ]:
+            raise RuntimeError(f"write source entities were not retained: {access}")
+        if derived.get("candidate_assumption") != "parameter.count.noalias":
+            raise RuntimeError("source obligation lost the distinct LLVM assumption")
+        validate_artifacts(obligation)
+        obligation_replay = json.loads(
+            run(
+                [
+                    str(binary),
+                    "replay-obligation",
+                    str(obligation["artifact_path"]),
+                ]
+            ).stdout
+        )
+        if obligation_replay.get("matched") is not True:
+            raise RuntimeError(f"obligation replay did not match: {obligation_replay}")
+
+        volatile_obligation = json.loads(
+            run(
+                [
+                    str(binary),
+                    "derive-obligation",
+                    str(no_success["artifact_path"]),
+                    "--format",
+                    "json",
+                ]
+            ).stdout
+        )
+        if volatile_obligation.get("decline", {}).get("code") != (
+            "obligation.volatile_bound"
+        ):
+            raise RuntimeError(
+                f"volatile access did not produce a typed refusal: {volatile_obligation}"
+            )
+        if volatile_obligation.get("obligation") is not None:
+            raise RuntimeError("volatile refusal fabricated a source obligation")
+        validate_artifacts(volatile_obligation)
+
         schema = json.loads(
             (ROOT / "schemas/whyvec-optimization-report.schema.json").read_text(
                 encoding="utf-8"
@@ -366,6 +425,41 @@ def main() -> int:
         )
         jsonschema.Draft202012Validator.check_schema(gcc_schema)
         jsonschema.validate(gcc_report, gcc_schema)
+        obligation_schema = json.loads(
+            (ROOT / "schemas/whyvec-obligation-report.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        jsonschema.Draft202012Validator.check_schema(obligation_schema)
+        jsonschema.validate(obligation, obligation_schema)
+        jsonschema.validate(volatile_obligation, obligation_schema)
+
+        obligation_artifact = obligation["artifacts"][0]
+        obligation_artifact_path = (
+            Path(str(obligation["artifact_path"])).parent / obligation_artifact["path"]
+        )
+        obligation_artifact_path.chmod(
+            obligation_artifact_path.stat().st_mode | stat.S_IWUSR
+        )
+        obligation_artifact_path.write_bytes(
+            obligation_artifact_path.read_bytes() + b"tampered\n"
+        )
+        obligation_rejected = subprocess.run(
+            [str(binary), "replay-obligation", str(obligation["artifact_path"])],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if (
+            obligation_rejected.returncode == 0
+            or "digest or size mismatch" not in obligation_rejected.stderr
+        ):
+            raise RuntimeError(
+                "obligation replay accepted a modified artifact: "
+                f"{obligation_rejected.stderr}"
+            )
 
         gcc_artifact = gcc_report["artifacts"][0]
         gcc_artifact_path = (

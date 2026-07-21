@@ -1,20 +1,17 @@
 [package]
-name = "whyvec-cli"
-description = "Command-line interface for causal compiler queries"
+name = "whyvec-obligation"
+description = "Typed source access summaries and enforceable obligation derivation"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "whyvec"
-path = "src/main.rs"
-
 [dependencies]
+serde.workspace = true
 serde_json.workspace = true
-whyvec-build = { path = "../whyvec-build" }
-whyvec-obligation = { path = "../whyvec-obligation" }
+sha2.workspace = true
+whyvec-experiment = { path = "../whyvec-experiment" }
 whyvec-opt = { path = "../whyvec-opt" }
 
 [lints]

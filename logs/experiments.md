@@ -369,3 +369,31 @@ Evidence strength and limitation:
 - This is a GCC compiler observation plus a cross-compiler classification
   comparison. It is not an LLVM counterfactual, does not establish identical
   pass pipelines or cost models, and does not authorize a source action.
+
+## 2026-07-21T14:20:15Z — Affine pointer-bound source access model
+
+Command:
+
+```console
+whyvec derive-obligation <retained-bound-alias-optimization-report>
+```
+
+Observed results:
+
+- The fingerprinted Clang 21 AST contained one `add_vectors_` loop at the
+  selected line. The access model identified `i` starting at zero, a unit
+  increment, the `i < *count` bound load, and the four-byte `output[i]` write.
+- The model derived the candidate condition that the object read through
+  `count` be disjoint from every byte modified through `output` over the
+  initial iteration domain.
+- The runtime plan requires checked iteration/extent/range-end arithmetic under
+  the recorded flat x86-64 address policy, guard dominance before bound caching,
+  and the original pointer-loaded loop as fallback.
+- The volatile fixture retained `obligation.volatile_bound` without producing a
+  predicate or guard plan.
+
+Evidence strength and limitation:
+
+- The positive result is a derived obligation from the covered AST access
+  model. It is not evidence that any caller satisfies the condition, and it
+  does not authorize `restrict` or a source edit without repository analysis.

@@ -64,6 +64,15 @@ fingerprints, semantic replay, and an optional integrity-checked LLVM
 comparison. A comparison says `agrees`, `diverges`, or `not_comparable`; it does
 not translate GCC records into LLVM interventions or source obligations.
 
+The first source access model emits the separate
+[obligation report](../schemas/whyvec-obligation-report.schema.json). Positive
+reports contain one `derived_obligation` and no decline; refusal reports contain
+one stable `obligation.*` decline and no obligation. Both shapes retain the
+upstream optimization identity and semantic digest, exact source digest,
+fingerprinted Clang, AST artifacts, semantic digest, and replay input. The
+runtime guard section is a checked enforcement plan, not a generated patch or
+an assertion about callers.
+
 ## Compatibility
 
 The report uses semantic versioning in `schema_version`.

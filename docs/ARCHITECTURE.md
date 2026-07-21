@@ -122,6 +122,22 @@ verifies the complete retained LLVM report before labeling the two observed
 classifications as agreeing, diverging, or not comparable. `replay-gcc-opt`
 refuses artifact, source, toolchain, comparison-report, or semantic drift.
 
+### Obligation derivation
+
+`derive-obligation` consumes an integrity-checked optimization report and runs
+the same fingerprinted Clang over the unchanged source to obtain structured AST
+evidence. The versioned C access model requires a unique matching loop and
+extracts the pointer-loaded bound, fixed-width bound object, induction domain,
+and every supported indexed write. Unsupported languages, volatility, atomics,
+calls, non-affine indices, unknown layouts, ambiguity, or insufficient pipeline
+evidence produce typed declines.
+
+The positive report states a candidate non-overlap predicate and a checked
+runtime-guard plan. It does not claim callers satisfy the predicate. Raw AST,
+upstream analysis identity/digest, source digest, and Clang identity are
+retained; `replay-obligation` refuses any upstream, artifact, tool, source, or
+semantic drift.
+
 ### Compilation command resolver
 
 Responsibilities:

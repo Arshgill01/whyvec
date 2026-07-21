@@ -32,6 +32,13 @@ observation uses a fixed argv in a fresh output directory and accepts no
 project-supplied plugin or response-file arguments; operating-system sandboxing
 for optimization-only adapters remains distribution-hardening work.
 
+Obligation derivation never executes the analyzed program. It invokes the
+already fingerprinted Clang with a fixed syntax-only AST command, bounds both
+streams and runtime, retains the raw AST, and accepts no project compiler
+arguments or plugins. Crafted source can still exercise compiler
+vulnerabilities; OS sandboxing for this syntax-only path remains a residual
+risk.
+
 ## Threats and controls
 
 ### Arbitrary command execution

@@ -102,6 +102,19 @@ whyvec replay-gcc-opt .whyvec/analyses/<gcc-analysis>/report.json
 The optional comparison reports only whether the two recorded compiler
 classifications agree or diverge for the same canonical source subject.
 
+For a positive C bound-alias report, derive the source access obligation
+separately:
+
+```console
+whyvec derive-obligation .whyvec/analyses/<optimization-analysis>/report.json
+whyvec replay-obligation .whyvec/analyses/<obligation-analysis>/report.json
+```
+
+The derivation names the pointer-loaded bound object, every supported indexed
+write region, the induction domain, overflow checks, and the unchanged fallback
+requirement. It remains a candidate obligation until repository evidence or a
+runtime guard enforces it.
+
 ## Product contract
 
 WhyVec separates three kinds of reasoning that must never be conflated:
@@ -171,6 +184,7 @@ NEXT ACTION
 - [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) — audience, product surface, and behavior.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — components, data flow, and boundaries.
 - [docs/SEMANTIC_MODEL.md](docs/SEMANTIC_MODEL.md) — evidence strength and alias semantics.
+- [ADR 0006](docs/decisions/0006-clang-ast-obligation-model.md) — the first typed C source-access model.
 - [docs/EXPERIMENT_PROTOCOL.md](docs/EXPERIMENT_PROTOCOL.md) — reproducible counterfactual procedure.
 - [docs/AGENT_CONTRACT.md](docs/AGENT_CONTRACT.md) — Codex/GPT-5.6 responsibilities and refusals.
 - [docs/BUILD_CAUSALITY.md](docs/BUILD_CAUSALITY.md) — patch atoms, rustc diagnostic identity, subset search, removal witnesses, and safety boundaries.
@@ -184,6 +198,7 @@ NEXT ACTION
 - [integrations/codex/whyvec](integrations/codex/whyvec) — installable Codex plugin and workflow skill.
 - [crates/whyvec-domain](crates/whyvec-domain) — compileable evidence and lifecycle invariants.
 - [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle, evidence-safe minimality, and adapter-neutral immutable artifact storage.
+- [crates/whyvec-obligation](crates/whyvec-obligation) — Clang AST-backed source access summaries, typed obligation declines, and semantic replay.
 - [crates/whyvec-opt](crates/whyvec-opt) — retained Clang/LLVM optimization-causality query and report assembly.
 - [crates/whyvec-build](crates/whyvec-build) — isolated Git/compiler build oracle, adapter-owned diagnostic identity, and causal report generation.
 - [crates/whyvec-cli](crates/whyvec-cli) — build and optimization explain/replay command-line product surface.

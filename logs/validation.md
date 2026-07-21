@@ -481,3 +481,29 @@ Results:
 - The integrity-checked LLVM comparison reported `agrees` for the same
   canonical subject. `replay-gcc-opt` matched the semantic digest, and a
   deliberately modified GCC record was refused.
+
+## 2026-07-21T14:20:15Z — First obligation-family validation
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- Forty-one Rust tests passed, including checked extent/range overflow,
+  fixed-layout, volatile, and atomic obligation-domain tests.
+- The public positive optimization report produced a schema-valid
+  `derived_obligation` naming the four-byte `count` object, the indexed writes
+  through `output`, the zero-based unit-step iteration domain, checked
+  arithmetic, dominating guard, and untouched fallback requirements.
+- The report kept `parameter.count.noalias` separate from the candidate source
+  range predicate and did not claim a repository-supported contract.
+- The volatile-bound report produced `obligation.volatile_bound` and no
+  obligation. Both positive and refusal reports retained Clang AST evidence;
+  positive semantic replay matched, and modified evidence was refused.

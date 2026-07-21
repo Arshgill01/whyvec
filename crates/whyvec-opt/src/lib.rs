@@ -1117,6 +1117,29 @@ fn strip_non_semantic_fields(value: &mut serde_json::Value) {
     }
 }
 
+/// Loads an optimization report after verifying its semantic digest and every
+/// retained artifact referenced by the report.
+///
+/// # Errors
+///
+/// Returns `OptimizationError` when the report, semantic digest, or artifact
+/// manifest fails integrity validation.
+pub fn load_verified_optimization_report(
+    report_path: &Path,
+) -> Result<OptimizationReport, OptimizationError> {
+    let report: OptimizationReport = serde_json::from_slice(&fs::read(report_path)?)?;
+    let root = report_path.parent().ok_or_else(|| {
+        OptimizationError::InvalidInput("report path has no parent directory".to_owned())
+    })?;
+    ArtifactStore::new(root).verify(&report.artifacts)?;
+    if semantic_digest(&report)? != report.semantic_digest {
+        return Err(OptimizationError::Artifact(
+            ArtifactError::IntegrityMismatch("report.json semantic contents".to_owned()),
+        ));
+    }
+    Ok(report)
+}
+
 /// Re-executes a retained optimization-causality report and verifies its semantic projection.
 ///
 /// # Errors
@@ -1126,17 +1149,7 @@ fn strip_non_semantic_fields(value: &mut serde_json::Value) {
 pub fn replay_optimization(
     report_path: &Path,
 ) -> Result<OptimizationReplayResult, OptimizationError> {
-    let original: OptimizationReport = serde_json::from_slice(&fs::read(report_path)?)?;
-    let root = report_path.parent().ok_or_else(|| {
-        OptimizationError::InvalidInput("report path has no parent directory".to_owned())
-    })?;
-    ArtifactStore::new(root).verify(&original.artifacts)?;
-    let recorded_digest = semantic_digest(&original)?;
-    if recorded_digest != original.semantic_digest {
-        return Err(OptimizationError::Artifact(
-            ArtifactError::IntegrityMismatch("report.json semantic contents".to_owned()),
-        ));
-    }
+    let original = load_verified_optimization_report(report_path)?;
 
     let repository = PathBuf::from(&original.repository).canonicalize()?;
     let source = PathBuf::from(&original.source).canonicalize()?;
