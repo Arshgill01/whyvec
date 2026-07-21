@@ -36,6 +36,9 @@
 | R-032 | Untracked source changes while subsets execute | One atom identity represents different bytes across evaluations | Snapshot untracked bytes, permissions, and validated symlink targets before baseline | Never reread an untracked intervention during materialization | Post-capture mutation test |
 | R-033 | WhyVec artifacts enter a later working-tree search | Repeat runs change their own declared intervention space | Reserve and exclude `.whyvec/`; reject tracked transitions crossing the boundary | Compare repeated exact-identity causal projections | Public repeated-query validation |
 | R-034 | User-selected Cargo output is not structured JSON | Missing diagnostics are treated as evidence | Validate existing `--message-format` arguments and append JSON when absent | Reject non-JSON formats before any build | Adapter argument tests |
+| R-035 | Integer-address guard is treated as portable pointer semantics | Repair is invalid on a non-flat or narrower target | Report an explicit target policy and check every multiplication/addition | Limit first guard to recorded flat x86-64 `uintptr_t`; fallback on uncertainty | Overflow refusals and validation report |
+| R-036 | Benchmark improvement hides unstable distributions | Added guard complexity has no reliable value | Retain alternating-order raw samples, median, MAD, CPU state, and decision rule | Emit `noise_decline` unless separation exceeds the declared dispersion gate | Checked-in benchmark artifacts |
+| R-037 | Fast-path testing never exercises the original overlap behavior | Cached bound silently changes covered semantics | Branch-return witness plus original-versus-repaired state comparison | Require bound-inside-output cases to select the unchanged fallback | Differential and sanitizer artifacts |
 
 ## Maintenance
 

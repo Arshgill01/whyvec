@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import sys
 from pathlib import Path
@@ -26,6 +27,7 @@ REQUIRED_PATHS = (
     "docs/REPORT_CONTRACT.md",
     "docs/AGENT_CONTRACT.md",
     "docs/BUILD_CAUSALITY.md",
+    "docs/GUARDED_REPAIR_VALIDATION.md",
     "docs/TEST_STRATEGY.md",
     "docs/THREAT_MODEL.md",
     "docs/RISK_REGISTER.md",
@@ -37,6 +39,7 @@ REQUIRED_PATHS = (
     "schemas/whyvec-build-report.schema.json",
     "schemas/whyvec-gcc-observation-report.schema.json",
     "schemas/whyvec-obligation-report.schema.json",
+    "schemas/whyvec-validation-report.schema.json",
     "schemas/fixture-manifest.schema.json",
     "fixtures/manifest.json",
     "toolchains/clang-21/profile.json",
@@ -53,6 +56,12 @@ REQUIRED_PATHS = (
     "crates/whyvec-cli/src/main.rs",
     "scripts/verify_build_causality.py",
     "scripts/verify_cross_adapter_build_causality.py",
+    "scripts/verify_guarded_repair.py",
+    "fixtures/cases/bound-alias-repair/original.c",
+    "fixtures/cases/bound-alias-repair/guarded.c",
+    "fixtures/cases/bound-alias-repair/harness.c",
+    "fixtures/cases/bound-alias-repair/benchmark.c",
+    "evidence/guarded-bound-alias/2026-07-21/report.json",
     "tools/typescript-adapter/diagnostics.mjs",
     "tools/typescript-adapter/package-lock.json",
 )
@@ -310,6 +319,43 @@ def validate_text_files(errors: list[str]) -> None:
             errors.append(f"{path.relative_to(ROOT)}: unresolved template marker")
 
 
+def validate_guarded_evidence(errors: list[str]) -> None:
+    report_path = ROOT / "evidence/guarded-bound-alias/2026-07-21/report.json"
+    report = load_json(report_path, errors)
+    if not isinstance(report, dict):
+        return
+    if report.get("evidence_strength") != "validated_on_covered_executions":
+        errors.append(f"{report_path.relative_to(ROOT)}: unexpected evidence strength")
+    commands = report.get("commands", [])
+    if str(ROOT) in json.dumps(commands):
+        errors.append(f"{report_path.relative_to(ROOT)}: commands expose the checkout path")
+    artifacts = report.get("artifacts")
+    if not isinstance(artifacts, list):
+        errors.append(f"{report_path.relative_to(ROOT)}: artifact manifest is absent")
+        return
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or not isinstance(artifact.get("path"), str):
+            errors.append(f"{report_path.relative_to(ROOT)}: malformed artifact entry")
+            continue
+        path = report_path.parent / artifact["path"]
+        if not path.is_file():
+            errors.append(f"{path.relative_to(ROOT)}: retained artifact is absent")
+            continue
+        content = path.read_bytes()
+        if len(content) != artifact.get("size"):
+            errors.append(f"{path.relative_to(ROOT)}: retained size mismatch")
+        if hashlib.sha256(content).hexdigest() != artifact.get("sha256"):
+            errors.append(f"{path.relative_to(ROOT)}: retained digest mismatch")
+    for source in report.get("sources", []):
+        if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+            continue
+        path = ROOT / source["path"]
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != source.get(
+            "sha256"
+        ):
+            errors.append(f"{source.get('path')}: validation source digest mismatch")
+
+
 def main() -> int:
     errors: list[str] = []
     validate_required_paths(errors)
@@ -318,6 +364,7 @@ def main() -> int:
     validate_fixture_manifest(errors)
     validate_plugin(errors)
     validate_text_files(errors)
+    validate_guarded_evidence(errors)
 
     if errors:
         print("repository validation failed:", file=sys.stderr)

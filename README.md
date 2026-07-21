@@ -115,6 +115,12 @@ write region, the induction domain, overflow checks, and the unchanged fallback
 requirement. It remains a candidate obligation until repository evidence or a
 runtime guard enforces it.
 
+The executable guarded-repair fixture and its retained validation evidence are
+documented in [Guarded repair validation](docs/GUARDED_REPAIR_VALIDATION.md).
+The report claims differential agreement only on covered executions and keeps
+the original pointer-loaded loop as the overlap and arithmetic-uncertainty
+fallback.
+
 ## Product contract
 
 WhyVec separates three kinds of reasoning that must never be conflated:
@@ -190,6 +196,7 @@ NEXT ACTION
 - [docs/BUILD_CAUSALITY.md](docs/BUILD_CAUSALITY.md) — patch atoms, rustc diagnostic identity, subset search, removal witnesses, and safety boundaries.
 - [docs/DECLINE_CODES.md](docs/DECLINE_CODES.md) — stable failure and refusal taxonomy.
 - [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md) — fixture and adversarial validation matrix.
+- [docs/GUARDED_REPAIR_VALIDATION.md](docs/GUARDED_REPAIR_VALIDATION.md) — checked guard, fallback, sanitizer, optimization-record, and benchmark evidence.
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — untrusted repository and toolchain risks.
 - [docs/phases](docs/phases) — capability phases with entry and exit gates.
 - [logs](logs) — append-only build, experiment, validation, failure, and model-use evidence.

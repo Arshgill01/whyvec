@@ -507,3 +507,32 @@ Results:
 - The volatile-bound report produced `obligation.volatile_bound` and no
   obligation. Both positive and refusal reports retained Clang AST evidence;
   positive semantic replay matched, and modified evidence was refused.
+
+## 2026-07-21T14:33:19Z — R7 guarded source-action exit validation
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- All forty-one Rust tests and the complete optimization/obligation/repair
+  integration passed.
+- Nine original-versus-repaired differential executions agreed byte for byte:
+  five selected the checked fast path and four selected the unchanged fallback.
+  Two synthetic address-end overflow cases refused the fast path.
+- The same defined corpus passed AddressSanitizer and
+  UndefinedBehaviorSanitizer. The compiler record observed the cached-bound
+  fast loop vectorized at width 8/interleave 4 and the original fallback missed.
+- Thirty-one alternating-order raw samples per implementation, Clang identity,
+  CPU/kernel/affinity/governor, and median/MAD statistics are retained under
+  `evidence/guarded-bound-alias/2026-07-21/`.
+- On that covered workload and environment, the original median was 4,572,106
+  ns and the guarded median was 1,303,592 ns (3.51× median ratio); separation
+  exceeded three times the summed MAD under the declared decision rule.

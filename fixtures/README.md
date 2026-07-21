@@ -5,6 +5,7 @@ Fixtures are executable semantic cases, not illustrative snippets. Each case def
 ## Case classes
 
 - `bound-alias` — baseline misses and a bound-parameter noalias counterfactual vectorizes.
+- `bound-alias-repair` — a checked runtime guard selects a cached-bound vectorized fast path while retaining the original pointer-loaded fallback.
 - `cpp-bound-alias` — a C++ translation unit with C linkage exercises the same typed LLVM family without inheriting C source-contract claims.
 - `cpp-template-bound` — an explicit C++ template instance is selected by its exact mangled LLVM identity and exercises positive counterfactual search.
 - `cpp-macro-ambiguous` — two macro-origin loops share one invocation line and must decline identity selection.

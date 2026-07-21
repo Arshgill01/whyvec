@@ -87,6 +87,13 @@ Required declines cover:
 
 ### Repair behavior tests
 
+The first executable guarded fixture runs all cases below through original and
+repaired implementations, asserts byte-for-byte state agreement, and records
+which branch executed. The same defined corpus runs under ASan/UBSan. The fast
+path must emit a vectorization record and the retained fallback must preserve
+the original miss. Benchmark samples alternate measurement order and use a
+median/MAD noise gate.
+
 For a guarded repair:
 
 - non-overlap selects the optimized path;

@@ -397,3 +397,35 @@ Evidence strength and limitation:
 - The positive result is a derived obligation from the covered AST access
   model. It is not evidence that any caller satisfies the condition, and it
   does not authorize `restrict` or a source edit without repository analysis.
+
+## 2026-07-21T14:33:19Z — Checked guarded repair behavior and measurement
+
+Command:
+
+```console
+python3 scripts/verify_guarded_repair.py \
+  --obligation-report <positive-obligation-report> \
+  --artifact-root evidence/guarded-bound-alias/2026-07-21
+```
+
+Observed results:
+
+- The guard captured the initial bound, checked byte-extent multiplication and
+  both `uintptr_t` range ends, and entered the cached-bound path only when the
+  bound object was disjoint from the complete output region.
+- Disjoint, before-range, after-range, and input/output-overlap layouts selected
+  the fast path. Bound-inside-output, zero, and negative cases selected the
+  original pointer-loaded fallback. All nine repaired states matched the
+  original implementation on covered executions.
+- ASan/UBSan remained clean on those defined executions. Two overflow-adjacent
+  address layouts refused the fast path without dereferencing the synthetic
+  output addresses.
+- Clang observed the fast loop vectorized and the unchanged fallback missed.
+  The retained 31-sample distributions satisfied the declared noise gate with
+  a 3.51× median ratio on the recorded AMD EPYC 7B12 environment.
+
+Evidence strength and limitation:
+
+- Behavior is validated on covered executions, not proved equivalent. The
+  address guard is limited to the recorded flat x86-64 policy, and the measured
+  ratio is not claimed for other machines, workloads, or build configurations.

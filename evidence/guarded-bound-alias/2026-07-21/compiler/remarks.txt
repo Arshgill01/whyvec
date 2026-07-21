@@ -1,0 +1,7 @@
+/home/arshdeepsingh/work/github/whyvec/fixtures/cases/bound-alias-repair/guarded.c:43:3: remark: loop not vectorized: Cannot vectorize uncountable loop [-Rpass-analysis=loop-vectorize]
+   43 |   for (int i = 0; i < *count; ++i)
+      |   ^
+/home/arshdeepsingh/work/github/whyvec/fixtures/cases/bound-alias-repair/guarded.c:43:3: remark: loop not vectorized [-Rpass-missed=loop-vectorize]
+/home/arshdeepsingh/work/github/whyvec/fixtures/cases/bound-alias-repair/guarded.c:38:5: remark: vectorized loop (vectorization width: 8, interleaved count: 4) [-Rpass=loop-vectorize]
+   38 |     for (int i = 0; i < initial_bound; ++i)
+      |     ^

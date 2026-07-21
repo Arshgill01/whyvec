@@ -73,6 +73,15 @@ fingerprinted Clang, AST artifacts, semantic digest, and replay input. The
 runtime guard section is a checked enforcement plan, not a generated patch or
 an assertion about callers.
 
+Guarded source actions emit a separate
+[validation report](../schemas/whyvec-validation-report.schema.json). Its
+evidence strength is `validated_on_covered_executions`. It links the source
+obligation, exact fixture source digests, normalized commands, compiler
+identity, differential and sanitizer branch counts, fast/fallback optimization
+records, raw benchmark samples, dispersion, decision rule, and environment.
+Correctness or compiler-record failures prevent report creation. Benchmark
+noise produces `noise_decline`, not a speed claim.
+
 ## Compatibility
 
 The report uses semantic versioning in `schema_version`.

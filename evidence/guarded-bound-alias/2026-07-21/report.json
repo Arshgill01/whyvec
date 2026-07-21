@@ -1,0 +1,257 @@
+{
+  "analysis_id": "wv_99a8bf741ef213fdb11b3412",
+  "artifact_path": "evidence/guarded-bound-alias/2026-07-21/report.json",
+  "artifacts": [
+    {
+      "media_type": "application/json",
+      "path": "checks/differential.json",
+      "sha256": "8846e6222c65f509e4fc5040298f9aad744cc4e121945ba20a178ae8d2136a82",
+      "size": 80
+    },
+    {
+      "media_type": "application/json",
+      "path": "checks/sanitizer.json",
+      "sha256": "8846e6222c65f509e4fc5040298f9aad744cc4e121945ba20a178ae8d2136a82",
+      "size": 80
+    },
+    {
+      "media_type": "application/yaml",
+      "path": "compiler/optimization.opt.yaml",
+      "sha256": "2322d5fa87cbe868dd3b4bcd2fcd6bed57a71705492b712770a180dc0eff939c",
+      "size": 34191
+    },
+    {
+      "media_type": "text/plain",
+      "path": "compiler/remarks.txt",
+      "sha256": "3f977ec2623d44b239b8a877e0aaddf69e1bf52f0697aa0259598aa3da0563c2",
+      "size": 638
+    },
+    {
+      "media_type": "application/json",
+      "path": "benchmark/raw.json",
+      "sha256": "283c30a0e31ad914ec827c61409335f83663f1ee8287d6747a7c152df024889a",
+      "size": 631
+    },
+    {
+      "media_type": "application/json",
+      "path": "benchmark/summary.json",
+      "sha256": "18e23f40f821fc58dc431c12d36a620eab13d487c93c22a396fff6ce6c7b7fae",
+      "size": 290
+    },
+    {
+      "media_type": "application/json",
+      "path": "environment.json",
+      "sha256": "54cd617feeeae489ab409cf339be585caa72fd433642392668c3c76e0d6778db",
+      "size": 149
+    }
+  ],
+  "benchmark": {
+    "raw": {
+      "elements": 1048576,
+      "guarded_ns": [
+        1641132,
+        1256561,
+        1462392,
+        1226611,
+        1484302,
+        1225742,
+        1359622,
+        1303592,
+        1443432,
+        1263012,
+        1396601,
+        1278342,
+        1518022,
+        1286811,
+        1421292,
+        1235022,
+        1413512,
+        1297582,
+        1521551,
+        1302632,
+        1276902,
+        1271622,
+        1280681,
+        1263232,
+        1391263,
+        1353991,
+        1330912,
+        1273881,
+        1385412,
+        1243132,
+        1369762
+      ],
+      "original_ns": [
+        4504646,
+        4516366,
+        4572106,
+        4386416,
+        4552196,
+        4327555,
+        4611676,
+        4631936,
+        4481315,
+        4676326,
+        4454946,
+        4569826,
+        4485826,
+        4504566,
+        4657706,
+        4513336,
+        4640146,
+        4515145,
+        4637846,
+        4591936,
+        4806316,
+        4687465,
+        4549905,
+        4659576,
+        4585136,
+        4568946,
+        4600586,
+        4645916,
+        4650866,
+        4443605,
+        4700546
+      ],
+      "repetitions": 8
+    },
+    "summary": {
+      "classification": "measured_improvement",
+      "decision_rule": "improvement only when median separation exceeds three times summed MAD",
+      "guarded_mad_ns": 60460.0,
+      "guarded_median_ns": 1303592.0,
+      "median_ratio": 3.5073136380094385,
+      "original_mad_ns": 67540.0,
+      "original_median_ns": 4572106.0
+    }
+  },
+  "caveats": [
+    "Differential agreement is validated on covered executions, not full semantic equivalence.",
+    "The uintptr_t guard is limited to the recorded flat x86-64 target policy.",
+    "Benchmark classification applies only to the retained environment and workload."
+  ],
+  "commands": [
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O2",
+      "-march=x86-64-v3",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/guarded.c",
+      "<repository>/fixtures/cases/bound-alias-repair/harness.c",
+      "-o",
+      "<build>/differential"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/guarded.c",
+      "<repository>/fixtures/cases/bound-alias-repair/harness.c",
+      "-o",
+      "<build>/sanitizer"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "-Rpass=loop-vectorize",
+      "-Rpass-missed=loop-vectorize",
+      "-Rpass-analysis=loop-vectorize",
+      "-fsave-optimization-record=yaml",
+      "-foptimization-record-file=<build>/guarded.opt.yaml",
+      "-c",
+      "<repository>/fixtures/cases/bound-alias-repair/guarded.c",
+      "-o",
+      "<build>/guarded.o"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/guarded.c",
+      "<repository>/fixtures/cases/bound-alias-repair/benchmark.c",
+      "-o",
+      "<build>/benchmark"
+    ]
+  ],
+  "differential": {
+    "executions": 9,
+    "fallback_paths": 4,
+    "fast_paths": 5,
+    "overflow_refusals": 2
+  },
+  "environment": {
+    "affinity": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "cpu_model": "AMD EPYC 7B12",
+    "governor": "unknown",
+    "kernel": "7.0.0-1008-gcp",
+    "machine": "x86_64",
+    "python": "3.14.4"
+  },
+  "evidence_strength": "validated_on_covered_executions",
+  "obligation": {
+    "analysis_id": "wv_9a4de27a64f5cca33f0dc357",
+    "family": "bound_object_disjoint_from_modified_region",
+    "semantic_digest": "28613df2436ebdbf0dec9bb0613a21cc88a81d11ca6cbac8e8753aff37880931"
+  },
+  "optimization": {
+    "fallback": "missed",
+    "fallback_line": 43,
+    "fast_path": "vectorized",
+    "fast_path_line": 38
+  },
+  "query_kind": "repair_validation",
+  "sanitizer": {
+    "clean": true,
+    "covered": {
+      "executions": 9,
+      "fallback_paths": 4,
+      "fast_paths": 5,
+      "overflow_refusals": 2
+    }
+  },
+  "schema_version": "1.0.0",
+  "sources": [
+    {
+      "path": "fixtures/cases/bound-alias-repair/original.c",
+      "sha256": "d983f7f7d080a0198cdfd43d1e863b302d02a32f379178675a0ca8de1a23ef89"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/guarded.c",
+      "sha256": "e96507be63d22cc16e9baa6d9fabe196806b2634ccb5a6c7be7afa1561778a88"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/harness.c",
+      "sha256": "eda55ce16368544fc001a65097955463e4937d7fb993feaadf407843763c4127"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/benchmark.c",
+      "sha256": "0c5251d2f473391a4d1493d096663a1c2d17ca090bc5231741519f72a9214b39"
+    }
+  ],
+  "toolchain": {
+    "clang": {
+      "binary_digest": "78e9dd2ccc9e88859b3a29109a44bfab00e3d6cb70f00f3daae063eed3d05251",
+      "invocation_path": "/usr/lib/llvm-21/bin/clang",
+      "resolved_path": "/usr/lib/llvm-21/bin/clang",
+      "version": "Ubuntu clang version 21.1.8 (6ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/lib/llvm-21/bin"
+    },
+    "flags": [
+      "-march=x86-64-v3"
+    ]
+  }
+}

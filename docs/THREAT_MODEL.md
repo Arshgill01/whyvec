@@ -39,6 +39,13 @@ arguments or plugins. Crafted source can still exercise compiler
 vulnerabilities; OS sandboxing for this syntax-only path remains a residual
 risk.
 
+Repair validation executes only the checked-in trusted fixture harness through
+fixed argv. It does not accept repository build commands. Generated binaries
+and compiler outputs live in an OS-created temporary directory; retained
+reports contain normalized checkout/build placeholders rather than private
+absolute paths. General untrusted-repository test execution still requires the
+build sandbox and is not implied by this fixture validator.
+
 ## Threats and controls
 
 ### Arbitrary command execution

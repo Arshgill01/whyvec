@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import stat
 import subprocess
@@ -379,6 +380,47 @@ def main() -> int:
         )
         if obligation_replay.get("matched") is not True:
             raise RuntimeError(f"obligation replay did not match: {obligation_replay}")
+
+        retained_validation = os.environ.get("WHYVEC_RETAIN_VALIDATION_ROOT")
+        validation_root = (
+            Path(retained_validation)
+            if retained_validation
+            else temporary_path / "guarded-validation"
+        )
+        validation_meta = json.loads(
+            run(
+                [
+                    "python3",
+                    str(ROOT / "scripts/verify_guarded_repair.py"),
+                    "--obligation-report",
+                    str(obligation["artifact_path"]),
+                    "--artifact-root",
+                    str(validation_root),
+                ]
+            ).stdout
+        )
+        validation_report = json.loads(
+            Path(validation_meta["report"]).read_text(encoding="utf-8")
+        )
+        if validation_report.get("evidence_strength") != (
+            "validated_on_covered_executions"
+        ):
+            raise RuntimeError("guarded validation overstated or omitted evidence strength")
+        if validation_report.get("differential") != {
+            "executions": 9,
+            "fast_paths": 5,
+            "fallback_paths": 4,
+            "overflow_refusals": 2,
+        }:
+            raise RuntimeError(f"guarded branch coverage changed: {validation_report}")
+        if validation_report.get("optimization") != {
+            "fast_path": "vectorized",
+            "fallback": "missed",
+            "fast_path_line": 38,
+            "fallback_line": 43,
+        }:
+            raise RuntimeError("guarded compiler evidence changed")
+        validate_artifacts(validation_report)
 
         volatile_obligation = json.loads(
             run(

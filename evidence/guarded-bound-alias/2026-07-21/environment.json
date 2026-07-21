@@ -1,0 +1,1 @@
+{"affinity": [0, 1, 2, 3], "cpu_model": "AMD EPYC 7B12", "governor": "unknown", "kernel": "7.0.0-1008-gcp", "machine": "x86_64", "python": "3.14.4"}
