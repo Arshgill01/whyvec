@@ -638,3 +638,64 @@ Results:
   progressive-detail commands are explicitly labeled as future hardening.
 - The next GitHub run must pass on the named Ubuntu 22.04 runner before this
   evidence closes the remote distribution gate.
+
+## 2026-07-21T16:18:12Z — R3–R8 requirement-by-requirement completion audit
+
+The audit used [the retained gate matrix](../docs/R3_R8_COMPLETION_AUDIT.md) to
+check the PLAN release claims against the numbered phase gates, architecture,
+semantic and agent contracts, schemas, threat model, risk register, current
+sources, adversarial fixtures, retained artifacts, executable help, and GitHub
+state. It did not infer completion from the pre-existing `complete` labels.
+
+GitHub run `29846353697` for commit `e2c5d8e` passed on the named Ubuntu 22.04
+runner. Its Bubblewrap install and full `--unshare-all` smoke, repository
+validation, formatting, Clippy, and all Rust tests succeeded.
+
+After the gate-audit corrections were committed as `6cbcac0`, a fresh local
+clone was created at
+`/home/arshdeepsingh/work/whyvec-validation-tmp/whyvec-final-audit-6Kaovk/repo`.
+The plugin was copied to the sibling `installed-whyvec` directory. These exact
+commands passed from that clean checkout:
+
+```console
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo fmt --all -- --check
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo clippy --workspace --all-targets --all-features -- -D warnings
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo test --workspace --all-targets --all-features
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/validate_repository.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_compiler_fixtures.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_build_causality.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_cross_adapter_build_causality.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_llvm_transformer.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_llvm_loop_identity.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_optimization_causality.py
+python3 /home/arshdeepsingh/.codex/skills/.system/skill-creator/scripts/quick_validate.py /home/arshdeepsingh/work/whyvec-validation-tmp/whyvec-final-audit-6Kaovk/installed-whyvec/skills/whyvec-optimize
+python3 /home/arshdeepsingh/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py /home/arshdeepsingh/work/whyvec-validation-tmp/whyvec-final-audit-6Kaovk/installed-whyvec
+python3 -m py_compile /home/arshdeepsingh/work/whyvec-validation-tmp/whyvec-final-audit-6Kaovk/installed-whyvec/skills/whyvec-optimize/scripts/plan_action.py
+git status --short
+```
+
+Results:
+
+- All forty-one Rust tests, formatting, and Clippy passed from an empty build
+  cache. The clean clone remained unmodified.
+- Clang 21/C++, rustc 1.96.1/LLVM 22 surrogate, Cargo/rustc, Clang SARIF,
+  GCC 15 JSON/native optimization records, and TypeScript 7 fixture paths all
+  produced their expected positive or typed-refusal results.
+- Public build, optimization, GCC, and obligation replay matched normalized
+  semantics; modified reports or artifacts remained refused.
+- R8 forward tests retained guarded selection for the exact measured candidate,
+  returned `validation_required` for digest mismatch and missing fast-branch
+  coverage, and returned `refuse` for volatile obligations and benchmark
+  `noise_decline` without erasing covered behavior evidence.
+- Repository validation independently rehashed the optimization, obligation,
+  validation, and replay-analysis manifests in the checked-in action bundle.
+  A copied-bundle test with `baseline/preopt.ll` removed was refused with the
+  exact missing-artifact path.
+- The copied plugin passed the official skill and plugin validators, and its
+  planner byte-compiled successfully.
+
+Residual scope remains explicit: the Rust split pipeline is surrogate,
+automatic source/IR mapping is still R1/R2 work, portable redacted build export
+is a later distribution gate, the guard is limited to the recorded flat x86-64
+policy, caller discovery is not closed-world proof, tests validate covered
+executions only, and benchmark evidence is environment-specific.
