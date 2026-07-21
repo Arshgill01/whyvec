@@ -536,3 +536,60 @@ Results:
 - On that covered workload and environment, the original median was 4,572,106
   ns and the guarded median was 1,303,592 ns (3.51× median ratio); separation
   exceeded three times the summed MAD under the declared decision rule.
+
+## 2026-07-21T15:45:57Z — R8 Codex repository-action exit validation
+
+Passed commands:
+
+```console
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo fmt --all -- --check
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo clippy --workspace --all-targets --all-features -- -D warnings
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo test --workspace --all-targets --all-features
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/validate_repository.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_compiler_fixtures.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_build_causality.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_cross_adapter_build_causality.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_llvm_transformer.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_llvm_loop_identity.py
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp python3 scripts/verify_optimization_causality.py
+python3 /home/arshdeepsingh/.codex/skills/.system/skill-creator/scripts/quick_validate.py integrations/codex/whyvec/skills/whyvec-optimize
+python3 /home/arshdeepsingh/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py integrations/codex/whyvec
+```
+
+Clean-checkout artifact validation used commit `aea37cd` at
+`/home/arshdeepsingh/work/whyvec-validation-tmp/whyvec-clean-FkiWVT/repo` and
+copied its plugin to the sibling `installed-whyvec` directory. The following
+all passed against that copied artifact:
+
+```console
+python3 scripts/validate_repository.py
+python3 /home/arshdeepsingh/.codex/skills/.system/skill-creator/scripts/quick_validate.py installed-whyvec/skills/whyvec-optimize
+python3 /home/arshdeepsingh/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py installed-whyvec
+python3 -m py_compile installed-whyvec/skills/whyvec-optimize/scripts/plan_action.py
+```
+
+Results:
+
+- All forty-one Rust tests, formatting, Clippy, repository checks, compiler
+  fixtures, build adapters, LLVM helpers, and optimization workflow passed.
+- Validation schema 1.1 retains thirteen command outcomes for the exact
+  candidate digest. Eleven covered executions agreed with the original: seven
+  selected the checked fast path, four selected the unchanged fallback, and
+  two synthetic address-end overflow cases refused the fast path.
+- ABI, production and instrumented differential tests, production and
+  instrumented ASan/UBSan tests, branch-specific optimization records, and the
+  production benchmark all completed successfully. The compiler observed the
+  fast loop vectorized and the fallback loop missed.
+- The retained action trace selected `validated_guarded_runtime`. It rejected
+  `restrict` because repository caller coverage is incomplete, rejected an API
+  change as unnecessary, and preserves typed refusal for unsupported
+  obligations or mismatched candidate evidence.
+- Optimization and obligation reports replayed with matching semantic digests.
+  The retained search result is described as the `smallest_set_found`, because
+  the declared finite search was not exhaustively evaluated.
+- A model forward audit found no unresolved material defect after fixes for
+  legacy-report authorization, ABI mismatch, test-only evidence, and minimality
+  overstatement.
+- The benchmark is evidence for this covered x86-64 environment, not a portable
+  performance guarantee. Differential and sanitizer tests establish only
+  `validated on covered executions`, not full semantic equivalence.

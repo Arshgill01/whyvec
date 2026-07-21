@@ -29,3 +29,14 @@ Safeguard: `.whyvec/` is now an adapter-reserved analysis-state namespace exclud
 The first Git atom implementation retained the path of an untracked file and copied its content during every subset evaluation. A concurrent working-tree edit could therefore give different subsets different bytes under the same atom identity.
 
 Safeguard: untracked regular-file bytes and permissions, plus validated in-repository symlink targets, are snapshotted before the baseline. A unit test mutates the source after capture and verifies that materialization still uses the captured bytes.
+
+## 2026-07-21T15:45:57Z — Validation temporary storage exhausted
+
+The first R8 repository-wide validation using the default `/tmp` failed with
+`Disk quota exceeded`. Pointing `TMPDIR` inside the repository then changed the
+Bubblewrap-visible source topology, so the baseline correctly declined rather
+than comparing a non-equivalent build.
+
+Safeguard: the complete validation was rerun with `TMPDIR` set to the external
+bounded directory `/home/arshdeepsingh/work/whyvec-validation-tmp`. All checks
+then passed without changing the repository path seen by isolated builds.
