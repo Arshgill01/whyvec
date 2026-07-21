@@ -59,7 +59,8 @@ jobs:
           sudo install -m 0644 /tmp/apt.llvm.org.asc /usr/share/keyrings/apt.llvm.org.asc
           echo "deb [signed-by=/usr/share/keyrings/apt.llvm.org.asc] https://apt.llvm.org/jammy/ llvm-toolchain-jammy-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
           sudo apt-get update
-          sudo apt-get install --yes bubblewrap clang-21 jq libclang-21-dev libclang-rt-21-dev llvm-21-dev ninja-build npm python3-jsonschema python3-yaml
+          sudo apt-get install --yes bubblewrap clang-21 jq libclang-21-dev libclang-rt-21-dev llvm-21-dev ninja-build npm python3-pip python3-yaml
+          python3 -m pip install --user jsonschema==4.25.1
           sudo npm install --global n@10.2.0
           sudo n 22.14.0
           hash -r

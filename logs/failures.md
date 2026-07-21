@@ -200,3 +200,14 @@ retained; CI continues to run the portable Rust suite, build adapters, Clang 21
 compiler product, LLVM transformer/identity/causality, mutations, plugin install,
 demo, real-world case, and pinned judge container. No version assertion was
 weakened.
+
+## 2026-07-21T19:38:00Z — Ubuntu 22 schema library predated Draft 2020-12
+
+Run `29862090283` passed both the portable and pinned-container jobs. The
+compiler product installed cleanly and began build-causality validation, but
+Ubuntu 22.04's distribution `python3-jsonschema` exposed only older draft
+validators and could not evaluate the repository's Draft 2020-12 schemas.
+
+Safeguard: that job now installs `jsonschema==4.25.1` through Python's user
+site before validation. The schema remains Draft 2020-12; no assertion or
+report contract was downgraded.
