@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - name: Check out repository
@@ -28,6 +28,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes bubblewrap
           bwrap --version
+          bwrap --die-with-parent --new-session --unshare-all \
+            --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp -- /usr/bin/true
 
       - name: Validate repository contracts
         run: python3 scripts/validate_repository.py

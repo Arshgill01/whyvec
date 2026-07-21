@@ -53,3 +53,17 @@ Safeguard: the workflow now installs Bubblewrap explicitly and records
 `bwrap --version` before running repository checks. The focused fifteen-test
 build-adapter suite passed locally with Bubblewrap 0.11.1; completion remains
 in verification until the changed workflow passes on GitHub.
+
+## 2026-07-21T15:56:32Z — Installed Bubblewrap was blocked by the runner image
+
+The first workflow repair installed Bubblewrap successfully on
+`ubuntu-latest`, which resolved tool discovery. Run `29845981549` still failed
+the same two tests with `BaselineFailed([])`: the current `ubuntu-24.04` hosted
+image prevented Bubblewrap's unprivileged namespace setup, so the compiler
+never ran and no structured diagnostics existed.
+
+Safeguard: the distribution test job now names `ubuntu-22.04` instead of the
+moving `ubuntu-latest` label and performs the complete `--unshare-all` sandbox
+smoke invocation before repository validation. This retains mandatory
+containment and makes an unavailable namespace capability fail at setup rather
+than masquerading as a compiler baseline result.

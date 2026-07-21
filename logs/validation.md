@@ -617,3 +617,24 @@ Results:
   analyses that failed remotely.
 - Repository validation and patch whitespace validation passed.
 - Remote completion is not claimed until the pushed workflow rerun succeeds.
+
+## 2026-07-21T15:56:32Z — Pinned-runner Bubblewrap smoke validation
+
+Passed commands for the revised workflow setup and focused regression:
+
+```console
+bwrap --die-with-parent --new-session --unshare-all --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp -- /usr/bin/true
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo test -p whyvec-build --all-features
+python3 scripts/validate_repository.py
+git diff --check
+```
+
+Results:
+
+- The same mount, process, cgroup, and network namespace mode used by the build
+  adapter started successfully.
+- All fifteen build-adapter tests passed.
+- Product documentation now lists only implemented CLI commands; planned
+  progressive-detail commands are explicitly labeled as future hardening.
+- The next GitHub run must pass on the named Ubuntu 22.04 runner before this
+  evidence closes the remote distribution gate.

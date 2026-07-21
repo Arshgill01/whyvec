@@ -170,27 +170,23 @@ semantic obligation ──► repository and caller analysis
 ## Representative interaction
 
 ```console
-$ whyvec analyze src/kernel.c:12
+$ whyvec explain-opt src/kernel.c:5 --function add_vectors_ \
+    --parameter output:0 --parameter input:1 --parameter count:2 \
+    --transformer /path/to/whyvec-llvm-transform \
+    --identity-tool /path/to/whyvec-llvm-loop-identity
 
-BASELINE
-  status: missed
-  compiler: Cannot vectorize uncountable loop
-
-COUNTERFACTUAL SEARCH
-  output modeled noalias  -> vectorized, VF=8
-  input modeled noalias   -> missed
-  count modeled noalias   -> vectorized, VF=8
-
-SMALLEST SUFFICIENT SET FOUND
-  { count modeled noalias }
-
-CANDIDATE OBLIGATION
-  The object loaded through `count` must not overlap memory modified
-  through `output` during the selected loop.
-
-NEXT ACTION
-  Repository analysis required. Do not add `restrict` from this result alone.
+OPTIMIZATION CAUSALITY
+  baseline: missed
+  pipeline fidelity: equivalent_confirmed
+  loop fingerprint: <recorded fingerprint>
+  smallest sufficient set found: parameter.count.noalias
+  Under the recorded toolchain and equivalent-confirmed pipeline, parameter.count.noalias was a tested sufficient assumption for the matched loop to vectorize.
+  report: .whyvec/analyses/<analysis-id>/report.json
 ```
+
+Run `derive-obligation` on that report before considering a source action. The
+result is a candidate obligation or typed decline; repository analysis remains
+required and the counterfactual alone never authorizes `restrict`.
 
 ## Engineering principles
 
@@ -233,9 +229,13 @@ NEXT ACTION
 - [tools/whyvec-llvm-transform.cpp](tools/whyvec-llvm-transform.cpp) — pinned-LLVM typed IR intervention helper used by the optimization pack.
 - [tools/whyvec-llvm-loop-identity.cpp](tools/whyvec-llvm-loop-identity.cpp) — LLVM loop analysis and structural identity helper with ambiguity refusal.
 
-## Current foundation
+## Current implementation
 
-This repository establishes the executable specification, semantic boundaries, validation surfaces, report schemas, fixture taxonomy, and Codex integration contract from which implementation proceeds. Every implemented behavior must trace back to an acceptance gate in [PLAN.md](PLAN.md) and produce evidence in the appropriate log.
+This repository contains executable build-causality, LLVM optimization,
+GCC-observation, source-obligation, guarded-validation, semantic-replay, and
+Codex action-planning paths. Their supported and residual surfaces are tracked
+in [PLAN.md](PLAN.md), and completed capabilities retain validation evidence in
+the appropriate log.
 
 ## License
 

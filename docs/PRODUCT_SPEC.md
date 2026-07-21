@@ -42,14 +42,22 @@ Given a source loop and its real build configuration:
 ### Command line
 
 ```console
-whyvec analyze path/to/file.c:line [--compile-command ID] [--format human|json]
-whyvec inspect ANALYSIS_ID
-whyvec compare BASELINE_ID VARIANT_ID
-whyvec verify ANALYSIS_ID --worktree PATH
-whyvec artifacts ANALYSIS_ID
+whyvec explain-build --diagnostic CODE [--at PATH] [--format human|json] -- COMMAND...
+whyvec replay-build REPORT.json
+whyvec explain-opt SOURCE:LINE --function NAME --parameter NAME:INDEX... \
+  --transformer PATH --identity-tool PATH [--format human|json]
+whyvec replay-opt REPORT.json
+whyvec observe-gcc-opt SOURCE:LINE --function NAME [--llvm-report REPORT.json]
+whyvec replay-gcc-opt REPORT.json
+whyvec derive-obligation OPTIMIZATION_REPORT.json [--format human|json]
+whyvec replay-obligation REPORT.json
 ```
 
-The primary `analyze` output is concise. `inspect` and the artifact directory expose progressive detail without flooding the agent context.
+The `explain-*`, `observe-*`, and `derive-*` commands emit concise human output
+or their versioned JSON model. Replay commands verify retained evidence and
+semantic reproduction. Progressive `inspect`, `compare`, `verify`, and
+`artifacts` convenience commands remain future product-hardening surfaces; they
+are not current CLI commands.
 
 ### Codex integration
 
