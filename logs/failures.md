@@ -67,3 +67,36 @@ moving `ubuntu-latest` label and performs the complete `--unshare-all` sandbox
 smoke invocation before repository validation. This retains mandatory
 containment and makes an unavailable namespace capability fail at setup rather
 than masquerading as a compiler baseline result.
+
+## 2026-07-21T16:12:41Z — Completion audit found incomplete action gates
+
+The R8 planner treated a validation report as action-ready when the required
+production commands, fallback witness, sanitizer flag, and compiler records
+were present. It did not require every one of the thirteen command outcomes,
+a witnessed fast branch, sanitizer coverage equal to the differential corpus,
+an overflow refusal, or a benchmark classification of `measured_improvement`.
+Consequently, a schema-valid `noise_decline` could still select guarded runtime
+versioning, contrary to the agent contract.
+
+Safeguard: guarded selection now requires the complete indexed command ledger,
+zero status for all thirteen commands, both branch witnesses, matching
+differential/sanitizer coverage, overflow refusal, fast/fallback compiler
+records, and measured improvement. A completed `noise_decline` selects refusal
+while preserving `validated on covered executions`; missing branch evidence
+returns `validation_required` and `not validated`.
+
+## 2026-07-21T16:12:41Z — Checked-in R8 replay evidence was under-verified
+
+Repository validation rehashed the guarded validation artifacts and checked
+that `replay.json` said both upstream reports matched. It did not independently
+rehash the optimization, obligation, or replay-analysis artifact manifests in
+the checked-in R8 bundle. A later missing or modified compiler artifact could
+therefore survive the lightweight repository check even though public replay
+would refuse it.
+
+Safeguard: repository validation now resolves every artifact beneath its report
+directory, rejects escapes and symlinks, checks size and SHA-256, verifies
+trace-linked analysis identities and semantic digests, and validates the two
+retained replay-analysis reports. A copied-bundle adversarial check removed
+`baseline/preopt.ll`; validation refused the bundle with the exact missing
+artifact path.

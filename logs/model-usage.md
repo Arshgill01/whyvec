@@ -65,3 +65,45 @@ Evidence strength:
   singleton tier;
 - candidate behavior is validated on covered executions, not proved
   equivalent.
+
+## 2026-07-21T16:12:41Z — R3–R8 completion forward audit
+
+Task:
+
+- audit every R3–R8 release claim against current implementation, retained
+  evidence, phase gates, architecture, schemas, threat model, risk register,
+  executable validation, and remote CI state.
+
+Material findings and decisions:
+
+- remote `master` was not complete while GitHub's moving Ubuntu runner lacked
+  usable Bubblewrap namespaces; the job was pinned to Ubuntu 22.04 with an
+  explicit full-mode sandbox smoke check, and run `29846353697` passed;
+- product and demonstration documents named commands absent from executable
+  help, so they were corrected to the implemented explain/replay/observe and
+  obligation surfaces rather than expanding claims;
+- checked-in action evidence needed fresh manifest verification rather than a
+  trusted prior replay boolean;
+- guarded selection must reject measured `noise_decline` and require every ABI,
+  instrumented, production, sanitizer, compiler, and benchmark command plus
+  both branch and overflow witnesses.
+
+Forward-test outcomes:
+
+- exact measured candidate still selects `validated_guarded_runtime`;
+- a candidate digest mismatch and missing fast-path coverage select
+  `validation_required`;
+- completed covered behavior with `noise_decline` selects `refuse` while
+  retaining `validated on covered executions`;
+- a volatile obligation still selects typed refusal;
+- a copied retained bundle with a removed pre-optimization IR artifact is
+  rejected by repository validation.
+
+Evidence strength:
+
+- compiler outcomes remain observed;
+- LLVM parameter `noalias` remains a tested sufficient assumption only in the
+  evaluated singleton tier;
+- behavior remains validated on covered executions;
+- performance is a measured result only when the retained dispersion rule
+  classifies `measured_improvement`.

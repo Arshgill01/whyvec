@@ -169,41 +169,69 @@ def validation_ready(
     report: dict[str, object] | None,
     obligation: dict[str, object],
     candidate_digest: str | None,
+    *,
+    require_measured_improvement: bool = True,
 ) -> bool:
     if report is None or candidate_digest is None:
         return False
     linked = report.get("obligation")
+    commands = report.get("commands")
     command_outcomes = report.get("command_outcomes")
-    successful_commands = (
-        {
-            outcome.get("name")
-            for outcome in command_outcomes
-            if isinstance(outcome, dict) and outcome.get("exit_status") == 0
-        }
+    outcomes = (
+        [outcome for outcome in command_outcomes if isinstance(outcome, dict)]
         if isinstance(command_outcomes, list)
-        else set()
+        else []
     )
+    successful_commands = {
+        outcome.get("name") for outcome in outcomes if outcome.get("exit_status") == 0
+    }
+    required_commands = {
+        "abi_compile",
+        "abi_execute",
+        "differential_compile",
+        "differential_execute",
+        "production_differential_compile",
+        "production_differential_execute",
+        "sanitizer_compile",
+        "sanitizer_execute",
+        "production_sanitizer_compile",
+        "production_sanitizer_execute",
+        "production_optimization_compile",
+        "production_benchmark_compile",
+        "production_benchmark_execute",
+    }
+    command_indices = [outcome.get("command_index") for outcome in outcomes]
+    command_ledger_complete = (
+        isinstance(commands, list)
+        and len(outcomes) == len(command_outcomes) == len(commands)
+        and all(isinstance(index, int) for index in command_indices)
+        and sorted(command_indices) == list(range(len(commands)))
+        and all(outcome.get("exit_status") == 0 for outcome in outcomes)
+        and required_commands.issubset(successful_commands)
+    )
+    differential = report.get("differential", {})
+    sanitizer = report.get("sanitizer", {})
     return (
         isinstance(linked, dict)
-        and {
-            "abi_compile",
-            "abi_execute",
-            "production_differential_compile",
-            "production_differential_execute",
-            "production_sanitizer_compile",
-            "production_sanitizer_execute",
-            "production_optimization_compile",
-            "production_benchmark_compile",
-            "production_benchmark_execute",
-        }.issubset(successful_commands)
+        and command_ledger_complete
         and report.get("candidate_source_sha256") == candidate_digest
         and linked.get("analysis_id") == obligation.get("analysis_id")
         and linked.get("semantic_digest") == obligation.get("semantic_digest")
         and report.get("evidence_strength") == "validated_on_covered_executions"
-        and report.get("sanitizer", {}).get("clean") is True
-        and report.get("differential", {}).get("fallback_paths", 0) > 0
+        and isinstance(differential, dict)
+        and differential.get("fast_paths", 0) > 0
+        and differential.get("fallback_paths", 0) > 0
+        and differential.get("overflow_refusals", 0) > 0
+        and isinstance(sanitizer, dict)
+        and sanitizer.get("clean") is True
+        and sanitizer.get("covered") == differential
         and report.get("optimization", {}).get("fast_path") == "vectorized"
         and report.get("optimization", {}).get("fallback") == "missed"
+        and (
+            not require_measured_improvement
+            or report.get("benchmark", {}).get("summary", {}).get("classification")
+            == "measured_improvement"
+        )
     )
 
 
@@ -281,8 +309,27 @@ def main() -> int:
         else None
     )
     candidate_digest = digest(candidate.read_bytes()) if candidate else None
-    ready = validation_ready(validation, obligation, candidate_digest)
-    if action == "guarded_runtime" and not ready:
+    behavior_validated = validation_ready(
+        validation,
+        obligation,
+        candidate_digest,
+        require_measured_improvement=False,
+    )
+    ready = behavior_validated and validation_ready(
+        validation, obligation, candidate_digest
+    )
+    benchmark_declined = (
+        behavior_validated
+        and validation is not None
+        and validation.get("benchmark", {}).get("summary", {}).get("classification")
+        == "noise_decline"
+    )
+    if action == "guarded_runtime" and benchmark_declined:
+        action = "refuse"
+        action_reason = (
+            "benchmark noise or dispersion did not justify guarded repair complexity"
+        )
+    elif action == "guarded_runtime" and not ready:
         action_reason = "guarded runtime enforcement requires linked behavior and compiler validation"
 
     alternatives = [
@@ -384,7 +431,11 @@ def main() -> int:
         "claim_language": {
             "baseline": "observed",
             "assumption": "tested sufficient assumption",
-            "behavior": "validated on covered executions" if ready else "not validated",
+            "behavior": (
+                "validated on covered executions"
+                if behavior_validated
+                else "not validated"
+            ),
         },
         "residual_risks": [
             "unresolved external or dynamic callers do not justify restrict",

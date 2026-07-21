@@ -32,6 +32,7 @@ REQUIRED_PATHS = (
     "docs/THREAT_MODEL.md",
     "docs/RISK_REGISTER.md",
     "docs/REFOUNDATION_AUDIT.md",
+    "docs/R3_R8_COMPLETION_AUDIT.md",
     "docs/decisions/0005-causal-compiler-debugger.md",
     "docs/decisions/0006-clang-ast-obligation-model.md",
     "schemas/whyvec-config.schema.json",
@@ -334,6 +335,37 @@ def validate_text_files(errors: list[str]) -> None:
             errors.append(f"{path.relative_to(ROOT)}: unresolved template marker")
 
 
+def validate_artifact_manifest(
+    report_path: Path, report: dict[str, object], errors: list[str]
+) -> None:
+    artifacts = report.get("artifacts")
+    if not isinstance(artifacts, list):
+        errors.append(f"{report_path.relative_to(ROOT)}: artifact manifest is absent")
+        return
+    artifact_root = report_path.parent.resolve()
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or not isinstance(artifact.get("path"), str):
+            errors.append(f"{report_path.relative_to(ROOT)}: malformed artifact entry")
+            continue
+        candidate = artifact_root / artifact["path"]
+        path = candidate.resolve()
+        try:
+            path.relative_to(artifact_root)
+        except ValueError:
+            errors.append(
+                f"{report_path.relative_to(ROOT)}: artifact path escapes report directory"
+            )
+            continue
+        if candidate.is_symlink() or not path.is_file():
+            errors.append(f"{path.relative_to(ROOT)}: retained artifact is absent or a symlink")
+            continue
+        content = path.read_bytes()
+        if len(content) != artifact.get("size"):
+            errors.append(f"{path.relative_to(ROOT)}: retained size mismatch")
+        if hashlib.sha256(content).hexdigest() != artifact.get("sha256"):
+            errors.append(f"{path.relative_to(ROOT)}: retained digest mismatch")
+
+
 def validate_guarded_evidence(errors: list[str]) -> None:
     report_path = ROOT / "evidence/guarded-bound-alias/2026-07-21/report.json"
     report = load_json(report_path, errors)
@@ -344,23 +376,7 @@ def validate_guarded_evidence(errors: list[str]) -> None:
     commands = report.get("commands", [])
     if str(ROOT) in json.dumps(commands):
         errors.append(f"{report_path.relative_to(ROOT)}: commands expose the checkout path")
-    artifacts = report.get("artifacts")
-    if not isinstance(artifacts, list):
-        errors.append(f"{report_path.relative_to(ROOT)}: artifact manifest is absent")
-        return
-    for artifact in artifacts:
-        if not isinstance(artifact, dict) or not isinstance(artifact.get("path"), str):
-            errors.append(f"{report_path.relative_to(ROOT)}: malformed artifact entry")
-            continue
-        path = report_path.parent / artifact["path"]
-        if not path.is_file():
-            errors.append(f"{path.relative_to(ROOT)}: retained artifact is absent")
-            continue
-        content = path.read_bytes()
-        if len(content) != artifact.get("size"):
-            errors.append(f"{path.relative_to(ROOT)}: retained size mismatch")
-        if hashlib.sha256(content).hexdigest() != artifact.get("sha256"):
-            errors.append(f"{path.relative_to(ROOT)}: retained digest mismatch")
+    validate_artifact_manifest(report_path, report, errors)
     for source in report.get("sources", []):
         if not isinstance(source, dict) or not isinstance(source.get("path"), str):
             continue
@@ -384,11 +400,30 @@ def validate_agent_evidence(errors: list[str]) -> None:
     if not isinstance(evidence, dict) or not isinstance(patch, dict):
         errors.append(f"{trace_path.relative_to(ROOT)}: evidence or patch is absent")
         return
+    linked_reports: dict[str, tuple[Path, dict[str, object]]] = {}
     for key in ("optimization_report", "obligation_report", "validation_report"):
         value = evidence.get(key)
         resolved = (trace_path.parent / value).resolve() if isinstance(value, str) else None
         if resolved is None or not resolved.is_file():
             errors.append(f"{trace_path.relative_to(ROOT)}: missing {key}")
+            continue
+        linked = load_json(resolved, errors)
+        if isinstance(linked, dict):
+            linked_reports[key] = (resolved, linked)
+            validate_artifact_manifest(resolved, linked, errors)
+            identity_key = key.replace("_report", "_analysis_id")
+            if linked.get("analysis_id") != evidence.get(identity_key):
+                errors.append(f"{trace_path.relative_to(ROOT)}: {key} identity mismatch")
+    optimization_entry = linked_reports.get("optimization_report")
+    if optimization_entry is not None and optimization_entry[1].get(
+        "semantic_digest"
+    ) != evidence.get("optimization_semantic_digest"):
+        errors.append(f"{trace_path.relative_to(ROOT)}: optimization semantic mismatch")
+    obligation_entry = linked_reports.get("obligation_report")
+    if obligation_entry is not None and obligation_entry[1].get(
+        "semantic_digest"
+    ) != evidence.get("obligation_semantic_digest"):
+        errors.append(f"{trace_path.relative_to(ROOT)}: obligation semantic mismatch")
     validation_value = evidence.get("validation_report")
     validation_path = (
         (trace_path.parent / validation_value).resolve()
@@ -419,8 +454,20 @@ def validate_agent_evidence(errors: list[str]) -> None:
     replay = load_json(replay_path, errors)
     if isinstance(replay, dict):
         for name in ("optimization", "obligation"):
-            if replay.get(name, {}).get("matched") is not True:
+            result = replay.get(name, {})
+            if not isinstance(result, dict) or result.get("matched") is not True:
                 errors.append(f"{replay_path.relative_to(ROOT)}: {name} did not match")
+                continue
+            replay_id = result.get("replay_analysis_id")
+            replay_report = root / "repository/.whyvec/analyses" / str(replay_id) / "report.json"
+            replay_document = load_json(replay_report, errors)
+            if not isinstance(replay_document, dict):
+                continue
+            if replay_document.get("analysis_id") != replay_id:
+                errors.append(f"{replay_report.relative_to(ROOT)}: replay identity mismatch")
+            if replay_document.get("semantic_digest") != result.get("semantic_digest"):
+                errors.append(f"{replay_report.relative_to(ROOT)}: replay semantic mismatch")
+            validate_artifact_manifest(replay_report, replay_document, errors)
 
 
 def main() -> int:

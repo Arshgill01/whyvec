@@ -529,6 +529,118 @@ def main() -> int:
             raise RuntimeError("validation for a different candidate authorized a patch")
         mismatched_trace = json.loads(mismatched_path.read_text(encoding="utf-8"))
 
+        incomplete_validation_root = temporary_path / "incomplete-validation"
+        validation_report_path = Path(validation_meta["report"])
+        shutil.copytree(validation_report_path.parent, incomplete_validation_root)
+        incomplete_validation_root.chmod(0o755)
+        incomplete_report_path = incomplete_validation_root / "report.json"
+        incomplete_report_path.chmod(0o644)
+        incomplete_report = json.loads(
+            incomplete_report_path.read_text(encoding="utf-8")
+        )
+        incomplete_report["differential"]["fast_paths"] = 0
+        incomplete_report["sanitizer"]["covered"]["fast_paths"] = 0
+        incomplete_report_path.write_text(
+            json.dumps(incomplete_report, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        incomplete_trace_path = temporary_path / "incomplete-agent-trace/trace.json"
+        incomplete_meta = json.loads(
+            run(
+                [
+                    "python3",
+                    str(
+                        ROOT
+                        / "integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py"
+                    ),
+                    "--optimization-report",
+                    str(report["artifact_path"]),
+                    "--obligation-report",
+                    str(obligation["artifact_path"]),
+                    "--validation-report",
+                    str(incomplete_report_path),
+                    "--whyvec",
+                    str(binary),
+                    "--repository",
+                    str(repository),
+                    "--candidate-source",
+                    str(repository / "bound-alias-repair/candidate.c"),
+                    "--output",
+                    str(incomplete_trace_path),
+                ]
+            ).stdout
+        )
+        if incomplete_meta.get("selected_action") != "validation_required":
+            raise RuntimeError("missing fast-path coverage authorized a patch")
+        incomplete_trace = json.loads(
+            incomplete_trace_path.read_text(encoding="utf-8")
+        )
+        if incomplete_trace.get("claim_language", {}).get("behavior") != "not validated":
+            raise RuntimeError("incomplete branch evidence overstated behavior validation")
+
+        noise_validation_root = temporary_path / "noise-validation"
+        shutil.copytree(validation_report_path.parent, noise_validation_root)
+        noise_validation_root.chmod(0o755)
+        noise_report_path = noise_validation_root / "report.json"
+        noise_summary_path = noise_validation_root / "benchmark/summary.json"
+        noise_report_path.chmod(0o644)
+        noise_summary_path.chmod(0o644)
+        noise_report = json.loads(noise_report_path.read_text(encoding="utf-8"))
+        noise_summary = dict(noise_report["benchmark"]["summary"])
+        noise_summary["classification"] = "noise_decline"
+        noise_summary_content = (json.dumps(noise_summary, sort_keys=True) + "\n").encode()
+        noise_summary_path.write_bytes(noise_summary_content)
+        noise_report["benchmark"]["summary"] = noise_summary
+        for artifact in noise_report["artifacts"]:
+            if artifact["path"] == "benchmark/summary.json":
+                artifact["sha256"] = hashlib.sha256(noise_summary_content).hexdigest()
+                artifact["size"] = len(noise_summary_content)
+        noise_report_path.write_text(
+            json.dumps(noise_report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        noise_trace_path = temporary_path / "noise-agent-trace/trace.json"
+        noise_meta = json.loads(
+            run(
+                [
+                    "python3",
+                    str(
+                        ROOT
+                        / "integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py"
+                    ),
+                    "--optimization-report",
+                    str(report["artifact_path"]),
+                    "--obligation-report",
+                    str(obligation["artifact_path"]),
+                    "--validation-report",
+                    str(noise_report_path),
+                    "--whyvec",
+                    str(binary),
+                    "--repository",
+                    str(repository),
+                    "--candidate-source",
+                    str(repository / "bound-alias-repair/candidate.c"),
+                    "--output",
+                    str(noise_trace_path),
+                ]
+            ).stdout
+        )
+        if noise_meta.get("selected_action") != "refuse":
+            raise RuntimeError("noise-declined performance evidence authorized a repair")
+        noise_trace = json.loads(noise_trace_path.read_text(encoding="utf-8"))
+        refusal = next(
+            alternative
+            for alternative in noise_trace["alternatives"]
+            if alternative["strategy"] == "refuse"
+        )
+        if refusal.get("decision") != "selected" or "noise" not in refusal.get(
+            "reason", ""
+        ):
+            raise RuntimeError(f"noise decline did not retain its refusal reason: {refusal}")
+        if noise_trace.get("claim_language", {}).get("behavior") != (
+            "validated on covered executions"
+        ):
+            raise RuntimeError("performance refusal erased covered behavior validation")
+
         volatile_obligation = json.loads(
             run(
                 [
@@ -618,6 +730,8 @@ def main() -> int:
         jsonschema.Draft202012Validator.check_schema(agent_schema)
         jsonschema.validate(trace, agent_schema)
         jsonschema.validate(mismatched_trace, agent_schema)
+        jsonschema.validate(incomplete_trace, agent_schema)
+        jsonschema.validate(noise_trace, agent_schema)
         jsonschema.validate(refusal_trace, agent_schema)
 
         obligation_tamper_report = tamper_copy(

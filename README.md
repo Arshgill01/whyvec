@@ -214,6 +214,7 @@ required and the counterfactual alone never authorizes `restrict`.
 - [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md) — fixture and adversarial validation matrix.
 - [docs/GUARDED_REPAIR_VALIDATION.md](docs/GUARDED_REPAIR_VALIDATION.md) — checked guard, fallback, sanitizer, optimization-record, and benchmark evidence.
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — untrusted repository and toolchain risks.
+- [docs/R3_R8_COMPLETION_AUDIT.md](docs/R3_R8_COMPLETION_AUDIT.md) — requirement-to-evidence audit for completed R3–R8 release capabilities.
 - [docs/phases](docs/phases) — capability phases with entry and exit gates.
 - [logs](logs) — append-only build, experiment, validation, failure, and model-use evidence.
 - [schemas](schemas) — machine-readable configuration and report contracts.

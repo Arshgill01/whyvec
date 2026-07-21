@@ -9,6 +9,10 @@ The bundled planner produces a create-new `whyvec-agent-trace` document. It is a
 - every listed report artifact remains inside its report directory and matches its retained digest and size;
 - a validation report, when supplied, links the same obligation and satisfies the guarded fixture gates;
 - the exact candidate passed the retained default-ABI compile and execution before a guarded action can be selected;
+- instrumented and production behavior/sanitizer commands all passed, both
+  guarded branches were exercised, overflow uncertainty selected fallback, and
+  the benchmark passed the retained dispersion rule before a guarded action can
+  be selected;
 - tracked text occurrences and obvious indirect, dynamic, and external-linkage uncertainty are inventoried;
 - `restrict`, guarded versioning, API change, and refusal receive explicit decisions and reasons;
 - a supplied candidate source is retained as a digest and normalized diff.
@@ -26,6 +30,8 @@ The planner cannot prove caller completeness, API intent, language semantics, FF
 
 - `validated_guarded_runtime`: the supplied guarded candidate has linked differential, fallback, sanitizer, compiler-record, and benchmark evidence. Codex still reviews and applies the repository-appropriate patch.
 - `validation_required`: a supported runtime obligation exists, but the guarded candidate has not passed all linked validation gates.
-- `refuse`: deterministic obligation derivation declined. Do not synthesize a contract to bypass the refusal.
+- `refuse`: deterministic obligation derivation declined, or completed
+  performance evidence classified the candidate as `noise_decline`. Do not
+  synthesize a contract or ignore the measurement decline to bypass refusal.
 
 Keep the trace with the final diff and validation artifacts. If the patch changes, create a new trace rather than editing the retained one. Report replay retains new analyses, so do not invoke the planner during an answer-only review without source-change authority.

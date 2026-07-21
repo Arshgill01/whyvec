@@ -28,11 +28,14 @@ The fixture includes callers and tests where `count` may overlap `output`, makin
 
 ### Counterfactual diagnosis
 
-- Run `whyvec analyze`.
+- Run `whyvec explain-opt` with the explicit source/function/parameter mapping
+  and the fingerprinted LLVM transformer and identity helper, then run
+  `whyvec derive-obligation` on the retained positive report.
 - Show baseline and singleton variants.
 - Highlight that `count modeled noalias` changes the matched loop to vectorized.
 - State that this is a tested sufficient condition under the recorded pipeline.
-- Show the candidate obligation and its confidence.
+- Show the candidate obligation, supporting access evidence, preconditions, and
+  residual unsupported semantics.
 
 ### Agent decision
 

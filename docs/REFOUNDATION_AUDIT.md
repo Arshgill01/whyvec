@@ -147,7 +147,10 @@ The result identifies every minimal sufficient edit set found for the selected d
 ### Query: optimization causality
 
 ```console
-whyvec explain-opt src/kernel.rs:41 --pack llvm.alias-trip-count
+whyvec explain-opt src/kernel.c:5 --function add_vectors_ \
+  --parameter output:0 --parameter input:1 --parameter count:2 \
+  --transformer /path/to/whyvec-llvm-transform \
+  --identity-tool /path/to/whyvec-llvm-loop-identity
 ```
 
 The result records the baseline optimizer decision, isolated compiler interventions, the smallest successful set found, pipeline fidelity, and a language-specific candidate obligation or refusal.
@@ -175,4 +178,3 @@ The result records the baseline optimizer decision, isolated compiler interventi
 10. Integrate GPT-5.6/Codex only after deterministic report and validation contracts are executable.
 
 This order is based on dependency integrity, not a reduced product promise. The product boundary remains the full causal compiler debugger.
-
