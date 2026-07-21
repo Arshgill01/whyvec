@@ -10,8 +10,8 @@ mod git;
 mod process;
 
 pub use analyzer::{
-    AnalysisError, ArtifactReference, BuildCausalityReport, BuildCausalityRequest, BuildCommand,
-    BuildRunSummary, BuildToolchainProvenance, CausalSetReport, ReplayResult, ReplaySpecification,
+    AnalysisError, BuildCausalityReport, BuildCausalityRequest, BuildCommand, BuildRunSummary,
+    BuildToolchainProvenance, CausalSetReport, ReplayResult, ReplaySpecification,
     SearchEvaluationSummary, ToolIdentity, explain_build, replay_build,
 };
 pub use diagnostics::{
@@ -19,6 +19,7 @@ pub use diagnostics::{
     select_diagnostic,
 };
 pub use git::ChangeAtomSummary;
+pub use whyvec_experiment::ArtifactReference;
 
 fn hex_prefix(bytes: &[u8], length: usize) -> String {
     bytes[..length]

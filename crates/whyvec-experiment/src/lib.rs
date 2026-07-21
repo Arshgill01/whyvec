@@ -10,6 +10,10 @@ use std::fmt;
 
 use whyvec_domain::{ExperimentVerdict, SearchMinimality};
 
+mod artifacts;
+
+pub use artifacts::{ArtifactError, ArtifactReference, ArtifactStore};
+
 /// Stable identifier of one typed intervention supplied by an adapter or pack.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct InterventionId(String);

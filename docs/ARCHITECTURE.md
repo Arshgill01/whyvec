@@ -140,6 +140,12 @@ events.jsonl
 
 Artifacts are immutable after finalization. Large or sensitive artifacts may be omitted from export, but their digests and omission reasons remain.
 
+The shared experiment crate owns create-new retention, safe relative artifact
+paths, SHA-256 and byte-length references, integrity verification, and
+read-only finalization. Adapters decide which compiler inputs and outputs must
+be retained; they cannot replace the shared three-valued or content-integrity
+contracts.
+
 ### Baseline analyzer
 
 Responsibilities:

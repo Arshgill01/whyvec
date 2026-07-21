@@ -8,6 +8,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+serde.workspace = true
+sha2.workspace = true
 whyvec-domain = { path = "../whyvec-domain" }
 
 [lints]

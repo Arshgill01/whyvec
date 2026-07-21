@@ -19,7 +19,7 @@ This is the living implementation plan. Phase documents contain detailed accepta
 | 00 | Original vectorization foundation | superseded | [ADR 0005](docs/decisions/0005-causal-compiler-debugger.md) broadens the shared core |
 | R1 | Generic compiler-question and experiment domain | active | Query, observation, intervention, three-valued oracle, and pipeline-fidelity types compile |
 | R2 | Per-adapter toolchain and fixture system | active | Clang 21 and rustc 1.96.1/LLVM 22 fixtures execute; Rust split pipeline remains labeled surrogate |
-| R3 | Immutable counterfactual experiment runtime | active | Deterministic search, content-digested build inputs/run artifacts, proxy-aware toolchain fingerprints, and semantic replay execute; adapter-neutral runtime extraction remains |
+| R3 | Immutable counterfactual experiment runtime | active | Deterministic search and adapter-neutral create-new artifact retention, digest verification, read-only finalization, plus build-query semantic replay execute; generic isolated process orchestration remains adapter-local |
 | R4 | LLVM optimization-causality pack | queued | Depends on exact pipeline replay and stable region identity |
 | R5 | Build-causality query | active | Cargo/rustc diagnostic identity, nested file-to-hunk search, isolated worktrees, removal witnesses, CLI, and end-to-end tests execute; syntax-aware grouping and OS sandboxing remain |
 | R6 | C++, Rust, TypeScript, and GCC adapter expansion | queued | Depends on shared experiment runtime and adapter conformance suite |

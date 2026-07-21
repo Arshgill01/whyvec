@@ -1,16 +1,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::fs;
-use std::io::Write as _;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use whyvec_domain::{ExperimentVerdict, SearchMinimality, UnresolvedReason};
 use whyvec_experiment::{
-    InterventionId, SearchConfigurationError, SearchLimits, SearchStopReason,
-    search_sufficient_sets,
+    ArtifactError, ArtifactReference, ArtifactStore, InterventionId, SearchConfigurationError,
+    SearchLimits, SearchStopReason, search_sufficient_sets,
 };
 
 use crate::diagnostics::{
@@ -100,14 +99,6 @@ pub struct SearchEvaluationSummary {
     pub timed_out: bool,
     pub output_truncated: bool,
     pub artifacts: Vec<ArtifactReference>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ArtifactReference {
-    pub path: String,
-    pub sha256: String,
-    pub size: u64,
-    pub media_type: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -215,6 +206,7 @@ pub enum AnalysisError {
     DiagnosticSelection(DiagnosticSelectionError),
     Io(std::io::Error),
     Json(serde_json::Error),
+    Artifact(ArtifactError),
     NoChanges,
     BaselineFailed(Vec<DiagnosticRecord>),
     CandidateSucceeded,
@@ -239,6 +231,7 @@ impl std::fmt::Display for AnalysisError {
             Self::DiagnosticSelection(error) => error.fmt(formatter),
             Self::Io(error) => error.fmt(formatter),
             Self::Json(error) => error.fmt(formatter),
+            Self::Artifact(error) => write!(formatter, "artifact integrity check failed: {error}"),
             Self::NoChanges => formatter.write_str("no tracked or untracked changes were found"),
             Self::BaselineFailed(diagnostics) => write!(
                 formatter,
@@ -327,6 +320,12 @@ impl From<serde_json::Error> for AnalysisError {
     }
 }
 
+impl From<ArtifactError> for AnalysisError {
+    fn from(value: ArtifactError) -> Self {
+        Self::Artifact(value)
+    }
+}
+
 /// Executes a Cargo build-causality query in isolated detached worktrees.
 ///
 /// # Errors
@@ -351,10 +350,10 @@ pub fn explain_build(
     let toolchain = capture_toolchain(&repository.root, &command)?;
     let input_digest = input_digest(&repository, &atoms);
     let command_digest = command_digest(&command, &toolchain);
+    let artifact_store = ArtifactStore::new(&artifact_root);
     let mut retained_artifacts = Vec::new();
     for atom in &atoms {
-        retained_artifacts.push(write_artifact(
-            &artifact_root,
+        retained_artifacts.push(artifact_store.retain(
             &format!("inputs/atoms/{}.bin", atom.id),
             &atom.captured_bytes(),
             "application/octet-stream",
@@ -368,8 +367,7 @@ pub fn explain_build(
         "toolchain": toolchain,
         "atoms": atoms.iter().map(ChangeAtomSummary::from).collect::<Vec<_>>(),
     }))?;
-    retained_artifacts.push(write_artifact(
-        &artifact_root,
+    retained_artifacts.push(artifact_store.retain(
         "inputs/provenance.json",
         &provenance,
         "application/json",
@@ -599,8 +597,8 @@ pub fn explain_build(
     report.artifacts.dedup();
     report.semantic_digest = semantic_digest(&report)?;
     let serialized = serde_json::to_vec_pretty(&report)?;
-    write_new_file(&artifact_path, &serialized)?;
-    make_artifacts_read_only(&artifact_root)?;
+    artifact_store.write_new("report.json", &serialized)?;
+    artifact_store.finalize_read_only()?;
     Ok(report)
 }
 
@@ -705,14 +703,13 @@ impl AnalysisSession {
         let result = process::run(&process_request)?;
         let diagnostics = parse_cargo_json(&result.stdout, worktree);
         let run_name = run_artifact_name(identifiers);
-        let stdout = write_artifact(
-            &self.artifact_root,
+        let artifact_store = ArtifactStore::new(&self.artifact_root);
+        let stdout = artifact_store.retain(
             &format!("runs/{run_name}/stdout.jsonl"),
             &result.stdout,
             "application/jsonl",
         )?;
-        let stderr = write_artifact(
-            &self.artifact_root,
+        let stderr = artifact_store.retain(
             &format!("runs/{run_name}/stderr.txt"),
             &result.stderr,
             "text/plain",
@@ -1067,63 +1064,6 @@ fn run_artifact_name(identifiers: &[String]) -> String {
     format!("run-{}", crate::hex_prefix(&digest.finalize(), 12))
 }
 
-fn write_artifact(
-    root: &Path,
-    relative: &str,
-    bytes: &[u8],
-    media_type: &str,
-) -> Result<ArtifactReference, AnalysisError> {
-    let relative_path = Path::new(relative);
-    if relative_path.is_absolute()
-        || relative_path
-            .components()
-            .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
-    {
-        return Err(AnalysisError::ArtifactIntegrity(format!(
-            "unsafe artifact path {relative}"
-        )));
-    }
-    let destination = root.join(relative_path);
-    if let Some(parent) = destination.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    write_new_file(&destination, bytes)?;
-    Ok(ArtifactReference {
-        path: relative.replace('\\', "/"),
-        sha256: full_digest(&Sha256::digest(bytes)),
-        size: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
-        media_type: media_type.to_owned(),
-    })
-}
-
-fn write_new_file(path: &Path, bytes: &[u8]) -> Result<(), AnalysisError> {
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
-    Ok(())
-}
-
-fn make_artifacts_read_only(root: &Path) -> Result<(), AnalysisError> {
-    let mut pending = vec![root.to_path_buf()];
-    while let Some(path) = pending.pop() {
-        for entry in fs::read_dir(path)? {
-            let entry = entry?;
-            let file_type = entry.file_type()?;
-            if file_type.is_dir() {
-                pending.push(entry.path());
-            } else if file_type.is_file() {
-                let mut permissions = entry.metadata()?.permissions();
-                permissions.set_readonly(true);
-                fs::set_permissions(entry.path(), permissions)?;
-            }
-        }
-    }
-    Ok(())
-}
-
 fn resolve_program(program: &str) -> Result<PathBuf, AnalysisError> {
     let path = Path::new(program);
     if path.components().count() > 1 {
@@ -1268,27 +1208,7 @@ fn verify_artifacts(
     let root = report_path.parent().ok_or_else(|| {
         AnalysisError::ArtifactIntegrity("report path has no parent directory".to_owned())
     })?;
-    for artifact in &report.artifacts {
-        let relative = Path::new(&artifact.path);
-        if relative.is_absolute()
-            || relative
-                .components()
-                .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
-        {
-            return Err(AnalysisError::ArtifactIntegrity(format!(
-                "unsafe retained path {}",
-                artifact.path
-            )));
-        }
-        let bytes = fs::read(root.join(relative))?;
-        let observed = full_digest(&Sha256::digest(&bytes));
-        if observed != artifact.sha256 || u64::try_from(bytes.len()).ok() != Some(artifact.size) {
-            return Err(AnalysisError::ArtifactIntegrity(format!(
-                "digest or size mismatch for {}",
-                artifact.path
-            )));
-        }
-    }
+    ArtifactStore::new(root).verify(&report.artifacts)?;
     Ok(())
 }
 

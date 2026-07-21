@@ -127,7 +127,7 @@ NEXT ACTION
 - [fixtures](fixtures) — positive, fallback, refusal, and already-optimized cases.
 - [integrations/codex/whyvec](integrations/codex/whyvec) — installable Codex plugin and workflow skill.
 - [crates/whyvec-domain](crates/whyvec-domain) — compileable evidence and lifecycle invariants.
-- [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle and evidence-safe minimality.
+- [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle, evidence-safe minimality, and adapter-neutral immutable artifact storage.
 - [crates/whyvec-build](crates/whyvec-build) — isolated Git/Cargo build oracle, rustc diagnostic identity, and causal report generation.
 - [crates/whyvec-cli](crates/whyvec-cli) — `whyvec explain-build` command-line product surface.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.

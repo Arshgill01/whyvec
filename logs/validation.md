@@ -165,3 +165,24 @@ Results:
 - An adversarial byte append to a retained artifact was rejected before replay.
 - The generated report passed its expanded Draft 2020-12 schema. Repository,
   Clang, and rustc/LLVM fixture validation remained passing.
+
+## 2026-07-21T12:04:51Z — Shared immutable artifact runtime validation
+
+Passed commands:
+
+```console
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/verify_build_causality.py
+```
+
+Results:
+
+- Twenty-five Rust tests passed after moving artifact retention out of the
+  Cargo adapter and into the adapter-neutral experiment crate.
+- Shared tests cover traversal refusal, non-overwriting create-new writes,
+  SHA-256/size verification, mutation detection, and read-only finalization.
+- The build adapter consumes the shared artifact contract without changing its
+  public report schema or replay behavior; the public generated-repository
+  replay and tamper-refusal validation remained passing.
