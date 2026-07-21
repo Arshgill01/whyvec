@@ -23,6 +23,12 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.96.1 --profile minimal --component clippy,rustfmt
 
+      - name: Install build-analysis sandbox
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bubblewrap
+          bwrap --version
+
       - name: Validate repository contracts
         run: python3 scripts/validate_repository.py
 

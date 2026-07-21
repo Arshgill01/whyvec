@@ -40,3 +40,16 @@ than comparing a non-equivalent build.
 Safeguard: the complete validation was rerun with `TMPDIR` set to the external
 bounded directory `/home/arshdeepsingh/work/whyvec-validation-tmp`. All checks
 then passed without changing the repository path seen by isolated builds.
+
+## 2026-07-21T15:51:15Z — GitHub runner lacked the mandatory build sandbox
+
+The `Repository integrity` workflow for commit `95bc9e6` passed checkout,
+repository validation, formatting, and Clippy, then failed two
+`whyvec-build` tests. Both failures were typed artifact-integrity refusals:
+the hosted Ubuntu runner could not resolve the required `bwrap` invocation.
+The product correctly did not fall back to unsandboxed execution.
+
+Safeguard: the workflow now installs Bubblewrap explicitly and records
+`bwrap --version` before running repository checks. The focused fifteen-test
+build-adapter suite passed locally with Bubblewrap 0.11.1; completion remains
+in verification until the changed workflow passes on GitHub.

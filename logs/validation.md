@@ -593,3 +593,27 @@ Results:
 - The benchmark is evidence for this covered x86-64 environment, not a portable
   performance guarantee. Differential and sanitizer tests establish only
   `validated on covered executions`, not full semantic equivalence.
+
+## 2026-07-21T15:51:15Z — GitHub sandbox dependency repair validation
+
+The current `master` workflow failure was inspected with authenticated `gh`:
+run `29845598565`, job `88685272487`. Repository validation, formatting, and
+Clippy passed; only the two build-causality tests that require Bubblewrap
+failed because the runner image did not provide `bwrap`.
+
+Passed commands after adding the explicit workflow installation step:
+
+```console
+bwrap --version
+TMPDIR=/home/arshdeepsingh/work/whyvec-validation-tmp cargo test -p whyvec-build --all-features
+python3 scripts/validate_repository.py
+git diff --check
+```
+
+Results:
+
+- Bubblewrap 0.11.1 was available to the local reproduction.
+- All fifteen build-adapter tests passed, including the two isolated causal
+  analyses that failed remotely.
+- Repository validation and patch whitespace validation passed.
+- Remote completion is not claimed until the pushed workflow rerun succeeds.
