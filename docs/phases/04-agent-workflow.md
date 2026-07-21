@@ -37,9 +37,9 @@
 - Every patch trace records inspected callers, strategy comparison, commands, and outcomes.
 - Plugin and skill validators pass after installation from a clean checkout.
 
-## R8 retained evidence
+## R8 current verification evidence
 
-The executable workflow is covered by `scripts/verify_optimization_causality.py`.
+The deterministic handoff is covered by `scripts/verify_optimization_causality.py`.
 It produces and schema-validates a guarded selection, a candidate-digest
 mismatch that returns `validation_required`, and a volatile-obligation refusal.
 The retained positive bundle is under
@@ -48,3 +48,7 @@ exact ABI-preserving candidate, external-caller uncertainty, all four strategy
 decisions, thirteen compile/execute outcomes, both guarded branches, production
 and instrumented sanitizer/compiler coverage, benchmark distributions, and
 residual risks.
+
+This does not by itself establish the actual-model exit gate. A fresh
+installed-skill GPT-5.6 Codex session must create the candidate, execute its
+versioned validation plan, and retain the observable session ledger.

@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::{fs, io::Write as _};
 
 use whyvec_build::{
     BuildCausalityReport, BuildCausalityRequest, BuildCommand, DiagnosticSelector, explain_build,
@@ -7,8 +8,8 @@ use whyvec_build::{
 use whyvec_obligation::{ObligationRequest, derive_obligation, replay_obligation};
 use whyvec_opt::{
     GccObservationReport, GccObservationRequest, OptimizationReport, OptimizationRequest,
-    ParameterCandidate, explain_optimization, observe_gcc_optimization, replay_gcc_observation,
-    replay_optimization,
+    ParameterCandidate, explain_optimization, infer_c_source_mapping, observe_gcc_optimization,
+    replay_gcc_observation, replay_optimization, resolve_compilation_command,
 };
 
 fn main() {
@@ -16,14 +17,49 @@ fn main() {
         Ok(()) => {}
         Err(error) => {
             eprintln!("whyvec: {error}");
-            std::process::exit(1);
+            std::process::exit(exit_code(&error));
         }
+    }
+}
+
+fn exit_code(error: &str) -> i32 {
+    if error.starts_with("usage:")
+        || error.contains("requires")
+        || error.starts_with("unknown ")
+        || error.starts_with("invalid ")
+    {
+        2
+    } else if error.contains("compilation database")
+        || error.contains("compilation entry")
+        || error.contains("source mapping declined")
+    {
+        3
+    } else if error.contains("unavailable")
+        || error.contains("tool failed")
+        || error.contains("toolchain")
+    {
+        4
+    } else {
+        1
     }
 }
 
 #[allow(clippy::too_many_lines)]
 fn run() -> Result<(), String> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if arguments
+        .first()
+        .is_some_and(|argument| argument == "--help" || argument == "-h")
+    {
+        println!("{}", usage());
+        return Ok(());
+    }
+    if arguments.first().map(String::as_str) == Some("doctor") {
+        return run_doctor(&arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("analyze") {
+        return run_analyze(&arguments[1..]);
+    }
     if arguments.first().map(String::as_str) == Some("replay-build") {
         return run_replay(&arguments[1..]);
     }
@@ -161,6 +197,376 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+fn run_doctor(arguments: &[String]) -> Result<(), String> {
+    let format = match arguments {
+        [] => "human",
+        [option, value] if option == "--format" && matches!(value.as_str(), "human" | "json") => {
+            value
+        }
+        _ => return Err("usage: whyvec doctor [--format human|json]".to_owned()),
+    };
+    let platform_supported = cfg!(target_os = "linux") && cfg!(target_arch = "x86_64");
+    let tools = [
+        "clang-21",
+        "opt-21",
+        "llvm-config-21",
+        "cmake",
+        "ninja",
+        "cargo",
+        "rustc",
+        "python3",
+        "codex",
+    ]
+    .into_iter()
+    .map(|name| (name, find_on_path(name)))
+    .collect::<Vec<_>>();
+    let repository = std::env::current_dir().map_err(|error| error.to_string())?;
+    let helpers = ["whyvec-llvm-transform", "whyvec-llvm-loop-identity"]
+        .into_iter()
+        .map(|name| (name, locate_helper(name, None, &repository).ok()))
+        .collect::<Vec<_>>();
+    let ready = platform_supported
+        && tools.iter().all(|(_, path)| path.is_some())
+        && helpers.iter().all(|(_, path)| path.is_some());
+    if format == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": "1.0.0",
+                "ready": ready,
+                "platform": {
+                    "os": std::env::consts::OS,
+                    "arch": std::env::consts::ARCH,
+                    "supported": platform_supported,
+                },
+                "tools": tools.iter().map(|(name, path)| serde_json::json!({"name": name, "path": path})).collect::<Vec<_>>(),
+                "helpers": helpers.iter().map(|(name, path)| serde_json::json!({"name": name, "path": path})).collect::<Vec<_>>(),
+                "exit_codes": {"success": 0, "internal": 1, "usage": 2, "decline": 3, "toolchain": 4},
+            }))
+            .map_err(|error| error.to_string())?
+        );
+    } else {
+        println!("WHYVEC DOCTOR");
+        println!(
+            "  platform {:<24} {}",
+            format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH),
+            if platform_supported {
+                "supported"
+            } else {
+                "unsupported"
+            }
+        );
+        for (name, path) in tools.iter().chain(helpers.iter()) {
+            let status = path
+                .as_ref()
+                .map_or_else(|| "missing".to_owned(), |path| path.display().to_string());
+            println!("  {name:<32} {status}");
+        }
+        println!(
+            "  status                           {}",
+            if ready { "ready" } else { "not ready" }
+        );
+    }
+    if ready {
+        Ok(())
+    } else {
+        Err(
+            "toolchain unavailable; install the pinned judge environment or complete WhyVec bundle"
+                .to_owned(),
+        )
+    }
+}
+
+fn find_on_path(name: &str) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|directory| directory.join(name))
+        .find(|candidate| candidate.is_file())
+        .and_then(|candidate| candidate.canonicalize().ok())
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_analyze(arguments: &[String]) -> Result<(), String> {
+    let location = arguments
+        .first()
+        .ok_or_else(|| "analyze requires <source>:<line>".to_owned())?;
+    let (source_text, line_text) = location
+        .rsplit_once(':')
+        .ok_or_else(|| "source location must be <path>:<line>".to_owned())?;
+    let line = line_text
+        .parse::<u64>()
+        .map_err(|_| "source line must be a positive integer".to_owned())?;
+    if line == 0 {
+        return Err("source line must be positive".to_owned());
+    }
+    let mut repository = PathBuf::from(".");
+    let mut optimizer = PathBuf::from("opt-21");
+    let mut transformer = None;
+    let mut identity_tool = None;
+    let mut format = "human";
+    let mut index = 1;
+    while index < arguments.len() {
+        let option = &arguments[index];
+        let value = |index: &mut usize| -> Result<String, String> {
+            *index += 1;
+            arguments
+                .get(*index)
+                .cloned()
+                .ok_or_else(|| format!("{option} requires a value"))
+        };
+        match option.as_str() {
+            "--repository" => repository = PathBuf::from(value(&mut index)?),
+            "--opt" => optimizer = PathBuf::from(value(&mut index)?),
+            "--transformer" => transformer = Some(PathBuf::from(value(&mut index)?)),
+            "--identity-tool" => identity_tool = Some(PathBuf::from(value(&mut index)?)),
+            "--format" => {
+                let selected = value(&mut index)?;
+                if !matches!(selected.as_str(), "human" | "json") {
+                    return Err("--format must be human or json".to_owned());
+                }
+                format = if selected == "json" { "json" } else { "human" };
+            }
+            _ => return Err(format!("unknown analyze option: {option}")),
+        }
+        index += 1;
+    }
+    let repository = repository
+        .canonicalize()
+        .map_err(|error| format!("repository is unavailable: {error}"))?;
+    let source = if Path::new(source_text).is_absolute() {
+        PathBuf::from(source_text)
+    } else {
+        repository.join(source_text)
+    };
+    let source = source
+        .canonicalize()
+        .map_err(|error| format!("source is unavailable: {error}"))?;
+    let compilation =
+        resolve_compilation_command(&repository, &source).map_err(|error| error.to_string())?;
+    let mapping =
+        infer_c_source_mapping(&compilation, &source, line).map_err(|error| error.to_string())?;
+    let transformer = locate_helper("whyvec-llvm-transform", transformer.as_deref(), &repository)?;
+    let identity_tool = locate_helper(
+        "whyvec-llvm-loop-identity",
+        identity_tool.as_deref(),
+        &repository,
+    )?;
+    let optimization = compilation
+        .arguments
+        .iter()
+        .rev()
+        .find_map(|argument| {
+            argument
+                .strip_prefix('-')
+                .filter(|value| value.starts_with('O'))
+        })
+        .unwrap_or("O0")
+        .to_owned();
+    let cpu = compilation
+        .arguments
+        .iter()
+        .rev()
+        .find_map(|argument| argument.strip_prefix("-march="))
+        .unwrap_or("build-command")
+        .to_owned();
+    let candidate_count = mapping.candidates.len();
+    let report = explain_optimization(&OptimizationRequest {
+        repository,
+        source,
+        function: mapping.function,
+        line,
+        candidates: mapping.candidates,
+        clang: PathBuf::from(&compilation.compiler),
+        optimizer,
+        transformer,
+        identity_tool,
+        optimization,
+        cpu,
+        compilation: Some(compilation),
+        max_evaluations: 256,
+        max_cardinality: candidate_count,
+    })
+    .map_err(|error| error.to_string())?;
+    let obligation = if report.finding.is_some() {
+        Some(
+            derive_obligation(&ObligationRequest {
+                optimization_report: PathBuf::from(&report.artifact_path),
+            })
+            .map_err(|error| error.to_string())?,
+        )
+    } else {
+        None
+    };
+    let agent_packet = write_agent_packet(&report, obligation.as_ref())?;
+    if format == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": "1.0.0",
+                "optimization": report,
+                "obligation": obligation,
+                "agent_packet": agent_packet,
+            }))
+            .map_err(|error| error.to_string())?
+        );
+    } else {
+        println!("WHYVEC ANALYSIS");
+        println!(
+            "  compilation entry: {}",
+            report
+                .toolchain
+                .compilation
+                .as_ref()
+                .map_or("expert override", |command| command.database_path.as_str())
+        );
+        println!("  function: {}", report.replay.function);
+        println!("  baseline: {}", report.monolithic_baseline.classification);
+        println!();
+        println!("  COUNTERFACTUAL                  OUTCOME       WIDTH  INTERLEAVE");
+        println!(
+            "  baseline                        {:<13} {:<6} {}",
+            report.monolithic_baseline.classification,
+            report
+                .monolithic_baseline
+                .vector_factor
+                .map_or("-".to_owned(), |value| value.to_string()),
+            report
+                .monolithic_baseline
+                .interleave_count
+                .map_or("-".to_owned(), |value| value.to_string())
+        );
+        for experiment in &report.experiments {
+            let outcome = experiment.outcome.as_ref();
+            println!(
+                "  {:<31} {:<13} {:<6} {}",
+                experiment.assumptions.join(" + "),
+                outcome.map_or("unresolved", |value| value.classification.as_str()),
+                outcome
+                    .and_then(|value| value.vector_factor)
+                    .map_or("-".to_owned(), |value| value.to_string()),
+                outcome
+                    .and_then(|value| value.interleave_count)
+                    .map_or("-".to_owned(), |value| value.to_string())
+            );
+        }
+        if let Some(finding) = &report.finding {
+            println!();
+            println!(
+                "  tested sufficient assumption: {}",
+                finding.sufficient_assumptions.join(" + ")
+            );
+        }
+        if let Some(obligation) = obligation
+            .as_ref()
+            .and_then(|value| value.obligation.as_ref())
+        {
+            println!("  candidate obligation: {}", obligation.predicate);
+        }
+        if let Some(decline) = &report.decline {
+            println!("  declined: {} — {}", decline.code, decline.explanation);
+        }
+        println!("  optimization report: {}", report.artifact_path);
+        if let Some(obligation) = &obligation {
+            println!("  obligation report: {}", obligation.artifact_path);
+        }
+        println!("  agent packet: {}", agent_packet.display());
+    }
+    Ok(())
+}
+
+fn write_agent_packet(
+    optimization: &OptimizationReport,
+    obligation: Option<&whyvec_obligation::ObligationReport>,
+) -> Result<PathBuf, String> {
+    let repository = PathBuf::from(&optimization.repository);
+    let directory = repository.join(".whyvec/agent-packets");
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let path = directory.join(format!("{}.json", optimization.analysis_id));
+    let finding = optimization.finding.as_ref();
+    let derived = obligation.and_then(|report| report.obligation.as_ref());
+    let packet = serde_json::json!({
+        "schema_version": "1.0.0",
+        "packet_id": format!("packet_{}", optimization.analysis_id.trim_start_matches("wv_")),
+        "repository": optimization.repository,
+        "source": optimization.source,
+        "function": optimization.replay.function,
+        "line": optimization.replay.line,
+        "whyvec": std::env::current_exe().map_err(|error| error.to_string())?,
+        "optimization": {
+            "analysis_id": optimization.analysis_id,
+            "semantic_digest": optimization.semantic_digest,
+            "report": optimization.artifact_path,
+            "baseline_observed": optimization.monolithic_baseline.classification,
+            "tested_sufficient_assumptions": finding.map(|value| &value.sufficient_assumptions),
+            "minimality": optimization.minimality,
+        },
+        "obligation": obligation.map(|report| serde_json::json!({
+            "analysis_id": report.analysis_id,
+            "semantic_digest": report.semantic_digest,
+            "report": report.artifact_path,
+            "status": if report.obligation.is_some() { "derived" } else { "declined" },
+            "predicate": derived.map(|value| &value.predicate),
+            "guard": derived.map(|value| &value.runtime_guard),
+            "decline": report.decline,
+        })),
+        "repository_questions": [
+            "Which public declarations and direct, indirect, generated, dynamic, or FFI callers can reach this function?",
+            "Does any repository-level contract establish the full tested assumption for every caller?",
+            "Can the derived condition be evaluated before any optimized-path assumption while preserving the original fallback?"
+        ],
+        "required_strategy_comparison": ["retain_original", "restrict", "guarded_runtime", "api_change", "refuse"],
+        "required_validation": [
+            "repository_native_build_and_tests",
+            "fast_path_witness",
+            "overlap_fallback_witness",
+            "generated_defined_behavior_differential_corpus",
+            "asan_ubsan",
+            "structured_fast_and_fallback_compiler_records",
+            "seeded_multi_size_benchmark_distribution",
+            "candidate_and_validation_digest_linkage"
+        ],
+        "instructions": "Codex must inspect the repository and create the candidate. The packet does not authorize restrict, unconditional bound caching, or consumption of a pre-supplied candidate."
+    });
+    let mut bytes = serde_json::to_vec_pretty(&packet).map_err(|error| error.to_string())?;
+    bytes.push(b'\n');
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|error| format!("cannot retain agent packet {}: {error}", path.display()))?;
+    file.write_all(&bytes).map_err(|error| error.to_string())?;
+    Ok(path)
+}
+
+fn locate_helper(
+    name: &str,
+    explicit: Option<&Path>,
+    repository: &Path,
+) -> Result<PathBuf, String> {
+    if let Some(path) = explicit {
+        return path
+            .canonicalize()
+            .map_err(|error| format!("helper {} is unavailable: {error}", path.display()));
+    }
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    let executable_directory = executable.parent().unwrap_or(Path::new("."));
+    let candidates = [
+        executable_directory.join(name),
+        executable_directory.join("../libexec/whyvec").join(name),
+        repository.join("target/debug").join(name),
+        repository.join("target/whyvec-tools").join(name),
+    ];
+    candidates
+        .iter()
+        .find(|candidate| candidate.is_file())
+        .and_then(|candidate| candidate.canonicalize().ok())
+        .ok_or_else(|| {
+            format!(
+                "required helper {name} is unavailable; run scripts/build_helpers or install the complete WhyVec bundle"
+            )
+        })
+}
+
 #[allow(clippy::too_many_lines)]
 fn run_explain_opt(arguments: &[String]) -> Result<(), String> {
     let location = arguments
@@ -249,6 +655,7 @@ fn run_explain_opt(arguments: &[String]) -> Result<(), String> {
         identity_tool,
         optimization: "O3".to_owned(),
         cpu,
+        compilation: None,
         max_evaluations,
         max_cardinality: cardinality,
     })
@@ -553,5 +960,5 @@ fn print_human(report: &BuildCausalityReport) {
 }
 
 fn usage() -> String {
-    "usage: whyvec explain-build --diagnostic <code-or-id> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- <cargo|clang|gcc|whyvec-typescript> [arguments]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]\n       whyvec replay-opt <report.json>\n       whyvec observe-gcc-opt <source>:<line> --function <name> [--gcc <path>] [--llvm-report <report.json>] [--format human|json]\n       whyvec replay-gcc-opt <report.json>\n       whyvec derive-obligation <optimization-report.json> [--format human|json]\n       whyvec replay-obligation <report.json>".to_owned()
+    "usage: whyvec analyze <source>:<line> [--repository <path>] [--format human|json]\n       whyvec doctor [--format human|json]\n       whyvec explain-build --diagnostic <code-or-id> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- <cargo|clang|gcc|whyvec-typescript> [arguments]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]\n       whyvec replay-opt <report.json>\n       whyvec observe-gcc-opt <source>:<line> --function <name> [--gcc <path>] [--llvm-report <report.json>] [--format human|json]\n       whyvec replay-gcc-opt <report.json>\n       whyvec derive-obligation <optimization-report.json> [--format human|json]\n       whyvec replay-obligation <report.json>\n\nexit codes: 0 success, 1 internal/evidence error, 2 usage, 3 typed decline, 4 unavailable toolchain".to_owned()
 }

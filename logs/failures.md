@@ -100,3 +100,17 @@ trace-linked analysis identities and semantic digests, and validates the two
 retained replay-analysis reports. A copied-bundle adversarial check removed
 `baseline/preopt.ll`; validation refused the bundle with the exact missing
 artifact path.
+
+## 2026-07-21T18:21:50Z — Structured outcome parser met pre-identity ambiguity
+
+The first YAML-driven outcome implementation treated simultaneous passed and
+missed records at one function/source line as a malformed result. The
+ambiguous-loop fixture intentionally has two structural loops at that location,
+so record parsing encountered the ambiguity before the identity helper could
+retain its typed decline.
+
+Safeguard: structured parsing now reports an ambiguous aggregate outcome while
+the structural identity stage remains authoritative and returns
+`identity.ambiguous`. Exact duplicate selected records remain rejected, and
+malformed, missing, unrelated-loop, and field-name variation tests remain
+separate.

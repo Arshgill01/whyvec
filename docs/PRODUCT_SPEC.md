@@ -42,6 +42,8 @@ Given a source loop and its real build configuration:
 ### Command line
 
 ```console
+whyvec analyze SOURCE:LINE [--format human|json]
+whyvec doctor [--format human|json]
 whyvec explain-build --diagnostic CODE [--at PATH] [--format human|json] -- COMMAND...
 whyvec replay-build REPORT.json
 whyvec explain-opt SOURCE:LINE --function NAME --parameter NAME:INDEX... \
@@ -53,7 +55,12 @@ whyvec derive-obligation OPTIMIZATION_REPORT.json [--format human|json]
 whyvec replay-obligation REPORT.json
 ```
 
-The `explain-*`, `observe-*`, and `derive-*` commands emit concise human output
+`analyze` is the normal C golden path: it discovers and fingerprints exactly
+one safe compilation-database entry, infers the containing function and direct
+C pointer-parameter mapping, locates bundled helpers, runs optimization and
+obligation analysis, and emits a compact versioned Codex packet. `doctor`
+checks the pinned platform, compiler, build, plugin, and helper surface. The
+expert `explain-*`, `observe-*`, and `derive-*` commands emit concise human output
 or their versioned JSON model. Replay commands verify retained evidence and
 semantic reproduction. Progressive `inspect`, `compare`, `verify`, and
 `artifacts` convenience commands remain future product-hardening surfaces; they

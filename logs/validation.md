@@ -699,3 +699,40 @@ automatic source/IR mapping is still R1/R2 work, portable redacted build export
 is a later distribution gate, the guard is limited to the recorded flat x86-64
 policy, caller discovery is not closed-world proof, tests validate covered
 executions only, and benchmark evidence is environment-specific.
+
+## 2026-07-21T18:21:50Z — Compilation-database and structured-record product checkpoint
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_optimization_causality.py
+ctest --test-dir demo/build --output-on-failure
+python3 scripts/verify_guarded_repair.py --obligation-report <retained-positive-report> --artifact-root <fresh-directory>
+python3 /home/arshdeepsingh/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py integrations/codex/whyvec
+python3 /home/arshdeepsingh/.codex/skills/.system/skill-creator/scripts/quick_validate.py integrations/codex/whyvec/skills/whyvec-optimize
+```
+
+Results:
+
+- Forty-seven Rust tests passed. Compilation-database discovery preserved the
+  semantic argv, expanded and fingerprinted bounded response files, and
+  declined missing, ambiguous, wrapper, shell, plugin, and escaping inputs.
+- `whyvec analyze demo/src/kernel.c:4` selected the real CMake/Ninja entry,
+  inferred `add_vectors_` and its pointer parameters, observed the baseline
+  miss, found `parameter.count.noalias` as a tested sufficient assumption,
+  derived the candidate obligation, and emitted a schema-valid agent packet.
+- LLVM YAML records, not human stderr, determined baseline and variant
+  classifications. Malformed, duplicate, missing, unrelated, ambiguous, and
+  version-varying record cases passed.
+- The exact compilation configuration now drives monolithic IR, replay, and
+  Clang AST obligation extraction. Replay re-resolves and compares the
+  compilation entry and response-file fingerprints.
+- Guarded validation schema 1.2 carried a versioned required-check plan and
+  structured fast/fallback records; the full optimization workflow passed.
+- The repo marketplace installed WhyVec through `codex plugin add` at plugin
+  version `0.1.0+codex.20260721181611`. Actual-model exit evidence remains the
+  next R8 gate and is not claimed by this checkpoint.

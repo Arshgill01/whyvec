@@ -61,8 +61,16 @@ Bubblewrap isolation boundary, for example `-- g++ -fsyntax-only src/main.cpp`.
 
 ## Optimization causality
 
-The first executable optimization pack accepts an explicit Clang source/IR
-mapping and evaluates typed LLVM parameter assumptions:
+The normal C product path consumes the real compilation database and performs
+function, pointer-parameter, and helper discovery automatically:
+
+```console
+whyvec analyze demo/src/kernel.c:4
+whyvec doctor
+```
+
+The expert path accepts an explicit Clang source/IR mapping and evaluates typed
+LLVM parameter assumptions:
 
 ```console
 whyvec explain-opt src/kernel.c:5 \
@@ -72,8 +80,8 @@ whyvec explain-opt src/kernel.c:5 \
   --identity-tool /path/to/whyvec-llvm-loop-identity
 ```
 
-The current development surface requires separately built pinned-LLVM helper
-paths. It records `equivalent_confirmed` fidelity and never converts a
+The complete build installs or builds the pinned-LLVM helpers; explicit helper
+paths remain expert overrides. It records `equivalent_confirmed` fidelity and never converts a
 successful LLVM assumption into source authorization.
 
 If a source location maps to more than one LLVM loop, the query retains

@@ -432,13 +432,28 @@ def main() -> int:
             "overflow_refusals": 2,
         }:
             raise RuntimeError(f"guarded branch coverage changed: {validation_report}")
-        if validation_report.get("optimization") != {
+        optimization_evidence = validation_report.get("optimization", {})
+        if not all(
+            optimization_evidence.get(key) == value
+            for key, value in {
             "fast_path": "vectorized",
             "fallback": "missed",
             "fast_path_line": 42,
             "fallback_line": 47,
-        }:
+            }.items()
+        ):
             raise RuntimeError("guarded compiler evidence changed")
+        structured = optimization_evidence.get("records")
+        if not isinstance(structured, list) or not any(
+            record.get("line") == 42 and record.get("outcome") == "vectorized"
+            for record in structured
+            if isinstance(record, dict)
+        ) or not any(
+            record.get("line") == 47 and record.get("outcome") == "missed"
+            for record in structured
+            if isinstance(record, dict)
+        ):
+            raise RuntimeError("structured guarded compiler records are incomplete")
         validate_artifacts(validation_report)
 
         retained_trace = os.environ.get("WHYVEC_RETAIN_AGENT_TRACE_ROOT")

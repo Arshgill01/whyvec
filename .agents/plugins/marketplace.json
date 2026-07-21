@@ -1,0 +1,20 @@
+{
+  "name": "whyvec-local",
+  "interface": {
+    "displayName": "WhyVec Local"
+  },
+  "plugins": [
+    {
+      "name": "whyvec",
+      "source": {
+        "source": "local",
+        "path": "./integrations/codex/whyvec"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

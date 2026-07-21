@@ -307,16 +307,23 @@ fn analyze(
         ));
     };
     let clang = Path::new(&optimization.toolchain.clang.invocation_path);
-    let mut request = process_request(
-        clang,
-        [
+    let compilation_directory = optimization.toolchain.compilation.as_ref().map_or_else(
+        || repository.to_path_buf(),
+        |command| PathBuf::from(&command.directory),
+    );
+    let ast_arguments = optimization
+        .toolchain
+        .normalized_flags
+        .iter()
+        .cloned()
+        .map(OsString::from)
+        .chain([
             OsString::from("-Xclang"),
             OsString::from("-ast-dump=json"),
             OsString::from("-fsyntax-only"),
             source.as_os_str().to_os_string(),
-        ],
-        repository,
-    );
+        ]);
+    let mut request = process_request(clang, ast_arguments, &compilation_directory);
     request.timeout = TIMEOUT;
     request.output_limit = OUTPUT_LIMIT;
     let output = run_process(&request)?;

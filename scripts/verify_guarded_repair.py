@@ -15,6 +15,8 @@ import tempfile
 import time
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "fixtures/cases/bound-alias-repair"
@@ -39,6 +41,64 @@ def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 
 def digest(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
+
+
+class OptimizationRecordLoader(yaml.SafeLoader):
+    pass
+
+
+def tagged_record(loader: OptimizationRecordLoader, suffix: str, node: yaml.Node) -> dict[str, object]:
+    record = loader.construct_mapping(node, deep=True)
+    record["Kind"] = suffix
+    return record
+
+
+OptimizationRecordLoader.add_multi_constructor("!", tagged_record)
+
+
+def selected_vectorization_records(
+    path: Path, function: str, lines: set[int]
+) -> list[dict[str, object]]:
+    records = []
+    for record in yaml.load_all(path.read_text(encoding="utf-8"), Loader=OptimizationRecordLoader):
+        if not isinstance(record, dict) or record.get("Pass") != "loop-vectorize":
+            continue
+        location = record.get("DebugLoc")
+        if not isinstance(location, dict):
+            continue
+        line = location.get("Line")
+        if record.get("Function") != function or line not in lines:
+            continue
+        arguments = record.get("Args") if isinstance(record.get("Args"), list) else []
+        fields = {
+            key: value
+            for argument in arguments
+            if isinstance(argument, dict)
+            for key, value in argument.items()
+        }
+        outcome = (
+            "vectorized"
+            if record.get("Kind") == "Passed" and record.get("Name") == "Vectorized"
+            else "missed"
+            if record.get("Kind") in {"Missed", "Analysis", "AnalysisFPCommute"}
+            else "other"
+        )
+        records.append(
+            {
+                "pass": record["Pass"],
+                "kind": record.get("Kind"),
+                "name": record.get("Name"),
+                "function": record.get("Function"),
+                "line": line,
+                "column": location.get("Column"),
+                "outcome": outcome,
+                "vector_width": fields.get("VectorizationFactor")
+                or fields.get("VectorizationWidth"),
+                "interleave_count": fields.get("InterleaveCount")
+                or fields.get("InterleavedCount"),
+            }
+        )
+    return records
 
 
 def retain(root: Path, relative: str, content: bytes, media_type: str) -> dict[str, object]:
@@ -315,10 +375,23 @@ def main() -> int:
         commands.append(optimization_command)
         optimization = run(optimization_command, ROOT)
         record_outcome("production_optimization_compile", optimization)
-        if "candidate.c:42:5: remark: vectorized loop" not in optimization.stderr:
-            raise RuntimeError("fast path did not emit the expected vectorization record")
-        if "candidate.c:47:3: remark: loop not vectorized" not in optimization.stderr:
-            raise RuntimeError("unchanged fallback miss was not retained")
+        structured_records = selected_vectorization_records(
+            optimization_record, "add_vectors_", {42, 47}
+        )
+        fast_records = [
+            record
+            for record in structured_records
+            if record["line"] == 42 and record["outcome"] == "vectorized"
+        ]
+        fallback_records = [
+            record
+            for record in structured_records
+            if record["line"] == 47 and record["outcome"] == "missed"
+        ]
+        if len(fast_records) != 1:
+            raise RuntimeError("structured record did not uniquely observe the fast path vectorized")
+        if not fallback_records:
+            raise RuntimeError("structured record did not observe the unchanged fallback miss")
         artifacts.extend(
             [
                 retain(
@@ -417,7 +490,7 @@ def main() -> int:
     ).encode()
     analysis_id = f"wv_{digest(material + str(time.time_ns()).encode())[:24]}"
     report = {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "analysis_id": analysis_id,
         "query_kind": "repair_validation",
         "evidence_strength": "validated_on_covered_executions",
@@ -427,6 +500,25 @@ def main() -> int:
         "candidate_source_sha256": digest((FIXTURE / "candidate.c").read_bytes()),
         "commands": normalized_commands,
         "command_outcomes": command_outcomes,
+        "validation_plan": {
+            "schema_version": "1.0.0",
+            "required_checks": [
+                {"id": outcome["name"], "property": property_name}
+                for outcome, property_name in zip(
+                    command_outcomes,
+                    [
+                        "public_abi_compiles", "public_abi_executes",
+                        "instrumented_differential_compiles", "instrumented_differential_executes",
+                        "production_differential_compiles", "production_differential_executes",
+                        "instrumented_sanitizers_compile", "instrumented_sanitizers_execute_clean",
+                        "production_sanitizers_compile", "production_sanitizers_execute_clean",
+                        "structured_compiler_records_observed", "benchmark_compiles",
+                        "benchmark_distribution_measured",
+                    ],
+                    strict=True,
+                )
+            ],
+        },
         "differential": differential_result,
         "sanitizer": {"clean": True, "covered": sanitizer_result},
         "optimization": {
@@ -434,6 +526,7 @@ def main() -> int:
             "fallback": "missed",
             "fast_path_line": 42,
             "fallback_line": 47,
+            "records": structured_records,
         },
         "benchmark": {"raw": benchmark, "summary": benchmark_summary},
         "environment": environment_record,

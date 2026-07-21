@@ -93,12 +93,13 @@ Responsibilities:
 
 It does not parse compiler prose to infer semantic facts.
 
-The executable `explain-opt` development path currently takes explicit
-source-to-IR parameter mappings. It records the observed monolithic baseline,
+The executable `analyze` product path resolves one safe compilation-database
+entry and automatically maps direct C functions and pointer parameters. The
+expert `explain-opt` path retains explicit source-to-IR overrides. Both record the observed monolithic baseline,
 replays Clang's printable pipeline, validates identity before every optimized
 variant, confirms successful outcomes, and retains structured YAML records and
-IR. Automatic compilation-database and source-parameter mapping remain product
-gates; explicit mappings are evidence inputs, not inferred facts.
+IR. Automatic mapping deliberately declines C++ ABI lowering and ambiguous C
+entries rather than guessing; explicit mappings remain expert evidence inputs.
 
 Identity selection is a reportable stage outcome. If the helper finds no unique
 loop, the report retains its raw identity streams, leaves `subject` and the
@@ -125,7 +126,8 @@ refuses artifact, source, toolchain, comparison-report, or semantic drift.
 ### Obligation derivation
 
 `derive-obligation` consumes an integrity-checked optimization report and runs
-the same fingerprinted Clang over the unchanged source to obtain structured AST
+the same fingerprinted Clang with the normalized semantic compilation arguments
+over the unchanged source to obtain structured AST
 evidence. The versioned C access model requires a unique matching loop and
 extracts the pointer-loaded bound, fixed-width bound object, induction domain,
 and every supported indexed write. Unsupported languages, volatility, atomics,

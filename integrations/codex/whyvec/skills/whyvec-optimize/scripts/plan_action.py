@@ -97,7 +97,13 @@ def tracked_files(repository: Path) -> list[Path]:
     for item in completed.stdout.split(b"\0"):
         if not item:
             continue
-        path = (repository / item.decode()).resolve(strict=True)
+        relative = Path(item.decode())
+        if any(
+            part in {".whyvec", "evidence", "vendor", "build", "target", "node_modules"}
+            for part in relative.parts
+        ):
+            continue
+        path = (repository / relative).resolve(strict=True)
         if not path.is_relative_to(repository):
             raise RuntimeError(f"tracked path escapes repository: {path}")
         files.append(path)
@@ -185,21 +191,25 @@ def validation_ready(
     successful_commands = {
         outcome.get("name") for outcome in outcomes if outcome.get("exit_status") == 0
     }
-    required_commands = {
-        "abi_compile",
-        "abi_execute",
-        "differential_compile",
-        "differential_execute",
-        "production_differential_compile",
-        "production_differential_execute",
-        "sanitizer_compile",
-        "sanitizer_execute",
-        "production_sanitizer_compile",
-        "production_sanitizer_execute",
-        "production_optimization_compile",
-        "production_benchmark_compile",
-        "production_benchmark_execute",
-    }
+    plan = report.get("validation_plan")
+    if isinstance(plan, dict) and plan.get("schema_version") == "1.0.0":
+        checks = plan.get("required_checks")
+        required_commands = {
+            check.get("id")
+            for check in checks
+            if isinstance(check, dict) and isinstance(check.get("id"), str)
+        } if isinstance(checks, list) else set()
+    else:
+        # Compatibility for retained schema 1.1 fixture evidence. New reports
+        # carry their repository-independent required-check contract.
+        required_commands = {
+            "abi_compile", "abi_execute", "differential_compile",
+            "differential_execute", "production_differential_compile",
+            "production_differential_execute", "sanitizer_compile",
+            "sanitizer_execute", "production_sanitizer_compile",
+            "production_sanitizer_execute", "production_optimization_compile",
+            "production_benchmark_compile", "production_benchmark_execute",
+        }
     command_indices = [outcome.get("command_index") for outcome in outcomes]
     command_ledger_complete = (
         isinstance(commands, list)
@@ -250,14 +260,31 @@ def report_path(path: Path, output: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--optimization-report", type=Path, required=True)
-    parser.add_argument("--obligation-report", type=Path, required=True)
+    parser.add_argument("--packet", type=Path)
+    parser.add_argument("--optimization-report", type=Path)
+    parser.add_argument("--obligation-report", type=Path)
     parser.add_argument("--validation-report", type=Path)
     parser.add_argument("--whyvec", type=Path, default=Path("whyvec"))
-    parser.add_argument("--repository", type=Path, required=True)
+    parser.add_argument("--repository", type=Path)
     parser.add_argument("--candidate-source", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
+
+    if arguments.packet:
+        packet = json.loads(arguments.packet.read_bytes())
+        if packet.get("schema_version") != "1.0.0":
+            raise RuntimeError(f"unsupported agent packet: {arguments.packet}")
+        packet_obligation = packet.get("obligation")
+        if not isinstance(packet_obligation, dict):
+            raise RuntimeError("agent packet has no obligation report")
+        arguments.optimization_report = Path(packet["optimization"]["report"])
+        arguments.obligation_report = Path(packet_obligation["report"])
+        arguments.repository = Path(packet["repository"])
+        arguments.whyvec = Path(packet["whyvec"])
+    if not arguments.optimization_report or not arguments.obligation_report:
+        parser.error("--packet or both report paths are required")
+    if not arguments.repository:
+        parser.error("--repository is required without --packet")
 
     whyvec = arguments.whyvec
     if whyvec.parent == Path("."):
@@ -269,7 +296,7 @@ def main() -> int:
     optimization, _ = load_report(arguments.optimization_report, {"2.0.0-dev"})
     obligation, _ = load_report(arguments.obligation_report, {"2.0.0-dev"})
     loaded_validation = (
-        load_report(arguments.validation_report, {"1.1.0"})
+        load_report(arguments.validation_report, {"1.1.0", "1.2.0"})
         if arguments.validation_report
         else None
     )

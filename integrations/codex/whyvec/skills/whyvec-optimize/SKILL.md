@@ -7,16 +7,19 @@ description: Diagnose, repair, or explicitly refuse Clang missed-vectorization w
 
 Use deterministic WhyVec output as compiler evidence, inspect the repository for the missing contract, and select a repair only when the evidence supports it. Never turn a successful shadow compilation into an assertion that real callers satisfy the tested assumption.
 
-## Required inputs
+## Required input
 
-Before changing source, obtain:
+Prefer the compact packet emitted by the normal product command:
 
-- the WhyVec optimization report or the command and source location needed to produce it;
-- the linked WhyVec source-obligation report;
-- linked validation evidence when a guarded candidate already exists;
-- the exact baseline compilation entry and toolchain fingerprint;
-- the selected loop identity and counterfactual finding;
-- the repository's applicable instructions and validation commands.
+```bash
+whyvec analyze path/to/source.c:LINE
+```
+
+The command prints one versioned agent-packet path containing the linked report
+paths, executable location, selected source/function, tested finding, candidate
+obligation, repository questions, strategy set, and required validation
+semantics. The user should not have to locate or pass individual reports or
+helper binaries.
 
 If a report is unavailable, incompatible, fails replay, or has an invalid artifact manifest, run the relevant WhyVec command before proposing a repair. If the WhyVec executable is unavailable, explain that compiler causality remains unverified and do not simulate its output.
 
@@ -33,20 +36,21 @@ Read [references/report-reading.md](references/report-reading.md). Replay the op
 
 Stop if experiment isolation, loop identity, or report provenance is ambiguous.
 
-Resolve the planner relative to the directory containing this `SKILL.md`; do not assume the user's repository root contains `scripts/plan_action.py`. Run it before editing:
+Do not run the action planner before creating the candidate. The packet is an
+evidence handoff, not a supplied patch. Codex must inspect the repository and
+author the candidate itself.
+
+Resolve the planner relative to the directory containing this `SKILL.md`; do not assume the user's repository root contains `scripts/plan_action.py`. Run it after the Codex-authored candidate has a linked validation report:
 
 ```bash
 python3 <skill-directory>/scripts/plan_action.py \
-  --optimization-report <optimization-report.json> \
-  --obligation-report <obligation-report.json> \
+  --packet <agent-packet.json> \
   --validation-report <validation-report.json> \
-  --whyvec <whyvec-binary> \
-  --repository <repository-root> \
   --candidate-source <candidate-source> \
   --output <new-action-trace.json>
 ```
 
-Omit `--validation-report` and `--candidate-source` when no guarded candidate exists. Run the planner only when the user has authorized a source change, because report replay retains new analyses. Pass a create-new `--output` path. For an answer-only review, inspect existing retained reports and traces without invoking this mutating workflow. Read [references/action-trace.md](references/action-trace.md) before using its result.
+Run the planner only when the user has authorized a source change, because report replay retains new analyses. Pass a create-new `--output` path. For an answer-only review, inspect existing retained reports and traces without invoking this mutating workflow. Read [references/action-trace.md](references/action-trace.md) before using its result.
 
 ### 2. Establish the real repository contract
 
@@ -83,7 +87,10 @@ When runtime versioning is selected:
 - ensure the fast path carries only the contract established by the guard;
 - avoid making the fallback unreachable through optimizer assumptions.
 
-Do not copy a candidate patch blindly. Apply the smallest repository-consistent version, then update the action trace or retain a new one that identifies the actual candidate digest and diff.
+Create the candidate from the derived obligation and repository evidence. Do
+not consume a pre-supplied guarded implementation. Apply the smallest
+repository-consistent version, then retain an action trace identifying the
+actual candidate digest and diff.
 
 ### 5. Validate causality, correctness, and value
 
@@ -97,7 +104,11 @@ Run repository-native tests plus the report's verification plan. At minimum:
 - repeat identical analysis and compare normalized report output;
 - benchmark only after correctness checks pass.
 
-When using the bundled guarded bound-alias fixture, run `python3 scripts/verify_guarded_repair.py` with the linked obligation report and a fresh artifact directory. For another repository, translate the same branch, sanitizer, compiler-record, and measurement gates into repository-native commands.
+Execute the packet's versioned validation contract through repository-native
+commands. Required semantics are identified by check IDs and properties, not
+fixture filenames or a hard-coded command count. The completed validation
+report must link every required check to an exact command outcome and the
+Codex-authored candidate digest.
 
 Do not claim full semantic equivalence from tests. Report the executions and properties covered.
 

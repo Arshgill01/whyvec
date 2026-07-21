@@ -1,6 +1,6 @@
 {
   "name": "whyvec",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260721181611",
   "description": "Counterfactual compiler evidence for safe, repository-aware loop optimization.",
   "author": {
     "name": "Arshdeep Singh"

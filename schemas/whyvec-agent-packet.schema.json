@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whyvec.dev/schemas/whyvec-agent-packet.schema.json",
+  "title": "WhyVec compact Codex handoff packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "packet_id", "repository", "source", "function", "line", "whyvec", "optimization", "obligation", "repository_questions", "required_strategy_comparison", "required_validation", "instructions"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "packet_id": { "type": "string", "pattern": "^packet_[a-f0-9]{24}$" },
+    "repository": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1 },
+    "function": { "type": "string", "minLength": 1 },
+    "line": { "type": "integer", "minimum": 1 },
+    "whyvec": { "type": "string", "minLength": 1 },
+    "optimization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["analysis_id", "semantic_digest", "report", "baseline_observed", "tested_sufficient_assumptions", "minimality"],
+      "properties": {
+        "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
+        "semantic_digest": { "$ref": "#/$defs/sha256" },
+        "report": { "type": "string", "minLength": 1 },
+        "baseline_observed": { "type": "string", "minLength": 1 },
+        "tested_sufficient_assumptions": { "type": ["array", "null"], "items": { "type": "string" } },
+        "minimality": { "type": "string", "minLength": 1 }
+      }
+    },
+    "obligation": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["analysis_id", "semantic_digest", "report", "status", "predicate", "guard", "decline"],
+          "properties": {
+            "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
+            "semantic_digest": { "$ref": "#/$defs/sha256" },
+            "report": { "type": "string", "minLength": 1 },
+            "status": { "enum": ["derived", "declined"] },
+            "predicate": { "type": ["string", "null"] },
+            "guard": { "type": ["object", "null"] },
+            "decline": { "type": ["object", "null"] }
+          }
+        }
+      ]
+    },
+    "repository_questions": { "type": "array", "minItems": 3, "items": { "type": "string", "minLength": 1 } },
+    "required_strategy_comparison": { "type": "array", "minItems": 5, "uniqueItems": true, "items": { "type": "string" } },
+    "required_validation": { "type": "array", "minItems": 8, "uniqueItems": true, "items": { "type": "string" } },
+    "instructions": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

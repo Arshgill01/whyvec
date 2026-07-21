@@ -12,6 +12,7 @@
 
 # Build systems
 /build/
+/demo/build/
 /out/
 node_modules/
 compile_commands.json

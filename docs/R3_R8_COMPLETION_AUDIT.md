@@ -1,5 +1,10 @@
 # R3–R8 completion audit
 
+> Status correction (2026-07-21): this historical audit established the
+> deterministic R8 handoff, not an actual installed-skill GPT-5.6 Codex
+> repository session. [PLAN.md](../PLAN.md) now keeps R8 in `verifying` until
+> that executable model evidence is retained.
+
 ## Scope
 
 `R3` through `R8` are the release capabilities named in
@@ -23,7 +28,7 @@ completion evidence.
 | R5 | Cargo/rustc diagnostic identity, immutable Git atoms, syntax-item grouping with exact-hunk fallback, interacting changes, removal witnesses, mandatory Bubblewrap containment, public CLI replay, and tamper refusal | Fifteen `whyvec-build` tests; `verify_build_causality.py`; GitHub `Repository integrity` workflow |
 | R6 | C++ linkage/template positives and macro ambiguity; Cargo, Clang, GCC, and TypeScript build adapters; GCC native optimization observation and integrity-checked LLVM comparison | `verify_compiler_fixtures.py`; `verify_cross_adapter_build_causality.py`; `verify_optimization_causality.py` |
 | R7 | Typed C bound obligation and volatile refusal; checked flat-x86-64 guard; unchanged fallback; branch, overflow, ABI, differential, sanitizer, compiler-record, environment, and dispersion-aware benchmark evidence | Three `whyvec-obligation` tests; `verify_guarded_repair.py`, invoked by `verify_optimization_causality.py`; retained `evidence/guarded-bound-alias/2026-07-21/` and R8 validation 1.1 report |
-| R8 | Report replay and compatibility checks, preliminary caller inventory, all four strategy decisions, exact candidate/validation linkage, unsafe-alternative rejection, typed refusal, complete command ledger, action trace, and installable Codex plugin | `plan_action.py`; action-trace schema; positive, digest-mismatch, missing-branch, benchmark-noise, and volatile-refusal forward tests in `verify_optimization_causality.py`; official plugin and skill validators; retained `evidence/codex-action/2026-07-21/` |
+| R8 (deterministic portion only) | Report replay and compatibility checks, preliminary caller inventory, all four strategy decisions, exact candidate/validation linkage, unsafe-alternative rejection, typed refusal, complete command ledger, action trace, and installable Codex plugin | `plan_action.py`; action-trace schema; positive, digest-mismatch, missing-branch, benchmark-noise, and volatile-refusal forward tests in `verify_optimization_causality.py`; official plugin and skill validators; retained `evidence/codex-action/2026-07-21/`. These do not substitute for the pending actual-model session. |
 
 ## Detailed phase-gate mapping
 
@@ -111,8 +116,9 @@ did not catch:
 
 - Rust split-pipeline optimization evidence remains `surrogate` and cannot
   authorize a Rust source action.
-- Optimization queries still require explicit source-to-IR parameter mapping;
-  automatic compilation-database mapping remains active R1/R2 work.
+- The golden C path now ingests one real compilation-database entry and maps
+  direct C parameters automatically. C++ ABI mapping and ambiguous entries
+  remain explicit declines or expert overrides.
 - Build replay currently requires its recorded local Git object and toolchain;
   portable redacted export is a later distribution gate.
 - The first runtime guard is limited to the recorded flat x86-64 `uintptr_t`

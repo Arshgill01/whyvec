@@ -2,7 +2,15 @@
 
 #![forbid(unsafe_code)]
 
+mod compilation;
 mod gcc;
+mod remarks;
+
+pub use compilation::{
+    CompilationCommand, CompilationDatabaseError, ResponseFileFingerprint, SourceMapping,
+    infer_c_source_mapping, resolve_compilation_command,
+};
+pub use remarks::{OptimizationRemark, RemarkDebugLocation, RemarkParseError};
 
 pub use gcc::{
     GccComparison, GccGenerator, GccObservationOutcome, GccObservationReplay,
@@ -48,6 +56,7 @@ pub struct OptimizationRequest {
     pub identity_tool: PathBuf,
     pub optimization: String,
     pub cpu: String,
+    pub compilation: Option<CompilationCommand>,
     pub max_evaluations: usize,
     pub max_cardinality: usize,
 }
@@ -69,6 +78,8 @@ pub struct OptimizationOutcome {
     pub vector_factor: Option<u64>,
     pub interleave_count: Option<u64>,
     pub selected_remarks: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_remarks: Vec<OptimizationRemark>,
     pub exit_code: Option<i32>,
     pub timed_out: bool,
     pub output_truncated: bool,
@@ -122,6 +133,8 @@ pub struct OptimizationToolchain {
     pub optimization: String,
     pub cpu: String,
     pub normalized_flags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compilation: Option<CompilationCommand>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -279,11 +292,19 @@ pub fn explain_optimization(
         &pretty_json(&toolchain)?,
         "application/json",
     )?);
+    if let Some(compilation) = &request.compilation {
+        artifacts.push(store.retain(
+            "inputs/compilation-command.json",
+            &pretty_json(compilation)?,
+            "application/json",
+        )?);
+    }
     let temporary = std::env::temp_dir().join(format!("whyvec-opt-{analysis_id}"));
     fs::create_dir(&temporary)?;
     let _cleanup = Cleanup(temporary.clone());
 
     let common = common_clang_arguments(request, &source);
+    let compilation_directory = compilation_directory(request, &repository)?;
     let monolithic_record = temporary.join("baseline.opt.yaml");
     let monolithic = execute(
         &request.clang,
@@ -301,13 +322,15 @@ pub fn explain_optimization(
             OsString::from("-o"),
             temporary.join("baseline.o").into_os_string(),
         ]),
-        &repository,
+        &compilation_directory,
     )?;
     let mut monolithic_baseline = retain_outcome(
         &store,
         "baseline/monolithic",
         &monolithic,
+        &monolithic_record,
         &source,
+        &request.function,
         request.line,
     )?;
     let monolithic_record_artifact = store.retain(
@@ -334,7 +357,7 @@ pub fn explain_optimization(
                 OsString::from("-o"),
                 preopt.as_os_str().to_os_string(),
             ]),
-            &repository,
+            &compilation_directory,
         )?,
         "emit pre-optimization IR",
     )?;
@@ -350,7 +373,7 @@ pub fn explain_optimization(
             OsString::from("-o"),
             temporary.join("pipeline.o").into_os_string(),
         ]),
-        &repository,
+        &compilation_directory,
     )?;
     require_success(pipeline_run.clone(), "capture Clang pipeline")?;
     let pipeline = String::from_utf8_lossy(&pipeline_run.stdout)
@@ -364,8 +387,13 @@ pub fn explain_optimization(
     artifacts.push(store.retain("baseline/pipeline.txt", pipeline.as_bytes(), "text/plain")?);
     let pipeline_digest = digest(pipeline.as_bytes());
 
-    let (identity, identity_artifacts) =
-        inspect_identity(request, &preopt, &repository, &store, "baseline/identity")?;
+    let (identity, identity_artifacts) = inspect_identity(
+        request,
+        &preopt,
+        &compilation_directory,
+        &store,
+        "baseline/identity",
+    )?;
     artifacts.extend(identity_artifacts);
     let subject = match identity {
         Ok(subject) => subject,
@@ -389,12 +417,20 @@ pub fn explain_optimization(
         }
     };
     let replay_output = temporary.join("baseline.opt.ll");
-    let replay_run = optimize(request, &preopt, &pipeline, &replay_output, &repository)?;
+    let replay_run = optimize(
+        request,
+        &preopt,
+        &pipeline,
+        &replay_output,
+        &compilation_directory,
+    )?;
     let mut replay_baseline = retain_outcome(
         &store,
         "baseline/replay",
         &replay_run,
+        &remark_path(&replay_output),
         &source,
+        &request.function,
         request.line,
     )?;
     for (relative, path, media_type) in [
@@ -465,7 +501,7 @@ pub fn explain_optimization(
             &pipeline,
             &subject,
             &temporary,
-            &repository,
+            &compilation_directory,
             &store,
         ) {
             Ok((experiment, retained)) => {
@@ -547,12 +583,32 @@ fn validate_request(request: &OptimizationRequest) -> Result<(), OptimizationErr
 }
 
 fn common_clang_arguments(request: &OptimizationRequest, _source: &Path) -> Vec<OsString> {
-    vec![
-        OsString::from(format!("-{}", request.optimization)),
-        OsString::from(format!("-march={}", request.cpu)),
-        OsString::from("-gline-tables-only"),
-        OsString::from("-gcolumn-info"),
-    ]
+    let mut arguments = request.compilation.as_ref().map_or_else(
+        || {
+            vec![
+                format!("-{}", request.optimization),
+                format!("-march={}", request.cpu),
+            ]
+        },
+        |compilation| compilation.arguments.clone(),
+    );
+    if !arguments.iter().any(|argument| argument.starts_with("-g")) {
+        arguments.push("-gline-tables-only".to_owned());
+    }
+    if !arguments.iter().any(|argument| argument == "-gcolumn-info") {
+        arguments.push("-gcolumn-info".to_owned());
+    }
+    arguments.into_iter().map(OsString::from).collect()
+}
+
+fn compilation_directory(
+    request: &OptimizationRequest,
+    repository: &Path,
+) -> Result<PathBuf, OptimizationError> {
+    request.compilation.as_ref().map_or_else(
+        || Ok(repository.to_path_buf()),
+        |compilation| Ok(PathBuf::from(&compilation.directory).canonicalize()?),
+    )
 }
 
 fn capture_toolchain(
@@ -566,12 +622,11 @@ fn capture_toolchain(
         identity_tool: capture_tool(&request.identity_tool, current_dir)?,
         optimization: request.optimization.clone(),
         cpu: request.cpu.clone(),
-        normalized_flags: vec![
-            format!("-{}", request.optimization),
-            format!("-march={}", request.cpu),
-            "-gline-tables-only".to_owned(),
-            "-gcolumn-info".to_owned(),
-        ],
+        normalized_flags: common_clang_arguments(request, Path::new(""))
+            .into_iter()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect(),
+        compilation: request.compilation.clone(),
     })
 }
 
@@ -852,7 +907,9 @@ fn execute_variant(
         store,
         &format!("variants/{experiment_id}/optimizer"),
         &run,
+        &remark_path(&optimized),
         &request.source.canonicalize()?,
+        &request.function,
         request.line,
     )?;
     for (name, path, media_type) in [
@@ -875,7 +932,9 @@ fn execute_variant(
             store,
             &format!("variants/{experiment_id}/confirmation"),
             &confirmation_run,
+            &remark_path(&confirmation_output),
             &request.source.canonicalize()?,
+            &request.function,
             request.line,
         )?;
         let consistent = outcome.classification == confirmation.classification
@@ -934,7 +993,9 @@ fn retain_outcome(
     store: &ArtifactStore,
     prefix: &str,
     run: &ProcessResult,
+    remark_file: &Path,
     source: &Path,
+    function: &str,
     line: u64,
 ) -> Result<OptimizationOutcome, OptimizationError> {
     let stdout = store.retain(&format!("{prefix}.stdout"), &run.stdout, "text/plain")?;
@@ -955,30 +1016,32 @@ fn retain_outcome(
         })
         .map(str::to_owned)
         .collect::<Vec<_>>();
-    let vectorized = selected
-        .iter()
-        .find(|item| item.contains("vectorized loop") && !item.contains("not vectorized"));
-    let missed = selected
-        .iter()
-        .any(|item| item.contains("loop not vectorized"));
-    let (vector_factor, interleave_count) =
-        vectorized.map_or((None, None), |line| parse_vector_widths(line));
-    let classification = if run.timed_out {
-        "timed_out"
+    let (classification, vector_factor, interleave_count, structured_remarks) = if run.timed_out {
+        ("timed_out".to_owned(), None, None, Vec::new())
     } else if run.exit_code != Some(0) {
-        "tool_failed"
-    } else if vectorized.is_some() {
-        "vectorized"
-    } else if missed {
-        "missed"
+        ("tool_failed".to_owned(), None, None, Vec::new())
     } else {
-        "loop_absent"
+        let bytes = fs::read(remark_file).map_err(|error| {
+            OptimizationError::ToolFailure(format!(
+                "structured optimization record is unavailable at {}: {error}",
+                remark_file.display()
+            ))
+        })?;
+        let parsed = remarks::parse_optimization_outcome(&bytes, source, function, line)
+            .map_err(|error| OptimizationError::ToolFailure(error.to_string()))?;
+        (
+            parsed.classification,
+            parsed.vector_width,
+            parsed.interleave_count,
+            parsed.records,
+        )
     };
     Ok(OptimizationOutcome {
-        classification: classification.to_owned(),
+        classification,
         vector_factor,
         interleave_count,
         selected_remarks: selected,
+        structured_remarks,
         exit_code: run.exit_code,
         timed_out: run.timed_out,
         output_truncated: run.stdout_truncated || run.stderr_truncated,
@@ -986,22 +1049,6 @@ fn retain_outcome(
         consistent: true,
         artifacts: vec![stdout, stderr],
     })
-}
-
-fn parse_vector_widths(line: &str) -> (Option<u64>, Option<u64>) {
-    (
-        number_after(line, "vectorization width: "),
-        number_after(line, "interleaved count: "),
-    )
-}
-
-fn number_after(text: &str, marker: &str) -> Option<u64> {
-    let tail = text.split_once(marker)?.1;
-    tail.chars()
-        .take_while(char::is_ascii_digit)
-        .collect::<String>()
-        .parse()
-        .ok()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1101,6 +1148,7 @@ fn strip_non_semantic_fields(value: &mut serde_json::Value) {
                 "artifacts",
                 "repository",
                 "semantic_digest",
+                "structured_remarks",
             ] {
                 object.remove(field);
             }
@@ -1160,6 +1208,19 @@ pub fn replay_optimization(
             observed: observed_source_digest,
         });
     }
+    let compilation = if let Some(expected) = &original.toolchain.compilation {
+        let observed = resolve_compilation_command(&repository, &source)
+            .map_err(|error| OptimizationError::InvalidInput(error.to_string()))?;
+        if &observed != expected {
+            return Err(OptimizationError::ReplayInputChanged {
+                expected: expected.entry_digest.clone(),
+                observed: observed.entry_digest,
+            });
+        }
+        Some(expected.clone())
+    } else {
+        None
+    };
     let request = OptimizationRequest {
         repository: repository.clone(),
         source,
@@ -1179,6 +1240,7 @@ pub fn replay_optimization(
         identity_tool: PathBuf::from(&original.toolchain.identity_tool.invocation_path),
         optimization: original.toolchain.optimization.clone(),
         cpu: original.toolchain.cpu.clone(),
+        compilation,
         max_evaluations: original.replay.max_evaluations,
         max_cardinality: original.replay.max_cardinality,
     };
@@ -1287,6 +1349,7 @@ mod tests {
             identity_tool: PathBuf::from("identity"),
             optimization: "O3".to_owned(),
             cpu: "x86-64-v3".to_owned(),
+            compilation: None,
             max_evaluations: 8,
             max_cardinality: 1,
         }
@@ -1308,16 +1371,6 @@ mod tests {
             validate_request(&request(candidates)),
             Err(OptimizationError::InvalidInput(detail)) if detail == "duplicate candidate name"
         ));
-    }
-
-    #[test]
-    fn parses_vector_width_and_interleave_count_from_observed_remark() {
-        assert_eq!(
-            parse_vector_widths(
-                "remark: kernel.c:5:3: vectorized loop (vectorization width: 8, interleaved count: 4)"
-            ),
-            (Some(8), Some(4))
-        );
     }
 
     #[test]

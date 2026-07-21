@@ -33,9 +33,11 @@ project-supplied plugin or response-file arguments; operating-system sandboxing
 for optimization-only adapters remains distribution-hardening work.
 
 Obligation derivation never executes the analyzed program. It invokes the
-already fingerprinted Clang with a fixed syntax-only AST command, bounds both
-streams and runtime, retains the raw AST, and accepts no project compiler
-arguments or plugins. Crafted source can still exercise compiler
+already fingerprinted Clang with the policy-checked normalized semantic
+compilation arguments plus a fixed syntax-only AST suffix, bounds both streams
+and runtime, and retains the raw AST. Compilation entries with wrappers,
+shells, code-loading flags, unsafe response files, or ambiguity decline before
+this stage. Crafted source can still exercise compiler
 vulnerabilities; OS sandboxing for this syntax-only path remains a residual
 risk.
 
