@@ -14,6 +14,7 @@ fn main() {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn run() -> Result<(), String> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
     if arguments.first().map(String::as_str) != Some("explain-build") {
@@ -35,6 +36,8 @@ fn run() -> Result<(), String> {
     let mut repository = PathBuf::from(".");
     let mut max_evaluations = 256_usize;
     let mut max_cardinality = None;
+    let mut max_hunk_evaluations = 256_usize;
+    let mut max_hunk_cardinality = None;
     let mut format = "human".to_owned();
     let mut index = 0;
     while index < options.len() {
@@ -61,6 +64,18 @@ fn run() -> Result<(), String> {
                 max_cardinality = Some(parse_positive(
                     "--max-cardinality",
                     &value("--max-cardinality", &mut index)?,
+                )?);
+            }
+            "--max-hunk-evaluations" => {
+                max_hunk_evaluations = parse_positive(
+                    "--max-hunk-evaluations",
+                    &value("--max-hunk-evaluations", &mut index)?,
+                )?;
+            }
+            "--max-hunk-cardinality" => {
+                max_hunk_cardinality = Some(parse_positive(
+                    "--max-hunk-cardinality",
+                    &value("--max-hunk-cardinality", &mut index)?,
                 )?);
             }
             "--format" => {
@@ -100,6 +115,8 @@ fn run() -> Result<(), String> {
         },
         max_evaluations,
         max_cardinality,
+        max_hunk_evaluations,
+        max_hunk_cardinality,
     };
     let report = explain_build(&request).map_err(|error| error.to_string())?;
     if format == "json" {
@@ -179,6 +196,25 @@ fn print_human(report: &BuildCausalityReport) {
             println!("     co-suppressed diagnostics: {cascades}");
         }
     }
+    for refinement in &report.hunk_refinements {
+        println!();
+        println!("HUNK REFINEMENT");
+        println!("  minimality: {}", refinement.minimality);
+        for causal_set in &refinement.causal_sets {
+            println!("  sufficient syntax locations:");
+            for location in &causal_set.locations {
+                println!("    {location}");
+            }
+            println!(
+                "  full-patch removal witness: {}",
+                if causal_set.target_removed_from_full_patch {
+                    "target disappears"
+                } else {
+                    "target remains"
+                }
+            );
+        }
+    }
     println!();
     println!("EVIDENCE");
     println!("  report: {}", report.artifact_path);
@@ -186,5 +222,5 @@ fn print_human(report: &BuildCausalityReport) {
 }
 
 fn usage() -> String {
-    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--format human|json] -- cargo check [cargo options]".to_owned()
+    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]".to_owned()
 }

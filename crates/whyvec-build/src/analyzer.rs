@@ -16,7 +16,10 @@ use crate::diagnostics::{
     DiagnosticRecord, DiagnosticSelectionError, DiagnosticSelector, parse_cargo_json,
     select_diagnostic,
 };
-use crate::git::{ChangeAtom, ChangeAtomSummary, GitError, GitRepository};
+use crate::git::{
+    ChangeAtom, ChangeAtomSummary, GitError, GitRepository, TextHunk, TextHunkSummary,
+    apply_text_hunks,
+};
 use crate::process::{self, ProcessError};
 
 const BUILD_TIMEOUT: Duration = Duration::from_mins(3);
@@ -66,6 +69,8 @@ pub struct BuildCausalityRequest {
     pub command: BuildCommand,
     pub max_evaluations: usize,
     pub max_cardinality: Option<usize>,
+    pub max_hunk_evaluations: usize,
+    pub max_hunk_cardinality: Option<usize>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -97,6 +102,28 @@ pub struct CausalSetReport {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HunkCausalSetReport {
+    pub sufficient_hunks: Vec<String>,
+    pub locations: Vec<String>,
+    pub removal_file_atoms: Vec<String>,
+    pub removal_hunks: Vec<String>,
+    pub target_removed_from_full_patch: bool,
+    pub diagnostics_suppressed_with_target: Vec<DiagnosticRecord>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HunkRefinementReport {
+    pub parent_sufficient_atoms: Vec<String>,
+    pub fixed_atoms: Vec<String>,
+    pub hunks: Vec<TextHunkSummary>,
+    pub evaluations: Vec<SearchEvaluationSummary>,
+    pub minimality: String,
+    pub stop_reason: String,
+    pub declared_subsets: usize,
+    pub causal_sets: Vec<HunkCausalSetReport>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct BuildCausalityReport {
     pub schema_version: String,
     pub analysis_id: String,
@@ -115,6 +142,7 @@ pub struct BuildCausalityReport {
     pub stop_reason: String,
     pub declared_subsets: usize,
     pub causal_sets: Vec<CausalSetReport>,
+    pub hunk_refinements: Vec<HunkRefinementReport>,
     pub artifact_path: String,
     pub caveats: Vec<String>,
 }
@@ -134,6 +162,7 @@ pub enum AnalysisError {
     UnsupportedMessageFormat(String),
     InterventionId(String),
     MissingCachedEvaluation(Vec<String>),
+    RefinementDidNotReproduce(Vec<String>),
     WorktreeCleanup { path: PathBuf, source: GitError },
 }
 
@@ -168,6 +197,10 @@ impl std::fmt::Display for AnalysisError {
             Self::MissingCachedEvaluation(subset) => write!(
                 formatter,
                 "search retained an evaluation without a cached build run: {subset:?}"
+            ),
+            Self::RefinementDidNotReproduce(atoms) => write!(
+                formatter,
+                "zero-context hunk reconstruction did not reproduce sufficient file set {atoms:?}"
             ),
             Self::WorktreeCleanup { path, source } => write!(
                 formatter,
@@ -295,6 +328,9 @@ pub fn explain_build(
             .collect::<Vec<_>>();
         match session.evaluate(&ids) {
             Ok(run) => classify_run(&run, &target.id),
+            Err(error) if is_invalid_intervention(&error) => {
+                ExperimentVerdict::Unresolved(UnresolvedReason::InterventionInvalid)
+            }
             Err(error) => {
                 oracle_failure = Some(error);
                 ExperimentVerdict::Unresolved(UnresolvedReason::ToolFailed)
@@ -361,6 +397,20 @@ pub fn explain_build(
         });
     }
 
+    let mut hunk_refinements = Vec::new();
+    for causal_set in &causal_sets {
+        if let Some(refinement) = refine_hunks(
+            &mut session,
+            causal_set,
+            &all_ids,
+            &candidate,
+            &target,
+            request,
+        )? {
+            hunk_refinements.push(refinement);
+        }
+    }
+
     let evaluations = search
         .evaluations()
         .iter()
@@ -371,17 +421,7 @@ pub fn explain_build(
                 .iter()
                 .map(|identifier| identifier.as_str().to_owned())
                 .collect::<Vec<_>>();
-            let run = session
-                .cached(&subset)
-                .ok_or_else(|| AnalysisError::MissingCachedEvaluation(subset.clone()))?;
-            Ok(SearchEvaluationSummary {
-                subset,
-                verdict: verdict.to_owned(),
-                unresolved_reason: unresolved_reason.map(str::to_owned),
-                exit_code: run.exit_code,
-                timed_out: run.timed_out,
-                output_truncated: run.output_truncated,
-            })
+            evaluation_summary(&session, subset, verdict, unresolved_reason)
         })
         .collect::<Result<Vec<_>, AnalysisError>>()?;
     let artifact_path = artifact_root.join("report.json");
@@ -403,10 +443,11 @@ pub fn explain_build(
         stop_reason: stop_reason_name(search.stop_reason()).to_owned(),
         declared_subsets: search.declared_subsets(),
         causal_sets,
+        hunk_refinements,
         artifact_path: artifact_path.to_string_lossy().into_owned(),
         caveats: vec![
             "A sufficient edit set changes the selected compiler observation; it does not prove the edit is semantically wrong.".to_owned(),
-            "File atoms are the current intervention granularity; dependent hunks inside one file are not separated.".to_owned(),
+            "Tracked text files are refined to zero-context Git hunks; these are executable edit regions, not syntax-tree-level semantic units.".to_owned(),
             "Cargo is forced offline, but build scripts are not yet operating-system sandboxed.".to_owned(),
         ],
     };
@@ -458,7 +499,17 @@ impl AnalysisSession {
     }
 
     fn evaluate(&mut self, identifiers: &[String]) -> Result<BuildRunSummary, AnalysisError> {
-        let mut sorted = identifiers.to_vec();
+        self.evaluate_variant(identifiers, &[])
+    }
+
+    fn evaluate_variant(
+        &mut self,
+        file_identifiers: &[String],
+        hunks: &[TextHunk],
+    ) -> Result<BuildRunSummary, AnalysisError> {
+        let mut identifiers = file_identifiers.to_vec();
+        identifiers.extend(hunks.iter().map(|hunk| hunk.summary.id.clone()));
+        let mut sorted = identifiers.clone();
         sorted.sort();
         let key = sorted.join("\u{1f}");
         if let Some(cached) = self.cache.get(&key) {
@@ -471,7 +522,7 @@ impl AnalysisSession {
         self.next_worktree += 1;
         self.repository.add_worktree(&worktree)?;
 
-        let evaluation = self.evaluate_in_worktree(&sorted, &worktree);
+        let evaluation = self.evaluate_in_worktree(file_identifiers, hunks, &sorted, &worktree);
         let cleanup = self.repository.remove_worktree(&worktree);
         if let Err(source) = cleanup {
             return Err(AnalysisError::WorktreeCleanup {
@@ -486,10 +537,12 @@ impl AnalysisSession {
 
     fn evaluate_in_worktree(
         &self,
+        file_identifiers: &[String],
+        hunks: &[TextHunk],
         identifiers: &[String],
         worktree: &Path,
     ) -> Result<BuildRunSummary, AnalysisError> {
-        let selected = identifiers
+        let selected = file_identifiers
             .iter()
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
@@ -498,6 +551,7 @@ impl AnalysisSession {
                 atom.apply(worktree)?;
             }
         }
+        apply_text_hunks(hunks, worktree)?;
 
         let mut process_request = process::request(
             &self.command.program,
@@ -524,6 +578,203 @@ impl AnalysisSession {
             diagnostics,
         })
     }
+}
+
+#[allow(clippy::too_many_lines)]
+fn refine_hunks(
+    session: &mut AnalysisSession,
+    parent: &CausalSetReport,
+    all_file_ids: &[String],
+    candidate: &BuildRunSummary,
+    target: &DiagnosticRecord,
+    request: &BuildCausalityRequest,
+) -> Result<Option<HunkRefinementReport>, AnalysisError> {
+    let parent_ids = parent
+        .sufficient_atoms
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let mut fixed_atoms = Vec::new();
+    let mut hunks = Vec::new();
+    for atom in session
+        .atoms
+        .iter()
+        .filter(|atom| parent_ids.contains(&atom.id))
+    {
+        let atom_hunks = atom.text_hunks();
+        if atom_hunks.is_empty() {
+            fixed_atoms.push(atom.id.clone());
+        } else {
+            hunks.extend(atom_hunks);
+        }
+    }
+    if hunks.is_empty() {
+        return Ok(None);
+    }
+    let full_hunk_run = session.evaluate_variant(&fixed_atoms, &hunks)?;
+    if classify_run(&full_hunk_run, &target.id) != ExperimentVerdict::Observed {
+        return Err(AnalysisError::RefinementDidNotReproduce(
+            parent.sufficient_atoms.clone(),
+        ));
+    }
+    let candidates = hunks
+        .iter()
+        .map(|hunk| {
+            InterventionId::new(hunk.summary.id.clone())
+                .map_err(|_| AnalysisError::InterventionId(hunk.summary.id.clone()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let max_cardinality = request
+        .max_hunk_cardinality
+        .unwrap_or(candidates.len())
+        .min(candidates.len());
+    let limits = SearchLimits {
+        max_cardinality,
+        max_evaluations: request.max_hunk_evaluations,
+        stop_after_first_successful_cardinality: true,
+    };
+    let hunk_map = hunks
+        .iter()
+        .map(|hunk| (hunk.summary.id.clone(), hunk.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut oracle_failure = None;
+    let search = search_sufficient_sets(candidates, limits, |subset| {
+        let selected = subset
+            .iter()
+            .filter_map(|id| hunk_map.get(id.as_str()).cloned())
+            .collect::<Vec<_>>();
+        match session.evaluate_variant(&fixed_atoms, &selected) {
+            Ok(run) => classify_run(&run, &target.id),
+            Err(error) if is_invalid_intervention(&error) => {
+                ExperimentVerdict::Unresolved(UnresolvedReason::InterventionInvalid)
+            }
+            Err(error) => {
+                oracle_failure = Some(error);
+                ExperimentVerdict::Unresolved(UnresolvedReason::InterventionInvalid)
+            }
+        }
+    })?;
+    if let Some(error) = oracle_failure {
+        return Err(error);
+    }
+    let candidate_ids = candidate
+        .diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<BTreeSet<_>>();
+    let outside_parent = all_file_ids
+        .iter()
+        .filter(|id| !parent_ids.contains(*id))
+        .cloned()
+        .chain(fixed_atoms.iter().cloned())
+        .collect::<Vec<_>>();
+    let mut causal_sets = Vec::new();
+    for sufficient in search.successful_sets() {
+        let sufficient_ids = sufficient
+            .iter()
+            .map(|id| id.as_str().to_owned())
+            .collect::<BTreeSet<_>>();
+        let complement = hunks
+            .iter()
+            .filter(|hunk| !sufficient_ids.contains(&hunk.summary.id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let removal = session.evaluate_variant(&outside_parent, &complement)?;
+        let removal_ids = removal
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<BTreeSet<_>>();
+        causal_sets.push(HunkCausalSetReport {
+            sufficient_hunks: sufficient_ids.iter().cloned().collect(),
+            locations: sufficient_ids
+                .iter()
+                .filter_map(|id| hunk_map.get(id))
+                .map(|hunk| format!("{}:{}", hunk.summary.file, hunk.summary.new_start))
+                .collect(),
+            removal_file_atoms: outside_parent.clone(),
+            removal_hunks: complement
+                .iter()
+                .map(|hunk| hunk.summary.id.clone())
+                .collect(),
+            target_removed_from_full_patch: !removal_ids.contains(target.id.as_str()),
+            diagnostics_suppressed_with_target: candidate
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| {
+                    candidate_ids.contains(diagnostic.id.as_str())
+                        && !removal_ids.contains(diagnostic.id.as_str())
+                })
+                .cloned()
+                .collect(),
+        });
+    }
+    let evaluations = search
+        .evaluations()
+        .iter()
+        .map(|evaluation| {
+            let subset = evaluation
+                .interventions()
+                .iter()
+                .map(|id| id.as_str().to_owned())
+                .collect::<Vec<_>>();
+            let mut cache_ids = fixed_atoms.clone();
+            cache_ids.extend(subset.iter().cloned());
+            let (verdict, unresolved_reason) = verdict_strings(evaluation.verdict());
+            let mut summary = evaluation_summary(session, cache_ids, verdict, unresolved_reason)?;
+            summary.subset = subset;
+            Ok(summary)
+        })
+        .collect::<Result<Vec<_>, AnalysisError>>()?;
+    Ok(Some(HunkRefinementReport {
+        parent_sufficient_atoms: parent.sufficient_atoms.clone(),
+        fixed_atoms,
+        hunks: hunks.iter().map(|hunk| hunk.summary.clone()).collect(),
+        evaluations,
+        minimality: minimality_name(search.minimality()).to_owned(),
+        stop_reason: stop_reason_name(search.stop_reason()).to_owned(),
+        declared_subsets: search.declared_subsets(),
+        causal_sets,
+    }))
+}
+
+fn is_invalid_intervention(error: &AnalysisError) -> bool {
+    matches!(
+        error,
+        AnalysisError::Git(GitError::CommandFailed {
+            operation: "apply" | "apply refined hunks",
+            ..
+        })
+    )
+}
+
+fn evaluation_summary(
+    session: &AnalysisSession,
+    subset: Vec<String>,
+    verdict: &str,
+    unresolved_reason: Option<&str>,
+) -> Result<SearchEvaluationSummary, AnalysisError> {
+    if let Some(run) = session.cached(&subset) {
+        return Ok(SearchEvaluationSummary {
+            subset,
+            verdict: verdict.to_owned(),
+            unresolved_reason: unresolved_reason.map(str::to_owned),
+            exit_code: run.exit_code,
+            timed_out: run.timed_out,
+            output_truncated: run.output_truncated,
+        });
+    }
+    if unresolved_reason == Some("intervention_invalid") {
+        return Ok(SearchEvaluationSummary {
+            subset,
+            verdict: verdict.to_owned(),
+            unresolved_reason: unresolved_reason.map(str::to_owned),
+            exit_code: None,
+            timed_out: false,
+            output_truncated: false,
+        });
+    }
+    Err(AnalysisError::MissingCachedEvaluation(subset))
 }
 
 fn classify_run(run: &BuildRunSummary, target_id: &str) -> ExperimentVerdict {
@@ -659,7 +910,7 @@ mod tests {
             .expect("write manifest");
             fs::write(
                 root.join("src/api.rs"),
-                "pub fn measure(value: i32) -> usize { value as usize }\n",
+                "pub trait Marker {}\npub struct Item;\n\n\npub fn measure(value: i32) -> usize { value as usize }\n\n\npub fn stable() -> usize { 1 }\n",
             )
             .expect("write API");
             fs::write(
@@ -710,7 +961,7 @@ mod tests {
         let repository = TestRepository::new();
         fs::write(
             repository.root.join("src/api.rs"),
-            "pub fn measure(value: &str) -> usize { value.len() }\n",
+            "pub trait Marker {}\npub struct Item;\n\n\npub fn measure(value: &str) -> usize { value.len() }\n\n\npub fn stable() -> usize { 2 }\n",
         )
         .expect("change API");
         fs::write(
@@ -732,6 +983,8 @@ mod tests {
             command: BuildCommand::cargo(["check"]),
             max_evaluations: 16,
             max_cardinality: None,
+            max_hunk_evaluations: 16,
+            max_hunk_cardinality: None,
         })
         .expect("causality analysis succeeds");
 
@@ -739,6 +992,16 @@ mod tests {
         assert_eq!(report.causal_sets.len(), 1);
         assert_eq!(report.causal_sets[0].sufficient_files, ["src/api.rs"]);
         assert!(report.causal_sets[0].target_removed_from_full_patch);
+        assert_eq!(report.hunk_refinements.len(), 1);
+        assert_eq!(report.hunk_refinements[0].hunks.len(), 2);
+        assert_eq!(report.hunk_refinements[0].causal_sets.len(), 1);
+        assert_eq!(
+            report.hunk_refinements[0].causal_sets[0]
+                .sufficient_hunks
+                .len(),
+            1
+        );
+        assert!(report.hunk_refinements[0].causal_sets[0].target_removed_from_full_patch);
         assert!(
             report.causal_sets[0]
                 .diagnostics_suppressed_with_target
@@ -761,6 +1024,40 @@ mod tests {
             command.adapter_arguments(),
             Err(AnalysisError::UnsupportedMessageFormat(format)) if format == "short"
         ));
+    }
+
+    #[test]
+    fn finds_interacting_hunks_when_neither_hunk_fails_alone() {
+        let repository = TestRepository::new();
+        fs::write(
+            repository.root.join("src/api.rs"),
+            "pub trait Marker {}\npub struct Item;\nimpl Marker for Item {}\n\n\npub fn measure(value: i32) -> usize { value as usize }\n\n\npub fn stable() -> usize { 1 }\n\n\nimpl Marker for Item {}\n",
+        )
+        .expect("add conflicting implementations");
+
+        let report = explain_build(&BuildCausalityRequest {
+            repository: repository.root.clone(),
+            base: "HEAD".to_owned(),
+            diagnostic: DiagnosticSelector {
+                code: "E0119".to_owned(),
+                identity: None,
+                source_path: Some("src/api.rs".to_owned()),
+            },
+            command: BuildCommand::cargo(["check"]),
+            max_evaluations: 16,
+            max_cardinality: None,
+            max_hunk_evaluations: 16,
+            max_hunk_cardinality: None,
+        })
+        .expect("interacting-hunk analysis succeeds");
+
+        assert_eq!(report.hunk_refinements.len(), 1);
+        let refinement = &report.hunk_refinements[0];
+        assert_eq!(refinement.hunks.len(), 2);
+        assert_eq!(refinement.causal_sets.len(), 1);
+        assert_eq!(refinement.causal_sets[0].sufficient_hunks.len(), 2);
+        assert_eq!(refinement.minimality, "unique_minimal_in_declared_search");
+        assert!(refinement.causal_sets[0].target_removed_from_full_patch);
     }
 
     #[test]

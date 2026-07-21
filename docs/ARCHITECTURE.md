@@ -58,6 +58,12 @@ file-atom capture ──► detached worktree materializer
 sufficient-set search ◄── stable diagnostic identity
         │
         ▼
+successful file sets ──► zero-context hunk refinement
+        │                         │
+        │                         ▼
+        │                 nested sufficient-set search
+        │                         │
+        ▼                         ▼
 full-patch removal witness ──► co-suppressed diagnostics
         │
         ▼

@@ -38,7 +38,8 @@ def write_base(repository: Path) -> None:
         encoding="utf-8",
     )
     (source / "api.rs").write_text(
-        "pub fn measure(value: i32) -> usize { value as usize }\n",
+        "pub fn measure(value: i32) -> usize { value as usize }\n\n\n"
+        "pub fn stable() -> usize { 1 }\n",
         encoding="utf-8",
     )
     (source / "consumer.rs").write_text(
@@ -67,7 +68,8 @@ def initialize_git(repository: Path) -> None:
 def write_candidate(repository: Path) -> None:
     source = repository / "src"
     (source / "api.rs").write_text(
-        "pub fn measure(value: &str) -> usize { value.len() }\n",
+        "pub fn measure(value: &str) -> usize { value.len() }\n\n\n"
+        "pub fn stable() -> usize { 2 }\n",
         encoding="utf-8",
     )
     (source / "other.rs").write_text(
@@ -95,6 +97,19 @@ def verify_report(report: dict[str, object], repository: Path) -> None:
     suppressed = causal_set.get("diagnostics_suppressed_with_target")
     if not isinstance(suppressed, list) or len(suppressed) < 2:
         raise RuntimeError("expected the target and a co-suppressed diagnostic")
+    refinements = report.get("hunk_refinements")
+    if not isinstance(refinements, list) or len(refinements) != 1:
+        raise RuntimeError("expected one hunk refinement")
+    refinement = refinements[0]
+    if not isinstance(refinement, dict) or len(refinement.get("hunks", [])) != 2:
+        raise RuntimeError("expected two independently tested hunks")
+    hunk_sets = refinement.get("causal_sets")
+    if not isinstance(hunk_sets, list) or len(hunk_sets) != 1:
+        raise RuntimeError("expected one sufficient hunk set")
+    if len(hunk_sets[0].get("sufficient_hunks", [])) != 1:
+        raise RuntimeError("expected the API signature hunk to be sufficient alone")
+    if hunk_sets[0].get("target_removed_from_full_patch") is not True:
+        raise RuntimeError("hunk removal witness did not suppress the target")
     artifact = report.get("artifact_path")
     if not isinstance(artifact, str) or not Path(artifact).is_file():
         raise RuntimeError("retained report was not written")
@@ -144,6 +159,7 @@ def causal_projection(report: dict[str, object]) -> dict[str, object]:
             }
             for causal_set in causal_sets
         ],
+        "hunk_refinements": report["hunk_refinements"],
     }
 
 

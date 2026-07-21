@@ -21,7 +21,7 @@ This is the living implementation plan. Phase documents contain detailed accepta
 | R2 | Per-adapter toolchain and fixture system | active | Clang 21 and rustc 1.96.1/LLVM 22 fixtures execute; Rust split pipeline remains labeled surrogate |
 | R3 | Immutable counterfactual experiment runtime | active | Deterministic sufficient-set search and retained build reports execute; artifact digests and replay remain |
 | R4 | LLVM optimization-causality pack | queued | Depends on exact pipeline replay and stable region identity |
-| R5 | Build-causality query | active | Cargo/rustc diagnostic identity, file atoms, isolated worktrees, removal witnesses, CLI, and end-to-end tests execute; hunk refinement and OS sandboxing remain |
+| R5 | Build-causality query | active | Cargo/rustc diagnostic identity, nested file-to-hunk search, isolated worktrees, removal witnesses, CLI, and end-to-end tests execute; syntax-aware grouping and OS sandboxing remain |
 | R6 | C++, Rust, TypeScript, and GCC adapter expansion | queued | Depends on shared experiment runtime and adapter conformance suite |
 | R7 | Source-action, validation, and measurement | queued | Depends on family- and language-specific obligation models |
 | R8 | GPT-5.6/Codex repository engineering loop | queued | Depends on stable deterministic reports and validation gates |

@@ -52,10 +52,14 @@ report is written beneath `.whyvec/analyses/<analysis-id>/report.json`.
    identity.
 8. Evaluate atom subsets in deterministic cardinality-first order.
 9. Classify each run through a three-valued oracle.
-10. For every sufficient set found, apply its complement to the base and test
+10. Split refinable successful text-file atoms into immutable zero-context Git
+    hunks and verify that their complete reconstruction reproduces the target.
+11. Search individual and interacting hunk sets while holding non-refinable
+    parent atoms fixed.
+12. For every sufficient set found, apply its complement to the base and test
     whether removing the set from the full patch makes the diagnostic disappear.
-11. Record other full-patch diagnostics that disappear in that removal witness.
-12. Persist the report and remove every temporary worktree.
+13. Record other full-patch diagnostics that disappear in that removal witness.
+14. Persist the report and remove every temporary worktree.
 
 The user's source tree, index, and branch are never reset, checked out, or
 patched.
@@ -96,17 +100,22 @@ GCC JSON diagnostics will require different identity evidence.
 
 ## Change atoms
 
-The current adapter uses one atom per changed tracked path and one atom per
+The first search uses one atom per changed tracked path and one atom per
 untracked file. Renames and copies remain grouped with both paths. Binary
 changes are preserved through Git binary patches.
 
-File atoms are deliberately honest but not the final granularity. They answer
-which changed files are sufficient. A subsequent refinement layer must split a
-successful text-file atom into dependency-aware hunks or syntax edits while
-retaining the file-level result as its parent evidence.
+Every sufficient file set is then refined when its tracked text patches contain
+unified-diff hunks. WhyVec regenerates the parent patch from all captured hunks
+and requires it to reproduce the same diagnostic before beginning nested
+search. It tests singleton hunks and interacting hunk combinations with the
+same three-valued oracle. Non-text, untracked, rename, and binary atoms remain
+explicit fixed conditions rather than being silently discarded.
 
-WhyVec does not currently claim that one line inside a sufficient file is the
-cause.
+The report retains old and new ranges, bounded previews, parent file identity,
+minimality, and a full-patch hunk-removal witness. A zero-context Git hunk is an
+executable syntax-edit region, not an AST-level semantic unit; nearby edits may
+still be grouped by Git and dependent hunks may be unresolved or sufficient
+only together.
 
 ## Three-valued build oracle
 
@@ -190,7 +199,8 @@ execution is trusted until the sandbox gate is executable.
 - The base revision must pass the exact Cargo command.
 - The full change must fail and contain one uniquely selected diagnostic.
 - Cargo is the only executable build adapter.
-- Patch granularity is currently file-level.
+- Text patches refine to zero-context Git hunks; AST-level edit grouping is not
+  yet available.
 - Dirty submodules, unmerged files, non-UTF-8 paths, and special untracked files
   are unsupported.
 - Compiler output beyond the configured bound is not silently treated as

@@ -78,3 +78,22 @@ Observed results:
 This confirms deterministic causal output for the generated fixture's declared inputs. It does not claim reproducibility across unrecorded toolchain or environment changes.
 
 Each future entry must include the analysis identifier, source digest, normalized compilation command, compiler binary digest, target and feature set, selected loop identity, declared assumption delta, artifact paths, isolation result, outcome classification, and exact reproduction command.
+
+## 2026-07-21T11:40:09Z — Nested file-to-hunk build causality
+
+Commands:
+
+```console
+cargo test -p whyvec-build --all-features
+python3 scripts/verify_build_causality.py
+```
+
+Observed results:
+
+- A sufficient Rust source file containing an API-breaking hunk and an unrelated value-change hunk was reconstructed from two captured zero-context patches.
+- The API hunk alone reproduced the selected `E0308`; the unrelated hunk built successfully without it.
+- Removing only the sufficient hunk from the complete working-tree patch eliminated the target and its co-suppressed diagnostics while retaining the unrelated hunk.
+- A separate `E0119` fixture added two conflicting trait implementations in distant hunks. Each singleton built successfully; the two-hunk set was the unique minimal sufficient set.
+- Repeated CLI analysis by exact diagnostic identity retained the same nested causal projection and both reports passed schema validation.
+
+Evidence strength: executable counterfactual observation over captured Git hunks. A hunk is an intervention region, not a semantic AST cause.

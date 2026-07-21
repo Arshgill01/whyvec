@@ -106,3 +106,27 @@ Results:
 - The CLI ambiguity refusal exposed stable identities; an exact-identity rerun produced the same causal projection and excluded retained `.whyvec/` state.
 - The real temporary-repository reports validated against the Draft 2020-12 schema.
 - Existing Clang and rustc/LLVM fixture verification and repository validation passed.
+
+## 2026-07-21T11:40:09Z — Hunk-refinement validation
+
+Passed commands:
+
+```console
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 -c 'import json; from pathlib import Path; import jsonschema; schema=json.loads(Path("schemas/whyvec-build-report.schema.json").read_text()); jsonschema.Draft202012Validator.check_schema(schema)'
+git diff --check
+```
+
+Results:
+
+- Twenty Rust tests passed: nine build-causality tests, six domain tests, and five shared search tests.
+- Singleton and interacting hunk sufficient sets, hunk-level full-patch removal, immutable untracked atoms, process bounds, and diagnostic identity passed.
+- Invalid independent patch combinations remain unresolved rather than becoming negative evidence.
+- The public CLI report and repeated exact-identity result passed Draft 2020-12 schema validation.
+- Existing Clang and rustc/LLVM fixture results remained passing.
+- Correction: the invalid-independent-patch path is implemented as `unresolved/intervention_invalid`, but a dedicated context-conflict fixture remains required before treating that path as separately validated.

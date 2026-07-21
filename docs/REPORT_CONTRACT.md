@@ -13,7 +13,9 @@ fields.
 The executable Cargo/rustc build vertical currently emits the deliberately
 separate [build report schema](../schemas/whyvec-build-report.schema.json). Its
 `2.0.0-dev` identifier makes the incompatibility explicit while diagnostic,
-atom, and artifact contracts are hardened. It does not silently redefine the
+file/hunk intervention, and artifact contracts are hardened. Nested hunk
+refinements retain their parent sufficient file set, fixed atoms, independent
+search trace, and full-patch removal witness. It does not silently redefine the
 version 1 optimization report.
 
 ## Compatibility

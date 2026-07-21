@@ -38,6 +38,26 @@ pub struct ChangeAtomSummary {
     pub paths: Vec<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TextHunkSummary {
+    pub id: String,
+    pub parent_atom: String,
+    pub file: String,
+    pub old_start: usize,
+    pub old_lines: usize,
+    pub new_start: usize,
+    pub new_lines: usize,
+    pub removed_preview: Vec<String>,
+    pub added_preview: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TextHunk {
+    pub summary: TextHunkSummary,
+    header: Vec<u8>,
+    patch: Vec<u8>,
+}
+
 impl From<&ChangeAtom> for ChangeAtomSummary {
     fn from(value: &ChangeAtom) -> Self {
         Self {
@@ -159,6 +179,7 @@ impl GitRepository {
                 OsString::from("--binary"),
                 OsString::from("--full-index"),
                 OsString::from("--no-ext-diff"),
+                OsString::from("--unified=0"),
                 OsString::from(&self.base_commit),
                 OsString::from("--"),
             ];
@@ -263,7 +284,13 @@ impl ChangeAtom {
             AtomPayload::Patch(patch) => {
                 let mut request = process::request(
                     "git",
-                    ["apply", "--binary", "--whitespace=nowarn", "-"],
+                    [
+                        "apply",
+                        "--binary",
+                        "--unidiff-zero",
+                        "--whitespace=nowarn",
+                        "-",
+                    ],
                     worktree,
                 );
                 request.stdin = Some(patch.clone());
@@ -303,6 +330,128 @@ impl ChangeAtom {
             }
         }
     }
+
+    #[must_use]
+    pub fn text_hunks(&self) -> Vec<TextHunk> {
+        let AtomPayload::Patch(patch) = &self.payload else {
+            return Vec::new();
+        };
+        if self.paths.len() != 1 {
+            return Vec::new();
+        }
+        parse_text_hunks(&self.id, &self.paths[0], patch)
+    }
+}
+
+pub fn apply_text_hunks(hunks: &[TextHunk], worktree: &Path) -> Result<(), GitError> {
+    if hunks.is_empty() {
+        return Ok(());
+    }
+    let mut grouped = std::collections::BTreeMap::<&str, Vec<&TextHunk>>::new();
+    for hunk in hunks {
+        grouped
+            .entry(hunk.summary.parent_atom.as_str())
+            .or_default()
+            .push(hunk);
+    }
+    let mut patch = Vec::new();
+    for group in grouped.values_mut() {
+        group.sort_by_key(|hunk| (hunk.summary.old_start, hunk.summary.new_start));
+        patch.extend_from_slice(&group[0].header);
+        for hunk in group {
+            patch.extend_from_slice(&hunk.patch);
+        }
+    }
+    let mut request = process::request(
+        "git",
+        [
+            "apply",
+            "--binary",
+            "--unidiff-zero",
+            "--whitespace=nowarn",
+            "-",
+        ],
+        worktree,
+    );
+    request.stdin = Some(patch);
+    let result = process::run(&request)?;
+    if result.timed_out || result.exit_code != Some(0) {
+        return Err(GitError::CommandFailed {
+            operation: "apply refined hunks",
+            stderr: String::from_utf8_lossy(&result.stderr).into_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn parse_text_hunks(parent: &str, file: &str, patch: &[u8]) -> Vec<TextHunk> {
+    let Ok(text) = std::str::from_utf8(patch) else {
+        return Vec::new();
+    };
+    let lines = text.split_inclusive('\n').collect::<Vec<_>>();
+    let starts = lines
+        .iter()
+        .enumerate()
+        .filter_map(|(index, line)| line.starts_with("@@ ").then_some(index))
+        .collect::<Vec<_>>();
+    let Some(first) = starts.first().copied() else {
+        return Vec::new();
+    };
+    let header = lines[..first].concat().into_bytes();
+    starts
+        .iter()
+        .enumerate()
+        .filter_map(|(position, start)| {
+            let end = starts.get(position + 1).copied().unwrap_or(lines.len());
+            let (old_start, old_lines, new_start, new_lines) = parse_hunk_range(lines[*start])?;
+            let body = lines[*start..end].concat();
+            let mut digest = Sha256::new();
+            digest.update(parent.as_bytes());
+            digest.update(body.as_bytes());
+            let id = format!("hunk.{}", crate::hex_prefix(&digest.finalize(), 8));
+            let removed_preview = preview_lines(&lines[*start + 1..end], '-');
+            let added_preview = preview_lines(&lines[*start + 1..end], '+');
+            Some(TextHunk {
+                summary: TextHunkSummary {
+                    id,
+                    parent_atom: parent.to_owned(),
+                    file: file.to_owned(),
+                    old_start,
+                    old_lines,
+                    new_start,
+                    new_lines,
+                    removed_preview,
+                    added_preview,
+                },
+                header: header.clone(),
+                patch: body.into_bytes(),
+            })
+        })
+        .collect()
+}
+
+fn parse_hunk_range(header: &str) -> Option<(usize, usize, usize, usize)> {
+    let range = header.strip_prefix("@@ ")?.split(" @@").next()?;
+    let mut parts = range.split_whitespace();
+    let old = parse_range(parts.next()?.strip_prefix('-')?)?;
+    let new = parse_range(parts.next()?.strip_prefix('+')?)?;
+    Some((old.0, old.1, new.0, new.1))
+}
+
+fn parse_range(value: &str) -> Option<(usize, usize)> {
+    let mut parts = value.split(',');
+    let start = parts.next()?.parse().ok()?;
+    let lines = parts.next().map_or(Some(1), |count| count.parse().ok())?;
+    Some((start, lines))
+}
+
+fn preview_lines(lines: &[&str], marker: char) -> Vec<String> {
+    lines
+        .iter()
+        .filter_map(|line| line.strip_prefix(marker))
+        .take(8)
+        .map(|line| line.trim_end_matches('\n').to_owned())
+        .collect()
 }
 
 fn parse_tracked_status(bytes: &[u8]) -> Result<Vec<ChangeAtom>, GitError> {
