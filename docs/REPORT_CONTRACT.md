@@ -32,6 +32,15 @@ input and command digest, replay limits, and a normalized semantic digest.
 `replay-build` verifies content before executing and rejects input, toolchain,
 or semantic drift rather than reporting a reproduced result.
 
+The development optimization report now carries the repository and source
+locations needed for local replay, bounded-search limits, and a normalized
+semantic digest. `replay-opt` verifies all declared artifacts before executing,
+then rejects source drift, any Clang/`opt`/transformer/identity-helper
+fingerprint drift, or a changed semantic result. The digest intentionally
+excludes analysis identifiers, repository and artifact locations, and artifact
+references while retaining source and pipeline digests, stable loop identity,
+outcomes, search trace, minimality, finding, and decline semantics.
+
 ## Compatibility
 
 The report uses semantic versioning in `schema_version`.

@@ -185,3 +185,29 @@ Evidence strength and limitation:
   `equivalent_confirmed` pipeline. The explicit source-to-IR mapping is an input
   to this development query. No source obligation or repair authority is
   claimed by this report.
+
+## 2026-07-21T12:54:22Z — Optimization semantic replay and tamper check
+
+Commands:
+
+```console
+python3 scripts/verify_optimization_causality.py
+whyvec replay-opt <generated-report.json>
+```
+
+Observed results:
+
+- An unchanged rerun of the public bound-alias query reproduced the original
+  loop identity, baseline and singleton outcomes, confirmation consistency,
+  finite-search trace, minimality, and normalized semantic digest.
+- Replay verified the source digest and captured Clang 21.1.8, `opt`, typed
+  transformer, and loop-identity helper fingerprints before starting the new
+  analysis.
+- After one declared artifact was made writable and modified, replay stopped
+  at SHA-256/size verification and did not execute or claim reproduction.
+
+Evidence strength and limitation:
+
+- This reproduced the counterfactual observation on the recorded local
+  toolchain. The report points to the original repository and helper binaries;
+  it is not yet a portable or redacted reproduction bundle.

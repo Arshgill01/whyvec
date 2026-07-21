@@ -6,6 +6,7 @@ use whyvec_build::{
 };
 use whyvec_opt::{
     OptimizationReport, OptimizationRequest, ParameterCandidate, explain_optimization,
+    replay_optimization,
 };
 
 fn main() {
@@ -23,6 +24,9 @@ fn run() -> Result<(), String> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
     if arguments.first().map(String::as_str) == Some("replay-build") {
         return run_replay(&arguments[1..]);
+    }
+    if arguments.first().map(String::as_str) == Some("replay-opt") {
+        return run_opt_replay(&arguments[1..]);
     }
     if arguments.first().map(String::as_str) == Some("explain-opt") {
         return run_explain_opt(&arguments[1..]);
@@ -276,6 +280,18 @@ fn run_replay(arguments: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn run_opt_replay(arguments: &[String]) -> Result<(), String> {
+    let [report] = arguments else {
+        return Err("usage: whyvec replay-opt <report.json>".to_owned());
+    };
+    let result = replay_optimization(&PathBuf::from(report)).map_err(|error| error.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
 fn parse_positive(name: &str, value: &str) -> Result<usize, String> {
     let parsed = value
         .parse::<usize>()
@@ -368,5 +384,5 @@ fn print_human(report: &BuildCausalityReport) {
 }
 
 fn usage() -> String {
-    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]".to_owned()
+    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]\n       whyvec replay-build <report.json>\n       whyvec explain-opt <source>:<line> --function <name> --parameter <name>:<ir-index>... --transformer <path> --identity-tool <path> [--format human|json]\n       whyvec replay-opt <report.json>".to_owned()
 }

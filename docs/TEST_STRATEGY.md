@@ -110,7 +110,14 @@ Codex must demonstrate:
 
 ## Determinism protocol
 
-Run identical analyses in fresh artifact directories and compare normalized reports. Timestamps, durations, random identifiers, and absolute ephemeral paths are excluded from semantic comparison; toolchain, outcome, search, finding, obligation, and artifact digests must match.
+Run identical analyses in fresh artifact directories and compare normalized reports. Timestamps, durations, random identifiers, absolute ephemeral paths, and run-artifact references are excluded from semantic comparison; toolchain, outcome, search, finding, and obligation semantics must match, while every retained artifact must independently pass its recorded digest and size check.
+
+Both public replay commands first verify retained artifact SHA-256 and byte
+lengths, refuse deliberately modified evidence, reject input or toolchain
+drift, and only report a match when a fresh execution has the same normalized
+semantic digest. Artifact bytes are integrity evidence but are excluded from
+the cross-run semantic projection because compiler output may embed fresh
+workspace paths.
 
 ## Differential behavior protocol
 

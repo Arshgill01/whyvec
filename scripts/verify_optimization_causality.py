@@ -179,6 +179,13 @@ def main() -> int:
             ):
                 raise RuntimeError(f"successful variant was not confirmed: {experiment}")
         validate_artifacts(report)
+        replay = json.loads(
+            run([str(binary), "replay-opt", str(report["artifact_path"])]).stdout
+        )
+        if replay.get("matched") is not True:
+            raise RuntimeError(f"optimization replay did not match: {replay}")
+        if replay.get("semantic_digest") != report.get("semantic_digest"):
+            raise RuntimeError("optimization replay returned a different semantic digest")
 
         declined = invoke(
             binary,
@@ -225,6 +232,45 @@ def main() -> int:
         jsonschema.validate(report, schema)
         jsonschema.validate(declined, schema)
         jsonschema.validate(no_success, schema)
+
+        declined_path = Path(str(declined["artifact_path"]))
+        declined_path.chmod(declined_path.stat().st_mode | stat.S_IWUSR)
+        altered_report = json.loads(declined_path.read_text(encoding="utf-8"))
+        altered_report["caveats"].append("unrecorded semantic change")
+        declined_path.write_text(json.dumps(altered_report), encoding="utf-8")
+        report_rejected = subprocess.run(
+            [str(binary), "replay-opt", str(declined_path)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if (
+            report_rejected.returncode == 0
+            or "report.json semantic contents" not in report_rejected.stderr
+        ):
+            raise RuntimeError(
+                "optimization replay accepted modified report semantics: "
+                f"{report_rejected.stderr}"
+            )
+
+        artifact = report["artifacts"][0]
+        artifact_path = Path(str(report["artifact_path"])).parent / artifact["path"]
+        artifact_path.chmod(artifact_path.stat().st_mode | stat.S_IWUSR)
+        artifact_path.write_bytes(artifact_path.read_bytes() + b"tampered\n")
+        rejected = subprocess.run(
+            [str(binary), "replay-opt", str(report["artifact_path"])],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if rejected.returncode == 0 or "digest or size mismatch" not in rejected.stderr:
+            raise RuntimeError(
+                f"optimization replay accepted a modified artifact: {rejected.stderr}"
+            )
 
     print("optimization-causality CLI validation passed")
     return 0

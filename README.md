@@ -63,6 +63,16 @@ The current development surface requires separately built pinned-LLVM helper
 paths. It records `equivalent_confirmed` fidelity and never converts a
 successful LLVM assumption into source authorization.
 
+Completed optimization queries can be re-executed from their retained inputs:
+
+```console
+whyvec replay-opt .whyvec/analyses/<analysis-id>/report.json
+```
+
+Replay verifies every declared artifact, the report's normalized semantic
+digest, the source digest, and all four tool fingerprints before rerunning the
+same bounded search. It refuses changed evidence, inputs, tools, or outcomes.
+
 ## Product contract
 
 WhyVec separates three kinds of reasoning that must never be conflated:
@@ -147,7 +157,7 @@ NEXT ACTION
 - [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle, evidence-safe minimality, and adapter-neutral immutable artifact storage.
 - [crates/whyvec-opt](crates/whyvec-opt) — retained Clang/LLVM optimization-causality query and report assembly.
 - [crates/whyvec-build](crates/whyvec-build) — isolated Git/Cargo build oracle, rustc diagnostic identity, and causal report generation.
-- [crates/whyvec-cli](crates/whyvec-cli) — `whyvec explain-build` command-line product surface.
+- [crates/whyvec-cli](crates/whyvec-cli) — build and optimization explain/replay command-line product surface.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.
 - [tools/whyvec-llvm-transform.cpp](tools/whyvec-llvm-transform.cpp) — pinned-LLVM typed IR intervention helper used by the optimization pack.
 - [tools/whyvec-llvm-loop-identity.cpp](tools/whyvec-llvm-loop-identity.cpp) — LLVM loop analysis and structural identity helper with ambiguity refusal.

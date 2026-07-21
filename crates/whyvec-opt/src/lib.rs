@@ -116,6 +116,20 @@ pub struct OptimizationToolchain {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OptimizationReplay {
+    pub max_evaluations: usize,
+    pub max_cardinality: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OptimizationReplayResult {
+    pub original_analysis_id: String,
+    pub replay_analysis_id: String,
+    pub semantic_digest: String,
+    pub matched: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OptimizationReport {
     pub schema_version: String,
     pub analysis_id: String,
@@ -123,6 +137,7 @@ pub struct OptimizationReport {
     pub adapter: String,
     pub pipeline_fidelity: String,
     pub toolchain: OptimizationToolchain,
+    pub repository: String,
     pub source: String,
     pub source_digest: String,
     pub pipeline_digest: String,
@@ -136,6 +151,8 @@ pub struct OptimizationReport {
     pub declared_subsets: usize,
     pub finding: Option<OptimizationFinding>,
     pub decline: Option<OptimizationDecline>,
+    pub replay: OptimizationReplay,
+    pub semantic_digest: String,
     pub artifacts: Vec<ArtifactReference>,
     pub artifact_path: String,
     pub caveats: Vec<String>,
@@ -158,6 +175,9 @@ pub enum OptimizationError {
     Search(SearchConfigurationError),
     InvalidInput(String),
     ToolFailure(String),
+    ReplayInputChanged { expected: String, observed: String },
+    ReplayToolchainChanged,
+    ReplayChanged { expected: String, observed: String },
 }
 
 impl std::fmt::Display for OptimizationError {
@@ -170,6 +190,17 @@ impl std::fmt::Display for OptimizationError {
             Self::Search(error) => error.fmt(formatter),
             Self::InvalidInput(detail) => write!(formatter, "invalid optimization query: {detail}"),
             Self::ToolFailure(detail) => write!(formatter, "optimization tool failed: {detail}"),
+            Self::ReplayInputChanged { expected, observed } => write!(
+                formatter,
+                "optimization replay source changed (expected {expected}, observed {observed})"
+            ),
+            Self::ReplayToolchainChanged => {
+                formatter.write_str("optimization replay toolchain changed")
+            }
+            Self::ReplayChanged { expected, observed } => write!(
+                formatter,
+                "optimization replay semantic digest changed (expected {expected}, observed {observed})"
+            ),
         }
     }
 }
@@ -335,6 +366,7 @@ pub fn explain_optimization(
 
     let mut report = base_report(
         &analysis_id,
+        &repository,
         &source,
         source_digest,
         pipeline_digest,
@@ -828,6 +860,7 @@ fn number_after(text: &str, marker: &str) -> Option<u64> {
 #[allow(clippy::too_many_arguments)]
 fn base_report(
     analysis_id: &str,
+    repository: &Path,
     source: &Path,
     source_digest: String,
     pipeline_digest: String,
@@ -839,9 +872,9 @@ fn base_report(
     artifact_path: &Path,
 ) -> OptimizationReport {
     OptimizationReport {
-        schema_version: "2.0.0-dev".to_owned(), analysis_id: analysis_id.to_owned(), query_kind: "optimization_causality".to_owned(), adapter: "clang_llvm".to_owned(), pipeline_fidelity: "equivalent_confirmed".to_owned(), toolchain, source: source.to_string_lossy().into_owned(), source_digest, pipeline_digest, subject,
+        schema_version: "2.0.0-dev".to_owned(), analysis_id: analysis_id.to_owned(), query_kind: "optimization_causality".to_owned(), adapter: "clang_llvm".to_owned(), pipeline_fidelity: "equivalent_confirmed".to_owned(), toolchain, repository: repository.to_string_lossy().into_owned(), source: source.to_string_lossy().into_owned(), source_digest, pipeline_digest, subject,
         candidates: request.candidates.iter().map(|candidate| OptimizationCandidateReport { id: candidate_id(candidate), source_name: candidate.source_name.clone(), ir_index: candidate.ir_index, attribute: "noalias".to_owned() }).collect(),
-        monolithic_baseline, replay_baseline, experiments: Vec::new(), minimality: "no_successful_set_found".to_owned(), stop_reason: "not_started".to_owned(), declared_subsets: 0, finding: None, decline: None, artifacts: Vec::new(), artifact_path: artifact_path.to_string_lossy().into_owned(), caveats: vec!["Clang's printable pipeline is best-effort; fidelity is equivalent_confirmed, not exact.".to_owned()],
+        monolithic_baseline, replay_baseline, experiments: Vec::new(), minimality: "no_successful_set_found".to_owned(), stop_reason: "not_started".to_owned(), declared_subsets: 0, finding: None, decline: None, replay: OptimizationReplay { max_evaluations: request.max_evaluations, max_cardinality: request.max_cardinality }, semantic_digest: String::new(), artifacts: Vec::new(), artifact_path: artifact_path.to_string_lossy().into_owned(), caveats: vec!["Clang's printable pipeline is best-effort; fidelity is equivalent_confirmed, not exact.".to_owned()],
     }
 }
 
@@ -853,9 +886,111 @@ fn finalize_report(
     artifacts.sort();
     artifacts.dedup();
     report.artifacts = artifacts;
+    report.semantic_digest = semantic_digest(report)?;
     store.write_new("report.json", &pretty_json(report)?)?;
     store.finalize_read_only()?;
     Ok(())
+}
+
+fn semantic_digest(report: &OptimizationReport) -> Result<String, OptimizationError> {
+    let mut value = serde_json::to_value(report)?;
+    strip_non_semantic_fields(&mut value);
+    Ok(digest(&serde_json::to_vec(&value)?))
+}
+
+fn strip_non_semantic_fields(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            for field in [
+                "analysis_id",
+                "artifact_path",
+                "artifacts",
+                "repository",
+                "semantic_digest",
+            ] {
+                object.remove(field);
+            }
+            for child in object.values_mut() {
+                strip_non_semantic_fields(child);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                strip_non_semantic_fields(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Re-executes a retained optimization-causality report and verifies its semantic projection.
+///
+/// # Errors
+///
+/// Returns `OptimizationError` when retained artifacts fail integrity checks, the
+/// captured source or toolchain changed, or the replayed optimization observation differs.
+pub fn replay_optimization(
+    report_path: &Path,
+) -> Result<OptimizationReplayResult, OptimizationError> {
+    let original: OptimizationReport = serde_json::from_slice(&fs::read(report_path)?)?;
+    let root = report_path.parent().ok_or_else(|| {
+        OptimizationError::InvalidInput("report path has no parent directory".to_owned())
+    })?;
+    ArtifactStore::new(root).verify(&original.artifacts)?;
+    let recorded_digest = semantic_digest(&original)?;
+    if recorded_digest != original.semantic_digest {
+        return Err(OptimizationError::Artifact(
+            ArtifactError::IntegrityMismatch("report.json semantic contents".to_owned()),
+        ));
+    }
+
+    let repository = PathBuf::from(&original.repository).canonicalize()?;
+    let source = PathBuf::from(&original.source).canonicalize()?;
+    let observed_source_digest = digest(&fs::read(&source)?);
+    if observed_source_digest != original.source_digest {
+        return Err(OptimizationError::ReplayInputChanged {
+            expected: original.source_digest,
+            observed: observed_source_digest,
+        });
+    }
+    let request = OptimizationRequest {
+        repository: repository.clone(),
+        source,
+        function: original.subject.function.clone(),
+        line: original.subject.line,
+        candidates: original
+            .candidates
+            .iter()
+            .map(|candidate| ParameterCandidate {
+                source_name: candidate.source_name.clone(),
+                ir_index: candidate.ir_index,
+            })
+            .collect(),
+        clang: PathBuf::from(&original.toolchain.clang.invocation_path),
+        optimizer: PathBuf::from(&original.toolchain.optimizer.invocation_path),
+        transformer: PathBuf::from(&original.toolchain.transformer.invocation_path),
+        identity_tool: PathBuf::from(&original.toolchain.identity_tool.invocation_path),
+        optimization: original.toolchain.optimization.clone(),
+        cpu: original.toolchain.cpu.clone(),
+        max_evaluations: original.replay.max_evaluations,
+        max_cardinality: original.replay.max_cardinality,
+    };
+    if capture_toolchain(&request, &repository)? != original.toolchain {
+        return Err(OptimizationError::ReplayToolchainChanged);
+    }
+    let replayed = explain_optimization(&request)?;
+    if replayed.semantic_digest != original.semantic_digest {
+        return Err(OptimizationError::ReplayChanged {
+            expected: original.semantic_digest,
+            observed: replayed.semantic_digest,
+        });
+    }
+    Ok(OptimizationReplayResult {
+        original_analysis_id: original.analysis_id,
+        replay_analysis_id: replayed.analysis_id,
+        semantic_digest: replayed.semantic_digest,
+        matched: true,
+    })
 }
 
 fn candidate_id(candidate: &ParameterCandidate) -> String {

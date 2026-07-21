@@ -302,3 +302,30 @@ Results:
   structured YAML optimization records, mutation JSON, raw streams, and every
   artifact size/digest were retained read-only. Positive and decline reports
   validated against the Draft 2020-12 development schema.
+
+## 2026-07-21T12:54:22Z — Optimization replay validation
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 scripts/verify_llvm_transformer.py
+python3 scripts/verify_llvm_loop_identity.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- All twenty-nine Rust tests, repository validation, cross-frontend compiler
+  fixtures, build replay, LLVM transformer, loop identity, and public
+  optimization query checks passed.
+- The optimization schema accepted positive, already-vectorized, and
+  no-success reports with the new repository, replay-limit, and semantic-digest
+  fields.
+- `replay-opt` reproduced the positive report's semantic digest. Deliberate
+  mutation of a retained artifact was refused by its digest/size check.

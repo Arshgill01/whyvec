@@ -99,6 +99,13 @@ variant, confirms successful outcomes, and retains structured YAML records and
 IR. Automatic compilation-database and source-parameter mapping remain product
 gates; explicit mappings are evidence inputs, not inferred facts.
 
+`replay-opt` verifies the retained artifact manifest and normalized report
+digest, requires the recorded source and Clang/LLVM/helper fingerprints to be
+unchanged, reruns the declared bounded search, and compares its semantic
+projection. Analysis identifiers, artifact locations and bytes, and repository
+location are excluded from that comparison; compiler outcomes, loop identity,
+pipeline and source digests, search trace, and conclusions are not.
+
 ### Compilation command resolver
 
 Responsibilities:
