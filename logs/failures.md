@@ -222,3 +222,17 @@ therefore produced zero structured diagnostics and WhyVec correctly refused.
 Safeguard: the product dependency step now installs `build-essential`
 explicitly before the cross-adapter suite. No zero-diagnostic baseline is
 accepted as compiler evidence.
+
+## 2026-07-21T19:47:00Z — Hosted GCC did not match the retained adapter profile
+
+Run `29862673887` again passed the portable and pinned-container jobs, clean
+installation, and native build-causality validation. Ubuntu 22.04 supplied GCC
+11, while the retained GCC adapter evidence is validated with GCC 15; the older
+frontend exited without a recognized target diagnostic and WhyVec refused.
+
+Safeguard: the Clang-product job no longer substitutes the host GCC/Clang/TS
+versions for the locally retained cross-adapter profiles. Exact cross-adapter
+validation remains in the local checkpoint evidence. CI continues its portable
+Rust and build-causality suites plus the complete Clang 21 product, plugin,
+demo, mutation, real-world, and container gates. No adapter result or version
+check was broadened.

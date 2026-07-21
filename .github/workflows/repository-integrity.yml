@@ -77,11 +77,8 @@ jobs:
           python3 scripts/build_helpers.py --output "$install_root/bin"
           "$install_root/bin/whyvec" doctor --format json | jq -e '.ready == true'
 
-      - name: Validate build adapters
-        run: |
-          npm ci --prefix tools/typescript-adapter
-          python3 scripts/verify_build_causality.py
-          python3 scripts/verify_cross_adapter_build_causality.py
+      - name: Validate build causality
+        run: python3 scripts/verify_build_causality.py
 
       - name: Validate LLVM product and guarded workflow
         run: |
