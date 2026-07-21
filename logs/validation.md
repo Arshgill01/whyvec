@@ -736,3 +736,74 @@ Results:
 - The repo marketplace installed WhyVec through `codex plugin add` at plugin
   version `0.1.0+codex.20260721181611`. Actual-model exit evidence remains the
   next R8 gate and is not claimed by this checkpoint.
+
+## 2026-07-21T19:07:21Z — Productization and adversarial validation checkpoint
+
+Passed commands:
+
+```console
+python3 scripts/verify_demo_mutations.py
+cargo test -p whyvec-obligation
+python3 scripts/verify_real_world_superlu.py --whyvec target/debug/whyvec --output evidence/real-world/superlu-a9314310
+python3 scripts/check_portable_evidence.py
+python3 scripts/validate_repository.py
+./scripts/demo --ci
+python3 -m jsonschema -i evidence/codex-live/2026-07-21/validation-report.json schemas/whyvec-validation-report.schema.json
+python3 -m jsonschema -i evidence/codex-live/2026-07-21/action-trace.json schemas/whyvec-agent-trace.schema.json
+```
+
+Results:
+
+- The exact retained model candidate ran 3,271 defined-behavior differential
+  executions: 1,123 fast paths and 2,148 unchanged fallbacks. ASan/UBSan covered
+  the same corpus, and structured YAML observed fast VF=8/IC=4 plus the missed
+  fallback.
+- All eleven unsafe mutations were rejected. The eight-size benchmark used
+  seven warmups, seeded paired ordering, and 31 samples per size; the repeated
+  demo classified a measured improvement with a 5.16x representative median
+  ratio on this machine.
+- Eight obligation tests passed, including stable declines for inclusive and
+  descending induction, nested loops, early exits, calls, non-affine indexes,
+  unknown extents, volatile/atomic access, and ambiguous locations. Positive
+  tests cover unsigned wide bounds, non-unit steps, and multiple writes.
+- The pinned SuperLU commit `a93143107e3854ba9716ee3d7ab40fca6880cc10`
+  configured with its real CMake database, built `blas` and `s_test`, passed
+  repository test `s_test_9_2_0_LA`, observed the SAXPY cleanup-loop miss, found
+  no successful assumption, retained a principled refusal, and replayed with a
+  matching semantic digest.
+- The actual installed-skill session and both portable evidence families passed
+  schema, digest-link, and private-path/reasoning redaction checks.
+
+## 2026-07-21T19:15:54Z — Final local product checkpoint rerun
+
+Passed commands after the schema and induction-update corrections:
+
+```console
+python3 -m py_compile scripts/*.py demo/tools/*.py
+bash -n containers/judge/build.sh
+python3 scripts/validate_repository.py
+python3 scripts/check_portable_evidence.py
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 scripts/verify_cross_adapter_build_causality.py
+python3 scripts/verify_llvm_transformer.py
+python3 scripts/verify_llvm_loop_identity.py
+python3 scripts/verify_optimization_causality.py
+python3 scripts/verify_demo_mutations.py
+./scripts/demo --ci
+python3 scripts/verify_real_world_superlu.py --whyvec target/debug/whyvec --output <fresh-directory>
+python3 /home/arshdeepsingh/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py integrations/codex/whyvec
+python3 /home/arshdeepsingh/.codex/skills/.system/skill-creator/scripts/quick_validate.py integrations/codex/whyvec/skills/whyvec-optimize
+cargo install --path crates/whyvec-cli --root <fresh-directory>/install
+python3 scripts/build_helpers.py --output <fresh-directory>/install/bin
+<fresh-directory>/install/bin/whyvec doctor --format json
+```
+
+The clean install reported `ready: true` with Clang/LLVM 21, both bundled
+helpers, CMake, Ninja, Rust, Python, and Codex resolved. The independent
+SuperLU checkout again passed its repository-native test and retained a
+principled refusal. The pinned judge image cannot be built locally because no
+Docker daemon is available; the dedicated GitHub job is the distribution gate.

@@ -23,8 +23,8 @@ This is the living implementation plan. Phase documents contain detailed accepta
 | R4 | LLVM optimization-causality pack | complete | Public `explain-opt`/`replay-opt` provide verified typed deltas, equivalent-confirmed pipeline replay, stable loop identity, retained ambiguity and no-success declines, deterministic finite search, confirmation runs, immutable evidence, and semantic reproduction |
 | R5 | Build-causality query | complete | Cargo/rustc stable diagnostic identity, parsed Rust syntax-item grouping with exact-hunk fallback, deterministic nested search, isolated Bubblewrap worktrees, cascade/removal witnesses, immutable reports, CLI, and semantic replay pass positive, interacting, ambiguity, tamper, and hostile-build fixtures |
 | R6 | C++, Rust, TypeScript, and GCC adapter expansion | complete | C++ linkage/template positives and macro ambiguity pass through the LLVM pack; Cargo, Clang, GCC, and TypeScript build adapters pass public schema/replay checks; GCC native optimization records and integrity-checked LLVM comparison pass replay and tamper refusal |
-| R7 | Source-action, validation, and measurement | active | The derived C bound obligation drives a checked `uintptr_t` guard with cached-bound fast path and unchanged fallback; eleven retained differential executions, both branch witnesses, overflow refusals, ASan/UBSan, structured branch-specific optimization records, 31-sample distributions, environment capture, and noise-aware statistics pass, while generated/adversarial expansion remains active |
-| R8 | GPT-5.6/Codex repository engineering loop | verifying | A repo marketplace installs the packet-driven skill and deterministic forward tests pass; completion requires a retained fresh GPT-5.6 Codex session to create and validate the candidate rather than the planner standing in for the model |
+| R7 | Source-action, validation, and measurement | complete | The checked `uintptr_t` guard and unchanged fallback pass 3,271 generated defined-behavior executions, both branch witnesses, pure integer overflow checks, ASan/UBSan, exact structured LLVM records, eight-size retained distributions, and eleven unsafe mutations; noise still selects refusal |
+| R8 | GPT-5.6/Codex repository engineering loop | complete | An installed marketplace skill ran in a fresh Codex CLI 0.144.3 / `gpt-5.6-sol` session, inspected the demo repository and FFI uncertainty, rejected unsafe alternatives, authored the candidate, ran validation, and returned a schema-constrained evidence ledger retained under `evidence/codex-live/2026-07-21/` |
 
 ## Workstreams
 
@@ -79,6 +79,11 @@ This is the living implementation plan. Phase documents contain detailed accepta
 - Confirm the selected fast path vectorizes from optimization records, not assembly heuristics alone.
 - Benchmark with warmup, repeated samples, environment capture, and uncertainty reporting.
 - Test determinism, schema compatibility, and malicious project inputs.
+- Retain a pinned real-world SuperLU case at commit
+  `a93143107e3854ba9716ee3d7ab40fca6880cc10`; the observed miss produced a
+  principled `search.no_successful_assumption` refusal and matching replay.
+- Run the complete compiler product, clean plugin install, non-interactive
+  executable demo, redaction audit, and pinned judge image in CI.
 
 ## Cross-phase acceptance gates
 

@@ -70,6 +70,11 @@ are not current CLI commands.
 
 The `whyvec-optimize` skill orchestrates diagnosis, repository inspection, repair selection, patching, and validation. It must use the deterministic CLI for every compiler claim and retain a schema-valid repository action trace linking the exact candidate to its validation evidence.
 
+WhyVec emits one compact agent packet, so the skill does not require users to
+manually locate five reports and helpers. `./scripts/demo` exercises the
+installed plugin in a fresh Codex session; the sanitized observable record is a
+product artifact, while hidden reasoning and token telemetry are not.
+
 ### Machine report
 
 The JSON report is the stable integration surface. It includes evidence strength, toolchain provenance, experiment deltas, loop identity, findings, candidate obligations, decline reasons, and required verification.
@@ -90,6 +95,14 @@ The JSON report is the stable integration surface. It includes evidence strength
 8. WhyVec reruns the original and repaired configurations.
 9. Correctness tests cover the optimized and fallback branches.
 10. Benchmarks report measured distributions with environment metadata.
+11. A noisy benchmark selects retention/refusal instead of upgrading a covered
+    correctness result into a performance claim.
+
+The pinned SuperLU SAXPY case demonstrates the equally valid real-world refusal
+journey: the real CMake compilation database and repository test pass, the
+selected cleanup loop is observed missed, the declared finite counterfactual
+search finds no successful assumption, replay matches, and no obligation or
+repair is invented.
 
 ## Required successful result
 

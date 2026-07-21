@@ -78,3 +78,13 @@ Refuse an annotation or API-contract repair when caller coverage is incomplete. 
 Give GPT-5.6 the finding, candidate obligation, exact relevant source spans, caller summaries, and required checks. Keep full IR and raw optimization records available through targeted queries rather than dumping them into context.
 
 The agent must request more deterministic evidence when a decision depends on compiler facts absent from the report.
+
+## Executed conformance record
+
+The conformance gate is not satisfied by `plan_action.py` alone. The retained
+2026-07-21 session used the installed `$whyvec-optimize` skill in a fresh Codex
+CLI 0.144.3 / `gpt-5.6-sol` task. The model inspected the public header, FFI
+wrapper, implementation, and overlap test; rejected global `restrict` and
+unconditional caching; authored the guard; ran the required checks; and emitted
+a schema-constrained ledger. The observable record, prompt, full patch, and
+linked deterministic reports are under `evidence/codex-live/2026-07-21/`.

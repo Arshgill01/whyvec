@@ -94,6 +94,13 @@ path must emit a vectorization record and the retained fallback must preserve
 the original miss. Benchmark samples alternate measurement order and use a
 median/MAD noise gate.
 
+The product demo expands this to 3,271 deterministic defined-behavior
+executions with seed `0x32c56bc2`: every positive count 1–257, vector-width
+boundaries and scalar tails, 16 alignments, both input/output overlap
+directions, before/end/after placements, and every in-range bound position for
+counts 2–65. Pure integer range checks cover `UINTPTR_MAX` without dereferencing
+fabricated pointers.
+
 For a guarded repair:
 
 - non-overlap selects the optimized path;
@@ -106,6 +113,11 @@ For a guarded repair:
 - alignment variations do not bypass the guard;
 - repeated calls do not retain stale state;
 - sanitizer builds remain clean on defined cases.
+
+`verify_demo_mutations.py` requires rejection of an always-true guard, an
+off-by-one output interval, cached-bound fallback, altered fallback, unjustified
+`restrict`, changed ABI, missing fast/fallback witnesses, falsified structured
+records, candidate digest drift, and benchmark noise labeled as improvement.
 
 ### Agent workflow tests
 
@@ -122,6 +134,8 @@ Codex must demonstrate:
 - refusing to reuse guarded validation when the proposed candidate digest differs;
 - rejecting a guarded source replacement until its default public ABI compiles and executes;
 - producing a schema-valid, create-new action trace for both guarded selection and typed obligation refusal.
+- doing that work in an actual fresh installed-skill session rather than a
+  deterministic planner standing in for the model.
 
 ### Security tests
 
@@ -173,6 +187,12 @@ drift, and only report a match when a fresh execution has the same normalized
 semantic digest. Artifact bytes are integrity evidence but are excluded from
 the cross-run semantic projection because compiler output may embed fresh
 workspace paths.
+
+The LLVM YAML parser also consumes a seeded 512-input malformed byte corpus and
+must return a structured error or absence result without panicking. AST unit
+fixtures cover positive constant non-unit steps and multiple writes, plus typed
+declines for descending/inclusive induction, nested loops, calls, early exits,
+volatile, atomic, non-affine indexing, unknown layout, and ambiguous locations.
 
 ## Differential behavior protocol
 

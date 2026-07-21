@@ -1,0 +1,491 @@
+{
+  "analysis_id": "wv_d1d0e2b5e127626d9087180e",
+  "artifact_path": "<demo-repository>/build/whyvec-final-validation/report.json",
+  "artifacts": [
+    {
+      "media_type": "application/json",
+      "path": "checks/differential.json",
+      "sha256": "467c6d03b5a1b544ce1332c2656bbc4e892feb220852f49d1d51479127402fca",
+      "size": 79
+    },
+    {
+      "media_type": "application/json",
+      "path": "checks/sanitizer.json",
+      "sha256": "467c6d03b5a1b544ce1332c2656bbc4e892feb220852f49d1d51479127402fca",
+      "size": 79
+    },
+    {
+      "media_type": "application/yaml",
+      "path": "compiler/kernel.opt.yaml",
+      "sha256": "e1d881bc467c4fbd5ec559f8b9e6f88063fead9ae7940e5ff75166feef1dc3d6",
+      "size": 23324
+    },
+    {
+      "media_type": "application/json",
+      "path": "compiler/records.json",
+      "sha256": "8dc8de291e9624aaa030ecc0e4eafe83a9f2c68519f5c8d4d846c1604e4661b4",
+      "size": 854
+    },
+    {
+      "media_type": "text/csv",
+      "path": "benchmark/raw.csv",
+      "sha256": "adfca8916ac6893a84941942fa4b855ffef5565de05e334125369e7e1d346a25",
+      "size": 10593
+    },
+    {
+      "media_type": "application/json",
+      "path": "benchmark/raw.json",
+      "sha256": "01e1fe28d7a7c7550b02b92b68d9efe51553d9768cac89294e747772eb0b73e7",
+      "size": 15854
+    },
+    {
+      "media_type": "application/json",
+      "path": "benchmark/summary.json",
+      "sha256": "879fc2fa0e6d7746bce44d61af5efab131d3f79b69179577962766027f740533",
+      "size": 3365
+    },
+    {
+      "media_type": "application/json",
+      "path": "environment.json",
+      "sha256": "d69f2995b876eb4d7deec4bc0036d3a44b8ad20bc51a5280a370c9acf123342f",
+      "size": 183
+    }
+  ],
+  "benchmark": {
+    "raw": {
+      "elements": 65536,
+      "guarded_ns": [
+        823921,
+        980381,
+        798681,
+        870491,
+        829471,
+        798751,
+        778761,
+        781392,
+        925341,
+        783251,
+        822071,
+        838531,
+        795901,
+        915500,
+        776361,
+        838841,
+        812911,
+        873061,
+        1118942,
+        799501,
+        820442,
+        730491,
+        713151,
+        832891,
+        773101,
+        741841,
+        745660,
+        759541,
+        862091,
+        746671,
+        747361
+      ],
+      "original_ns": [
+        4177426,
+        4608346,
+        4319806,
+        4434825,
+        4263935,
+        4379066,
+        4320355,
+        4473846,
+        4347175,
+        4618636,
+        4295165,
+        4356565,
+        4276216,
+        4407326,
+        4331925,
+        4494096,
+        4346266,
+        4351335,
+        4424876,
+        4306015,
+        4262936,
+        4249365,
+        4512756,
+        4270086,
+        4209296,
+        4275905,
+        4198186,
+        4299345,
+        4254085,
+        4694696,
+        4204535
+      ],
+      "repetitions": 123
+    },
+    "summary": {
+      "classification": "measured_improvement",
+      "decision_rule": "for sizes >=257, median speedup >1.10 and at least 4/5 median separations exceed three times summed MAD",
+      "guarded_mad_ns": 39030,
+      "guarded_median_ns": 799501,
+      "median_ratio": 5.403814379219038,
+      "original_mad_ns": 58711,
+      "original_median_ns": 4320355
+    }
+  },
+  "candidate_source_sha256": "8e6490d23439e1f2b362bc24799443a9b4549557b7da94bdf4f538429431d5cf",
+  "caveats": [
+    "Covered executions do not establish full semantic equivalence.",
+    "The integer-address guard uses the recorded flat_uintptr_x86_64 policy.",
+    "External FFI callers remain uncertain and do not justify restrict."
+  ],
+  "command_outcomes": [
+    {
+      "command_index": 0,
+      "exit_status": 0,
+      "name": "repository_native_build",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "8c35b1682f73592d30612d7b0fabdb384fcfff35cb5a076cb48b85b1368aa794",
+      "stdout_size": 22
+    },
+    {
+      "command_index": 1,
+      "exit_status": 0,
+      "name": "repository_native_tests",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "8c0312cc90ee6ad1f6af5227930737d42f8573e5497f96600feb66271859f57d",
+      "stdout_size": 371
+    },
+    {
+      "command_index": 2,
+      "exit_status": 0,
+      "name": "fast_fallback_witness",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "467c6d03b5a1b544ce1332c2656bbc4e892feb220852f49d1d51479127402fca",
+      "stdout_size": 79
+    },
+    {
+      "command_index": 3,
+      "exit_status": 0,
+      "name": "sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 4,
+      "exit_status": 0,
+      "name": "sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "467c6d03b5a1b544ce1332c2656bbc4e892feb220852f49d1d51479127402fca",
+      "stdout_size": 79
+    },
+    {
+      "command_index": 5,
+      "exit_status": 0,
+      "name": "production_sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 6,
+      "exit_status": 0,
+      "name": "production_sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 7,
+      "exit_status": 0,
+      "name": "production_optimization_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 8,
+      "exit_status": 0,
+      "name": "structured_optimization_assertions",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "894fad0ed8ffccf99c3e2cdce5bc0e97250bca01c91dff769956cb48d9de6939",
+      "stdout_size": 93
+    },
+    {
+      "command_index": 9,
+      "exit_status": 0,
+      "name": "benchmark_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "adfca8916ac6893a84941942fa4b855ffef5565de05e334125369e7e1d346a25",
+      "stdout_size": 10593
+    },
+    {
+      "command_index": 10,
+      "exit_status": 0,
+      "name": "benchmark_distribution_assertions",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "885b4f0a8c5bd144d634bb87fcb6bc5e37e18e45e813e332840a5e4435b5db56",
+      "stdout_size": 128
+    }
+  ],
+  "commands": [
+    [
+      "cmake",
+      "--build",
+      "<demo-repository>/build"
+    ],
+    [
+      "ctest",
+      "--test-dir",
+      "<demo-repository>/build",
+      "--output-on-failure"
+    ],
+    [
+      "<demo-repository>/build/whyvec_demo_differential"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "-I",
+      "<demo-repository>/include",
+      "<demo-repository>/tests/test_differential.c",
+      "-o",
+      "<demo-repository>/build/whyvec-final-validation/checks/differential-sanitized"
+    ],
+    [
+      "<demo-repository>/build/whyvec-final-validation/checks/differential-sanitized"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "-I",
+      "<demo-repository>/include",
+      "<demo-repository>/tests/test_kernel.c",
+      "<demo-repository>/src/kernel.c",
+      "<demo-repository>/src/ffi.c",
+      "-o",
+      "<demo-repository>/build/whyvec-final-validation/checks/production-sanitized"
+    ],
+    [
+      "<demo-repository>/build/whyvec-final-validation/checks/production-sanitized"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "-gline-tables-only",
+      "-I",
+      "<demo-repository>/include",
+      "-fsave-optimization-record",
+      "-foptimization-record-file=<demo-repository>/build/whyvec-final-validation/compiler/kernel.opt.yaml",
+      "-c",
+      "<demo-repository>/src/kernel.c",
+      "-o",
+      "<demo-repository>/build/whyvec-final-validation/compiler/kernel.o"
+    ],
+    [
+      "/usr/bin/python3",
+      "<demo-repository>/tools/assert_opt_records.py",
+      "--source",
+      "<demo-repository>/src/kernel.c",
+      "--yaml",
+      "<demo-repository>/build/whyvec-final-validation/compiler/kernel.opt.yaml",
+      "--output",
+      "<demo-repository>/build/whyvec-final-validation/compiler/records.json"
+    ],
+    [
+      "<demo-repository>/build/whyvec_demo_benchmark"
+    ],
+    [
+      "/usr/bin/python3",
+      "<demo-repository>/tools/analyze_benchmark.py",
+      "--csv",
+      "<demo-repository>/build/whyvec-final-validation/benchmark/raw.csv",
+      "--raw",
+      "<demo-repository>/build/whyvec-final-validation/benchmark/raw.json",
+      "--summary",
+      "<demo-repository>/build/whyvec-final-validation/benchmark/summary.json"
+    ]
+  ],
+  "differential": {
+    "executions": 1127,
+    "fallback_paths": 4,
+    "fast_paths": 1123,
+    "overflow_refusals": 2
+  },
+  "environment": {
+    "affinity": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "cpu_model": "AMD EPYC 7B12",
+    "governor": "unknown",
+    "kernel": "7.0.0-1008-gcp",
+    "machine": "x86_64",
+    "python": "3.14.4"
+  },
+  "evidence_strength": "validated_on_covered_executions",
+  "obligation": {
+    "analysis_id": "wv_9fb51bb02f1fd54d7ede9d29",
+    "family": "bound_object_disjoint_from_modified_region",
+    "semantic_digest": "9f1180cbde5993c13355a78d69df129b24e163ca066153df6db745a464c162e9"
+  },
+  "optimization": {
+    "fallback": "missed",
+    "fallback_line": 62,
+    "fast_path": "vectorized",
+    "fast_path_line": 55,
+    "records": [
+      {
+        "column": 5,
+        "function": "add_vectors_",
+        "interleave_count": "4",
+        "kind": "Passed",
+        "line": 55,
+        "name": "Vectorized",
+        "outcome": "vectorized",
+        "pass": "loop-vectorize",
+        "vector_width": "8"
+      },
+      {
+        "column": 3,
+        "function": "add_vectors_",
+        "interleave_count": null,
+        "kind": "Analysis",
+        "line": 62,
+        "name": "UnsupportedUncountableLoop",
+        "outcome": "missed",
+        "pass": "loop-vectorize",
+        "vector_width": null
+      },
+      {
+        "column": 3,
+        "function": "add_vectors_",
+        "interleave_count": null,
+        "kind": "Missed",
+        "line": 62,
+        "name": "MissedDetails",
+        "outcome": "missed",
+        "pass": "loop-vectorize",
+        "vector_width": null
+      }
+    ]
+  },
+  "query_kind": "repair_validation",
+  "sanitizer": {
+    "clean": true,
+    "covered": {
+      "executions": 1127,
+      "fallback_paths": 4,
+      "fast_paths": 1123,
+      "overflow_refusals": 2
+    }
+  },
+  "schema_version": "1.2.0",
+  "sources": [
+    {
+      "path": "src/kernel.c",
+      "sha256": "8e6490d23439e1f2b362bc24799443a9b4549557b7da94bdf4f538429431d5cf"
+    },
+    {
+      "path": "src/ffi.c",
+      "sha256": "8fdd2cea545eadc300160f41d0381a4854a44017e634c71c68afb66e5d2df7d7"
+    },
+    {
+      "path": "include/whyvec_demo.h",
+      "sha256": "e6f5c7587f55697bc8c529645213dcedd98c6a58a3f890d2736e20d6fa7779f2"
+    },
+    {
+      "path": "tests/test_differential.c",
+      "sha256": "9776cbcb9653756134485114555825e62904c2488df722bfe0a21fda3e30d02e"
+    },
+    {
+      "path": "tests/benchmark.c",
+      "sha256": "eff8256daf6ba28867ef8d0a0cfc2339cf062faa34ffee94d920e554d4c2bd82"
+    }
+  ],
+  "toolchain": {
+    "clang": {
+      "binary_digest": "78e9dd2ccc9e88859b3a29109a44bfab00e3d6cb70f00f3daae063eed3d05251",
+      "invocation_path": "/usr/bin/clang-21",
+      "resolved_path": "/usr/lib/llvm-21/bin/clang",
+      "version": "Ubuntu clang version 21.1.8 (6ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/lib/llvm-21/bin\n"
+    },
+    "flags": [
+      "-O3",
+      "-march=x86-64-v3",
+      "-std=c17"
+    ]
+  },
+  "validation_plan": {
+    "required_checks": [
+      {
+        "id": "repository_native_build",
+        "property": "repository_native_build"
+      },
+      {
+        "id": "repository_native_tests",
+        "property": "repository_native_tests"
+      },
+      {
+        "id": "fast_fallback_witness",
+        "property": "fast_fallback_witness"
+      },
+      {
+        "id": "sanitizer_compile",
+        "property": "sanitizer_compile"
+      },
+      {
+        "id": "sanitizer_execute",
+        "property": "sanitizer_execute"
+      },
+      {
+        "id": "production_sanitizer_compile",
+        "property": "production_sanitizer_compile"
+      },
+      {
+        "id": "production_sanitizer_execute",
+        "property": "production_sanitizer_execute"
+      },
+      {
+        "id": "production_optimization_compile",
+        "property": "production_optimization_compile"
+      },
+      {
+        "id": "structured_optimization_assertions",
+        "property": "structured_optimization_assertions"
+      },
+      {
+        "id": "benchmark_execute",
+        "property": "benchmark_execute"
+      },
+      {
+        "id": "benchmark_distribution_assertions",
+        "property": "benchmark_distribution_assertions"
+      }
+    ],
+    "schema_version": "1.0.0"
+  }
+}

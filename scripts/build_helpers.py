@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import shutil
 import subprocess
 from pathlib import Path
@@ -36,8 +37,8 @@ def llvm_flags(*libraries: str) -> list[str]:
     return completed.stdout.split()
 
 
-def build(source: str, output: str, *libraries: str) -> None:
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+def build(destination: Path, source: str, output: str, *libraries: str) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
             tool("clang++-21"),
@@ -45,7 +46,7 @@ def build(source: str, output: str, *libraries: str) -> None:
             str(ROOT / source),
             *llvm_flags(*libraries),
             "-o",
-            str(OUTPUT / output),
+            str(destination / output),
         ],
         cwd=ROOT,
         check=True,
@@ -53,7 +54,12 @@ def build(source: str, output: str, *libraries: str) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    arguments = parser.parse_args()
+    destination = arguments.output.resolve()
     build(
+        destination,
         "tools/whyvec-llvm-transform.cpp",
         "whyvec-llvm-transform",
         "core",
@@ -62,6 +68,7 @@ def main() -> int:
         "support",
     )
     build(
+        destination,
         "tools/whyvec-llvm-loop-identity.cpp",
         "whyvec-llvm-loop-identity",
         "core",
@@ -69,7 +76,7 @@ def main() -> int:
         "analysis",
         "support",
     )
-    print(f"built WhyVec helpers in {OUTPUT}")
+    print(f"built WhyVec helpers in {destination}")
     return 0
 
 

@@ -19,6 +19,37 @@ or only a surrogate.
 The full re-foundation and defect register live in
 [docs/REFOUNDATION_AUDIT.md](docs/REFOUNDATION_AUDIT.md).
 
+## Install and run
+
+The local install places the Rust CLI and both pinned-LLVM helpers together:
+
+```console
+cargo install --path crates/whyvec-cli --root .local
+python3 scripts/build_helpers.py --output .local/bin
+.local/bin/whyvec doctor
+```
+
+Configure any CMake project with `CMAKE_EXPORT_COMPILE_COMMANDS=ON`, then use one
+normal command; no function name, LLVM parameter index, or helper path is
+required:
+
+```console
+whyvec analyze path/to/source.c:LINE
+```
+
+The complete executable demonstration is:
+
+```console
+./scripts/demo
+```
+
+It installs/uses the WhyVec Codex plugin, hands over a fresh agent packet, and
+runs the model-authored candidate through differential, mutation, sanitizer,
+structured-record, and benchmark gates. `./scripts/demo --ci` reruns the same
+compiler and validation workflow using the exact retained candidate from the
+actual installed-skill session. The pinned judge image is built and executed by
+`containers/judge/build.sh`.
+
 ## Build causality
 
 The executable build query supports Cargo/rustc, direct Clang and GCC
@@ -126,28 +157,33 @@ runtime guard enforces it.
 The executable guarded-repair fixture and its retained validation evidence are
 documented in [Guarded repair validation](docs/GUARDED_REPAIR_VALIDATION.md).
 
-The installable Codex skill consumes linked optimization, obligation, and
-validation reports and creates an auditable repository decision before a source
-edit:
+The installable Codex skill consumes the compact packet and creates an auditable
+repository decision before a source edit:
 
 ```console
 python3 integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py \
-  --optimization-report <optimization-report.json> \
-  --obligation-report <obligation-report.json> \
+  --packet .whyvec/agent-packets/<analysis-id>.json \
   --validation-report <validation-report.json> \
-  --whyvec target/debug/whyvec \
-  --repository <repository-root> \
   --candidate-source <candidate.c> \
   --output <new-action-trace.json>
 ```
 
-The planner verifies replay and artifact integrity and compares `restrict`, a
+The packet locates WhyVec and its linked reports without five manual paths. The
+planner verifies replay and artifact integrity and compares `restrict`, a
 guarded path, an API change, and refusal. Its tracked-text discovery is only a
 preliminary inventory; Codex must still establish repository contracts and
 uncertain caller edges.
 The report claims differential agreement only on covered executions and keeps
 the original pointer-loaded loop as the overlap and arithmetic-uncertainty
 fallback.
+
+An actual fresh Codex CLI 0.144.3 / `gpt-5.6-sol` run, sanitized observable
+session, complete patch, evidence ledger, and linked action trace are retained
+under [evidence/codex-live/2026-07-21](evidence/codex-live/2026-07-21). The
+independently sourced SuperLU case is retained under
+[evidence/real-world/superlu-a9314310](evidence/real-world/superlu-a9314310);
+WhyVec observed its real compiler miss and made a principled refusal after the
+declared search found no tested sufficient assumption.
 
 ## Product contract
 
@@ -221,6 +257,7 @@ required and the counterfactual alone never authorizes `restrict`.
 - [docs/DECLINE_CODES.md](docs/DECLINE_CODES.md) — stable failure and refusal taxonomy.
 - [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md) — fixture and adversarial validation matrix.
 - [docs/GUARDED_REPAIR_VALIDATION.md](docs/GUARDED_REPAIR_VALIDATION.md) — checked guard, fallback, sanitizer, optimization-record, and benchmark evidence.
+- [docs/BUILD_WEEK.md](docs/BUILD_WEEK.md) — official challenge requirement check and the non-decorative GPT‑5.6/Codex role.
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — untrusted repository and toolchain risks.
 - [docs/R3_R8_COMPLETION_AUDIT.md](docs/R3_R8_COMPLETION_AUDIT.md) — requirement-to-evidence audit for completed R3–R8 release capabilities.
 - [docs/phases](docs/phases) — capability phases with entry and exit gates.

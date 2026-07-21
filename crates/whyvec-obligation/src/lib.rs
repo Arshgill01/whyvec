@@ -465,6 +465,7 @@ fn walk<'a>(value: &'a Value, visit: &mut impl FnMut(&'a Value)) {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn analyze_loop(
     loop_node: &Value,
     function: &str,
@@ -473,8 +474,19 @@ fn analyze_loop(
     let mut volatile = 0;
     let mut atomic = 0;
     let mut calls = 0;
+    let mut loops = 0;
+    let mut early_exits = 0;
     walk(loop_node, &mut |node| {
         let kind = node.get("kind").and_then(Value::as_str).unwrap_or_default();
+        if kind == "ForStmt" {
+            loops += 1;
+        }
+        if matches!(
+            kind,
+            "BreakStmt" | "ContinueStmt" | "ReturnStmt" | "GotoStmt"
+        ) {
+            early_exits += 1;
+        }
         if kind.contains("CallExpr") || kind == "CallExpr" {
             calls += 1;
         }
@@ -502,6 +514,21 @@ fn analyze_loop(
         return Err(ObligationDecline {
             code: "obligation.call_in_loop".to_owned(),
             explanation: "the selected loop contains a call without an access summary".to_owned(),
+        });
+    }
+    if loops > 1 {
+        return Err(ObligationDecline {
+            code: "obligation.nested_loop".to_owned(),
+            explanation:
+                "the selected loop contains a nested loop without a composed access summary"
+                    .to_owned(),
+        });
+    }
+    if early_exits > 0 {
+        return Err(ObligationDecline {
+            code: "obligation.early_exit".to_owned(),
+            explanation: "the selected loop contains break, continue, return, or goto control flow"
+                .to_owned(),
         });
     }
     let children = loop_node
@@ -707,6 +734,9 @@ fn parse_writes(
         else {
             continue;
         };
+        if is_direct_reference(lhs, induction) {
+            continue;
+        }
         if lhs.get("kind").and_then(Value::as_str) != Some("ArraySubscriptExpr") {
             return Err(decline(
                 "obligation.write_shape",
@@ -963,6 +993,45 @@ fn source_media_type(source: &Path) -> &'static str {
 mod tests {
     use super::*;
 
+    fn reference(name: &str, kind: &str, source_type: &str) -> Value {
+        serde_json::json!({
+            "kind": "DeclRefExpr",
+            "referencedDecl": {"kind": kind, "name": name, "type": {"qualType": source_type}}
+        })
+    }
+
+    fn write(base: &str, index: &Value, element_type: &str) -> Value {
+        serde_json::json!({
+            "kind": "CompoundAssignOperator", "opcode": "+=", "inner": [
+                {"kind": "ArraySubscriptExpr", "type": {"qualType": element_type}, "inner": [
+                    reference(base, "ParmVarDecl", &format!("{element_type} *")), index
+                ]},
+                {"kind": "IntegerLiteral", "value": "1"}
+            ]
+        })
+    }
+
+    fn valid_loop(bound_type: &str, body: &[Value]) -> Value {
+        serde_json::json!({
+            "kind": "ForStmt", "inner": [
+                {"kind": "DeclStmt", "inner": [{"kind": "VarDecl", "name": "i",
+                    "type": {"qualType": "int"}, "inner": [
+                        {"kind": "IntegerLiteral", "value": "0"}
+                    ]}]},
+                {"kind": "BinaryOperator", "opcode": "<", "inner": [
+                    reference("i", "VarDecl", "int"),
+                    {"kind": "UnaryOperator", "opcode": "*", "inner": [
+                        reference("count", "ParmVarDecl", bound_type)
+                    ]}
+                ]},
+                {"kind": "UnaryOperator", "opcode": "++", "inner": [
+                    reference("i", "VarDecl", "int")
+                ]},
+                {"kind": "CompoundStmt", "inner": body}
+            ]
+        })
+    }
+
     #[test]
     fn checked_layout_is_explicit_and_target_bounded() {
         assert_eq!(
@@ -998,6 +1067,139 @@ mod tests {
         assert_eq!(checked_range(u64::MAX - 2, 8), None);
         assert_eq!(checked_extent(4, 8), Some(32));
         assert_eq!(checked_extent(u64::MAX, 2), None);
+    }
+
+    #[test]
+    fn supported_widths_and_multiple_writes_are_modeled() {
+        let summary = analyze_loop(
+            &valid_loop(
+                "const unsigned long *",
+                &[
+                    write("left", &reference("i", "VarDecl", "int"), "int"),
+                    write("right", &reference("i", "VarDecl", "int"), "double"),
+                ],
+            ),
+            "kernel",
+            7,
+        )
+        .expect("supported loop");
+        assert_eq!(summary.bound_object.byte_width, 8);
+        assert!(!summary.bound_object.signed);
+        assert_eq!(summary.writes.len(), 2);
+
+        let mut stepped = valid_loop(
+            "const int *",
+            &[write("output", &reference("i", "VarDecl", "int"), "int")],
+        );
+        stepped["inner"][2] = serde_json::json!({
+            "kind": "CompoundAssignOperator", "opcode": "+=", "inner": [
+                reference("i", "VarDecl", "int"), {"kind": "IntegerLiteral", "value": "2"}
+            ]
+        });
+        assert_eq!(
+            analyze_loop(&stepped, "kernel", 8)
+                .expect("positive constant step")
+                .induction
+                .step,
+            2
+        );
+    }
+
+    #[test]
+    fn unsupported_induction_and_condition_shapes_have_stable_declines() {
+        let mut descending = valid_loop(
+            "const int *",
+            &[write("output", &reference("i", "VarDecl", "int"), "int")],
+        );
+        descending["inner"][2]["opcode"] = Value::String("--".to_owned());
+        assert!(matches!(
+            analyze_loop(&descending, "kernel", 3),
+            Err(ObligationDecline { code, .. }) if code == "obligation.induction_step"
+        ));
+
+        let mut inclusive = valid_loop(
+            "const int *",
+            &[write("output", &reference("i", "VarDecl", "int"), "int")],
+        );
+        inclusive["inner"][1]["opcode"] = Value::String("<=".to_owned());
+        assert!(matches!(
+            analyze_loop(&inclusive, "kernel", 3),
+            Err(ObligationDecline { code, .. }) if code == "obligation.loop_condition"
+        ));
+    }
+
+    #[test]
+    fn non_affine_and_unknown_extents_have_stable_declines() {
+        let non_affine_index = serde_json::json!({
+            "kind": "BinaryOperator", "opcode": "+", "inner": [
+                reference("i", "VarDecl", "int"), {"kind": "IntegerLiteral", "value": "1"}
+            ]
+        });
+        let non_affine = valid_loop("const int *", &[write("output", &non_affine_index, "int")]);
+        assert!(matches!(
+            analyze_loop(&non_affine, "kernel", 3),
+            Err(ObligationDecline { code, .. }) if code == "obligation.non_affine_index"
+        ));
+
+        let unknown = valid_loop(
+            "const int *",
+            &[write(
+                "output",
+                &reference("i", "VarDecl", "int"),
+                "struct pixel",
+            )],
+        );
+        assert!(matches!(
+            analyze_loop(&unknown, "kernel", 3),
+            Err(ObligationDecline { code, .. }) if code == "obligation.write_layout"
+        ));
+    }
+
+    #[test]
+    fn nested_control_flow_and_calls_have_stable_declines() {
+        for (node, expected) in [
+            (
+                serde_json::json!({"kind": "ForStmt", "inner": []}),
+                "obligation.nested_loop",
+            ),
+            (
+                serde_json::json!({"kind": "BreakStmt"}),
+                "obligation.early_exit",
+            ),
+            (
+                serde_json::json!({"kind": "ContinueStmt"}),
+                "obligation.early_exit",
+            ),
+            (
+                serde_json::json!({"kind": "CallExpr", "inner": []}),
+                "obligation.call_in_loop",
+            ),
+        ] {
+            let loop_node = valid_loop(
+                "const int *",
+                &[
+                    write("output", &reference("i", "VarDecl", "int"), "int"),
+                    node,
+                ],
+            );
+            assert!(matches!(
+                analyze_loop(&loop_node, "kernel", 3),
+                Err(ObligationDecline { code, .. }) if code == expected
+            ));
+        }
+    }
+
+    #[test]
+    fn duplicated_source_locations_are_ambiguous() {
+        let loop_node = serde_json::json!({"kind": "ForStmt", "range": {"begin": {"line": 9}}});
+        let ast = serde_json::json!({"kind": "TranslationUnitDecl", "inner": [
+            {"kind": "FunctionDecl", "name": "kernel", "inner": [loop_node.clone(), loop_node]},
+            {"kind": "FunctionDecl", "name": "other", "inner": [
+                {"kind": "ForStmt", "range": {"begin": {"line": 9}}}
+            ]}
+        ]});
+        assert_eq!(find_loops(&ast, "kernel", 9).len(), 2);
+        assert_eq!(find_loops(&ast, "other", 9).len(), 1);
     }
 
     fn checked_range(start: u64, bytes: u64) -> Option<(u64, u64)> {

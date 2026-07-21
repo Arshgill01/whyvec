@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+"""Run the WhyVec compiler-to-Codex demonstration with live, non-fabricated output."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def heading(text: str) -> None:
+    print(f"\n\033[1;36m{text}\033[0m", flush=True)
+
+
+def run(command: list[str], cwd: Path, *, allow: set[int] = {0}, env=None) -> subprocess.CompletedProcess[str]:
+    completed = subprocess.run(
+        command, cwd=cwd, env=env, text=True, capture_output=True, check=False, timeout=600
+    )
+    if completed.returncode not in allow:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        raise RuntimeError(f"command failed ({completed.returncode}): {' '.join(command)}")
+    return completed
+
+
+def install_plugin() -> None:
+    listed = run(["codex", "plugin", "list", "--json"], ROOT, allow={0, 1})
+    if '"whyvec"' in listed.stdout and '"whyvec-local"' in listed.stdout:
+        print("plugin      whyvec@whyvec-local (installed)")
+        return
+    added = run(["codex", "plugin", "marketplace", "add", str(ROOT), "--json"], ROOT, allow={0, 1})
+    if added.returncode != 0 and "already" not in (added.stdout + added.stderr).lower():
+        raise RuntimeError(f"plugin marketplace installation failed: {added.stdout}{added.stderr}")
+    installed = run(["codex", "plugin", "add", "whyvec@whyvec-local", "--json"], ROOT, allow={0, 1})
+    if installed.returncode != 0 and "already" not in (installed.stdout + installed.stderr).lower():
+        raise RuntimeError(f"plugin installation failed: {installed.stdout}{installed.stderr}")
+    print("plugin      whyvec@whyvec-local (freshly installed)")
+
+
+def stream_codex(repository: Path, packet: Path, ledger: Path) -> None:
+    prompt = f"""Use the installed $whyvec-optimize skill for this repository optimization task.
+
+Consume the versioned WhyVec packet at {packet}. Inspect the implementation, public header,
+callers, FFI boundary, and tests. Replay the evidence before editing. Compare retaining the
+original, restrict, a guarded runtime path, an API change, and refusal. Reject global restrict
+or unconditional caching unless the repository establishes those contracts.
+
+Create the candidate yourself in src/kernel.c. The repository already contains candidate
+validation scaffolding; enable WHYVEC_VALIDATE_CANDIDATE and run the native tests, generated
+differential corpus, ASan/UBSan, exact structured LLVM-record assertions, multi-size benchmark,
+and mutation checks. Use the planner to link the exact candidate digest and report. Return the
+required evidence ledger. Do not commit.
+"""
+    command = [
+        "codex", "exec", "-m", "gpt-5.6-sol", "--dangerously-bypass-approvals-and-sandbox",
+        "--json", "--output-schema", str(repository / "codex-ledger.schema.json"),
+        "-o", str(ledger), "-",
+    ]
+    process = subprocess.Popen(
+        command, cwd=repository, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True,
+    )
+    assert process.stdin is not None and process.stdout is not None
+    process.stdin.write(prompt)
+    process.stdin.close()
+    for line in process.stdout:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        item = event.get("item") if event.get("type") == "item.completed" else None
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "agent_message":
+            try:
+                message = json.loads(item.get("text", ""))["summary"]
+            except (json.JSONDecodeError, KeyError, TypeError):
+                message = item.get("text", "")
+            print(f"Codex        {str(message)[:220]}", flush=True)
+        elif item.get("type") == "file_change":
+            files = ", ".join(Path(change["path"]).name for change in item.get("changes", []))
+            print(f"Codex patch  {files}", flush=True)
+        elif item.get("type") == "command_execution":
+            outcome = "pass" if item.get("exit_code") == 0 else "fail"
+            print(f"Codex {outcome:4}  {str(item.get('command', ''))[:150]}", flush=True)
+    if process.wait(timeout=30) != 0:
+        raise RuntimeError("Codex did not complete the repository task")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ci", action="store_true", help="validate the retained real Codex candidate")
+    parser.add_argument("--keep", action="store_true", help="retain the disposable demo repository")
+    parser.add_argument("--workdir", type=Path)
+    arguments = parser.parse_args()
+
+    heading("WhyVec · toolchain")
+    run(["cargo", "build", "--workspace"], ROOT)
+    run(["python3", "scripts/build_helpers.py"], ROOT)
+    whyvec = ROOT / "target/debug/whyvec"
+    doctor = json.loads(run([str(whyvec), "doctor", "--format", "json"], ROOT).stdout)
+    print(f"platform    {doctor['platform']['os']}/{doctor['platform']['arch']}")
+    clang = next(tool for tool in doctor["tools"] if tool["name"] == "clang-21")
+    helper_names = {helper["name"] for helper in doctor["helpers"]}
+    print(f"clang       {clang['path']}")
+    print(f"helpers     transformer={'whyvec-llvm-transform' in helper_names} identity={'whyvec-llvm-loop-identity' in helper_names}")
+
+    created = arguments.workdir is None
+    work = arguments.workdir.resolve() if arguments.workdir else Path(tempfile.mkdtemp(prefix="whyvec-demo-"))
+    repository = work / "repository" if created else work
+    if created:
+        shutil.copytree(ROOT / "demo", repository, ignore=shutil.ignore_patterns("build", "codex-generated"))
+    run(["git", "init", "-q"], repository)
+    run(["git", "config", "user.name", "WhyVec Demo"], repository)
+    run(["git", "config", "user.email", "demo@whyvec.invalid"], repository)
+    run(["git", "add", "."], repository)
+    run(["git", "commit", "-qm", "WhyVec demo baseline"], repository)
+    environment = os.environ.copy()
+    environment["CC"] = "clang-21"
+
+    heading("1 · observed build and compiler decision")
+    run(["cmake", "-S", ".", "-B", "build", "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
+         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"], repository, env=environment)
+    run(["cmake", "--build", "build"], repository)
+    run(["ctest", "--test-dir", "build", "--output-on-failure"], repository)
+    analyzed = json.loads(
+        run([str(whyvec), "analyze", "src/kernel.c:4", "--format", "json"], repository).stdout
+    )
+    optimization = analyzed["optimization"]
+    print("\nassumption                                      outcome")
+    print("----------------------------------------------  ----------")
+    print(f"baseline                                        {optimization['monolithic_baseline']['classification']}")
+    for experiment in optimization["experiments"]:
+        assumptions = ",".join(experiment["assumptions"])
+        print(f"{assumptions[:46]:46}  {experiment['outcome']['classification']}")
+    print(f"\ntested sufficient assumption  {optimization['finding']['sufficient_assumptions'][0]}")
+    print(f"source obligation             {analyzed['obligation']['obligation']['predicate']}")
+    packet = Path(analyzed["agent_packet"])
+    print(f"agent packet                  {packet.relative_to(repository)}")
+
+    heading("2 · Codex repository decision")
+    ledger = repository / "codex-final-ledger.json"
+    if arguments.ci:
+        shutil.copyfile(ROOT / "demo/codex-generated/kernel.c", repository / "src/kernel.c")
+        shutil.copyfile(ROOT / "evidence/codex-live/2026-07-21/ledger.json", ledger)
+        print("CI mode      exact retained candidate from the actual installed-skill run")
+        print("decision     rejected global restrict and unconditional bound caching")
+    else:
+        install_plugin()
+        stream_codex(repository, packet, ledger)
+    candidate_digest = hashlib.sha256((repository / "src/kernel.c").read_bytes()).hexdigest()
+    print(f"candidate    sha256:{candidate_digest}")
+
+    heading("3 · exact candidate validation")
+    run(["cmake", "-S", ".", "-B", "build", "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
+         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON", "-DWHYVEC_VALIDATE_CANDIDATE=ON"],
+        repository, env=environment)
+    run(["cmake", "--build", "build"], repository)
+    tests = run(["ctest", "--test-dir", "build", "--output-on-failure"], repository)
+    print(next(line for line in tests.stdout.splitlines() if "100% tests passed" in line))
+    run(["cmake", "--build", "build", "--target", "whyvec_validate"], repository)
+    report_path = repository / "build/whyvec-validation/report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    coverage = report["differential"]
+    print(f"covered      {coverage['executions']} executions; fast={coverage['fast_paths']} fallback={coverage['fallback_paths']}")
+    print("sanitizers   ASan/UBSan clean on the same covered executions")
+    for record in report["optimization"]["records"]:
+        print(f"LLVM YAML    line {record['line']}: {record['name']} ({record['outcome']})")
+    benchmark = report["benchmark"]["summary"]
+    print(f"benchmark    {benchmark['classification']}; representative median ratio={benchmark['median_ratio']:.2f}x")
+    mutations = json.loads(
+        run(["python3", str(ROOT / "scripts/verify_demo_mutations.py"), "--demo", str(repository),
+             "--candidate", str(repository / "src/kernel.c"), "--validation-report", str(report_path)],
+            ROOT).stdout
+    )
+    print(f"mutations    {len(mutations['mutations'])}/{len(mutations['mutations'])} unsafe variants rejected")
+
+    heading("4 · fast refusal")
+    refused = json.loads(
+        run([str(whyvec), "analyze", "src/refusal.c:3", "--format", "json"], repository, allow={0, 3}).stdout
+    )
+    refusal = refused["optimization"].get("decline") or refused.get("obligation", {}).get("decline")
+    print(f"volatile loop  refused: {refusal['code']}")
+
+    heading("Result")
+    print("observed      original loop missed")
+    print("tested        count/noalias was a tested sufficient assumption")
+    print("validated     guarded candidate on covered executions; fallback retained")
+    print("caveats       flat uintptr x86-64 policy; uncertain FFI callers; no formal equivalence")
+    print(f"workspace     {repository}")
+    if created and not arguments.keep:
+        shutil.rmtree(work)
+        print("workspace     removed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

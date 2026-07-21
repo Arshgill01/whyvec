@@ -7,6 +7,17 @@
   "required": ["schema_version", "analysis_id", "query_kind", "evidence_strength", "obligation", "toolchain", "sources", "commands", "differential", "sanitizer", "optimization", "benchmark", "environment", "artifacts", "artifact_path", "caveats"],
   "allOf": [
     {
+      "if": { "properties": { "schema_version": { "const": "1.0.0" } } },
+      "then": {
+        "properties": {
+          "differential": { "$ref": "#/$defs/coverage_v1" },
+          "sanitizer": {
+            "properties": { "covered": { "$ref": "#/$defs/coverage_v1" } }
+          }
+        }
+      }
+    },
+    {
       "if": { "properties": { "schema_version": { "const": "1.1.0" } } },
       "then": {
         "required": ["candidate_source_sha256", "command_outcomes"],
@@ -22,7 +33,13 @@
     {
       "if": { "properties": { "schema_version": { "const": "1.2.0" } } },
       "then": {
-        "required": ["candidate_source_sha256", "command_outcomes", "validation_plan"]
+        "required": ["candidate_source_sha256", "command_outcomes", "validation_plan"],
+        "properties": {
+          "differential": { "$ref": "#/$defs/coverage_v1_2" },
+          "sanitizer": {
+            "properties": { "covered": { "$ref": "#/$defs/coverage_v1_2" } }
+          }
+        }
       }
     }
   ],
@@ -145,13 +162,17 @@
     "source": {
       "type": "object", "additionalProperties": false,
       "required": ["path", "sha256"],
-      "properties": { "path": { "type": "string", "pattern": "^fixtures/" }, "sha256": { "$ref": "#/$defs/sha256" } }
+      "properties": { "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$" }, "sha256": { "$ref": "#/$defs/sha256" } }
     },
     "coverage": {
-      "oneOf": [
-        { "$ref": "#/$defs/coverage_v1" },
-        { "$ref": "#/$defs/coverage_v1_1" }
-      ]
+      "type": "object", "additionalProperties": false,
+      "required": ["executions", "fast_paths", "fallback_paths", "overflow_refusals"],
+      "properties": {
+        "executions": { "type": "integer", "minimum": 1 },
+        "fast_paths": { "type": "integer", "minimum": 1 },
+        "fallback_paths": { "type": "integer", "minimum": 1 },
+        "overflow_refusals": { "type": "integer", "minimum": 0 }
+      }
     },
     "coverage_v1": {
       "type": "object", "additionalProperties": false,
@@ -167,6 +188,16 @@
       "properties": {
         "executions": { "const": 11 }, "fast_paths": { "const": 7 },
         "fallback_paths": { "const": 4 }, "overflow_refusals": { "const": 2 }
+      }
+    },
+    "coverage_v1_2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executions", "fast_paths", "fallback_paths", "overflow_refusals"],
+      "properties": {
+        "executions": { "type": "integer", "minimum": 2 },
+        "fast_paths": { "type": "integer", "minimum": 1 },
+        "fallback_paths": { "type": "integer", "minimum": 1 },
+        "overflow_refusals": { "type": "integer", "minimum": 2 }
       }
     },
     "raw_benchmark": {

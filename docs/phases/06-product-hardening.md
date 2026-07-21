@@ -36,3 +36,14 @@
 - Interrupted runs leave recoverable, correctly classified artifacts.
 - Exported bundles contain no configured secrets or absolute private paths.
 - Product help and documentation match actual behavior and exit codes.
+
+## Retained implementation evidence
+
+- `containers/judge/Dockerfile` pins the base image digest, Rust 1.96.1,
+  Clang/LLVM 21, Codex CLI 0.144.3, Python dependencies, helpers, and plugin.
+- `scripts/demo --ci` verifies the clean non-interactive product path; the
+  default mode performs the live installed-plugin handoff.
+- `scripts/check_portable_evidence.py` rejects home/temp paths, raw reasoning
+  events, and token telemetry in shareable Codex and real-world bundles.
+- GitHub's compiler-product and judge-container jobs exercise the full product,
+  not only Rust unit tests.

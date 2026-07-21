@@ -114,3 +114,38 @@ the structural identity stage remains authoritative and returns
 `identity.ambiguous`. Exact duplicate selected records remain rejected, and
 malformed, missing, unrelated-loop, and field-name variation tests remain
 separate.
+
+## 2026-07-21T19:07:21Z — Demo validation initially benchmarked a stale baseline object
+
+The first `scripts/demo --ci` run copied the retained candidate with
+`shutil.copy2`. That preserved an older source modification time than the
+already-built baseline object, so Ninja correctly considered the object current.
+Differential and direct compiler-record checks used the new source, but the
+benchmark executable linked the stale baseline object and returned
+`noise_decline` at a median ratio near 1.0. The validation target failed instead
+of misreporting improvement.
+
+Safeguard: CI candidate materialization now uses `copyfile`, giving the source a
+new modification time and forcing the repository-native rebuild. The repeated
+demo observed the candidate object, passed 3,271 covered executions and eleven
+mutations, and classified the fresh benchmark as measured improvement. A noisy
+future run remains an intentional refusal.
+
+## 2026-07-21T19:15:54Z — Generic validation-plan schema rejected the legacy corpus
+
+The first complete optimization-causality rerun failed when its eleven-case
+guarded fixture emitted schema 1.2. The new schema had incorrectly imposed a
+twelve-execution minimum even though schema 1.2 delegates the required checks
+to a versioned repository validation plan. That would have made the portable
+contract depend on WhyVec's demo corpus instead of the reported plan.
+
+Safeguard: version-specific coverage remains exact for schema 1.0 and 1.1,
+while schema 1.2 requires witnessed fast and fallback paths and at least two
+overflow refusals without dictating a repository's corpus size. The old
+eleven-case workflow, the 3,271-case demo, the retained live report, and the
+full optimization-causality workflow all pass the corrected schema.
+
+The expanded non-unit-step unit test also exposed that `i += 2` was collected
+as though it were an array write. The obligation analyzer now excludes a direct
+induction-variable update from memory-write collection; the positive test and
+all typed-refusal tests pass.

@@ -1,0 +1,95 @@
+{
+  "build_configuration": [
+    "CC=clang-21",
+    "CMAKE_BUILD_TYPE=Release",
+    "enable_internal_blaslib=ON",
+    "enable_tests=ON",
+    "enable_examples=OFF",
+    "CMAKE_EXPORT_COMPILE_COMMANDS=ON"
+  ],
+  "case": "SuperLU CBLAS SAXPY cleanup loop",
+  "commit": "a93143107e3854ba9716ee3d7ab40fca6880cc10",
+  "compiler_result": {
+    "baseline": "observed missed",
+    "counterfactual_result": "no successful assumption in the declared finite search",
+    "decline_code": "search.no_successful_assumption",
+    "minimality": "no_successful_set_found",
+    "structured_records": [
+      {
+        "arguments": [
+          "String=loop not vectorized: ",
+          "String=runtime pointer checks needed. Enable vectorization of this loop with '#pragma clang loop vectorize(enable)' when compiling with -Os/-Oz"
+        ],
+        "debug_location": {
+          "column": 5,
+          "file": "CBLAS/saxpy.c",
+          "line": 72
+        },
+        "function": "saxpy_",
+        "interleave_count": null,
+        "kind": "Analysis",
+        "name": "CantVersionLoopWithOptForSize",
+        "pass": "loop-vectorize",
+        "reason": "loop not vectorized: runtime pointer checks needed. Enable vectorization of this loop with '#pragma clang loop vectorize(enable)' when compiling with -Os/-Oz",
+        "vector_width": null,
+        "vectorization_outcome": "missed"
+      },
+      {
+        "arguments": [
+          "String=the cost-model indicates that vectorization is not beneficial"
+        ],
+        "debug_location": {
+          "column": 5,
+          "file": "CBLAS/saxpy.c",
+          "line": 72
+        },
+        "function": "saxpy_",
+        "interleave_count": null,
+        "kind": "Missed",
+        "name": "VectorizationNotBeneficial",
+        "pass": "loop-vectorize",
+        "reason": "the cost-model indicates that vectorization is not beneficial",
+        "vector_width": null,
+        "vectorization_outcome": "missed"
+      },
+      {
+        "arguments": [
+          "String=the cost-model indicates that interleaving is not beneficial"
+        ],
+        "debug_location": {
+          "column": 5,
+          "file": "CBLAS/saxpy.c",
+          "line": 72
+        },
+        "function": "saxpy_",
+        "interleave_count": null,
+        "kind": "Missed",
+        "name": "InterleavingNotBeneficial",
+        "pass": "loop-vectorize",
+        "reason": "the cost-model indicates that interleaving is not beneficial",
+        "vector_width": null,
+        "vectorization_outcome": "missed"
+      }
+    ]
+  },
+  "decision": "principled_refusal",
+  "decision_reason": "WhyVec observed the real compiler miss but found no tested sufficient assumption; therefore it derived no source obligation and authorized no repair.",
+  "license": "BSD-3-Clause-style SuperLU license",
+  "license_url": "https://github.com/xiaoyeli/superlu/blob/a93143107e3854ba9716ee3d7ab40fca6880cc10/License.txt",
+  "performance": "not measured because no repair was authorized",
+  "replay": {
+    "matched": true,
+    "original_analysis_id": "wv_f822fe33a17aab27a21552d0",
+    "replay_analysis_id": "wv_f7ac972f8c610d44ef1679b2",
+    "semantic_digest": "b02ab44c11b7b2845de5fe9d0edfbe72c21b4768df880e86e3d4ecc719ff923d"
+  },
+  "repository_native_test": {
+    "command": "ctest --test-dir <checkout>/build -R ^s_test_9_2_0_LA$",
+    "output": "Test project <checkout>/build\n    Start 1: s_test_9_2_0_LA\n1/1 Test #1: s_test_9_2_0_LA ..................   Passed    0.01 sec\n\n100% tests passed, 0 tests failed out of 1\n\nTotal Test time (real) =   0.01 sec\n",
+    "passed": true
+  },
+  "schema_version": "1.0.0",
+  "source": "CBLAS/saxpy.c:72",
+  "source_url": "https://github.com/xiaoyeli/superlu/blob/a93143107e3854ba9716ee3d7ab40fca6880cc10/CBLAS/saxpy.c",
+  "upstream": "https://github.com/xiaoyeli/superlu.git"
+}

@@ -2,8 +2,13 @@
 
 > Status correction (2026-07-21): this historical audit established the
 > deterministic R8 handoff, not an actual installed-skill GPT-5.6 Codex
-> repository session. [PLAN.md](../PLAN.md) now keeps R8 in `verifying` until
+> repository session. [PLAN.md](../PLAN.md) kept R8 in `verifying` until
 > that executable model evidence is retained.
+
+> Completion update (2026-07-21): that remaining gate is now satisfied by the
+> sanitized actual installed-skill session in
+> `evidence/codex-live/2026-07-21/`. This paragraph preserves the historical
+> correction above while recording the later evidence.
 
 ## Scope
 
@@ -27,8 +32,8 @@ completion evidence.
 | R4 | Typed LLVM parameter intervention, structural isolation, equivalent-confirmed pipeline replay, stable loop identity, successful confirmations, already-vectorized/no-success/ambiguity declines, and retained replay | `verify_compiler_fixtures.py`; `verify_llvm_transformer.py`; `verify_llvm_loop_identity.py`; `verify_optimization_causality.py` |
 | R5 | Cargo/rustc diagnostic identity, immutable Git atoms, syntax-item grouping with exact-hunk fallback, interacting changes, removal witnesses, mandatory Bubblewrap containment, public CLI replay, and tamper refusal | Fifteen `whyvec-build` tests; `verify_build_causality.py`; GitHub `Repository integrity` workflow |
 | R6 | C++ linkage/template positives and macro ambiguity; Cargo, Clang, GCC, and TypeScript build adapters; GCC native optimization observation and integrity-checked LLVM comparison | `verify_compiler_fixtures.py`; `verify_cross_adapter_build_causality.py`; `verify_optimization_causality.py` |
-| R7 | Typed C bound obligation and volatile refusal; checked flat-x86-64 guard; unchanged fallback; branch, overflow, ABI, differential, sanitizer, compiler-record, environment, and dispersion-aware benchmark evidence | Three `whyvec-obligation` tests; `verify_guarded_repair.py`, invoked by `verify_optimization_causality.py`; retained `evidence/guarded-bound-alias/2026-07-21/` and R8 validation 1.1 report |
-| R8 (deterministic portion only) | Report replay and compatibility checks, preliminary caller inventory, all four strategy decisions, exact candidate/validation linkage, unsafe-alternative rejection, typed refusal, complete command ledger, action trace, and installable Codex plugin | `plan_action.py`; action-trace schema; positive, digest-mismatch, missing-branch, benchmark-noise, and volatile-refusal forward tests in `verify_optimization_causality.py`; official plugin and skill validators; retained `evidence/codex-action/2026-07-21/`. These do not substitute for the pending actual-model session. |
+| R7 | Typed C bound obligation and volatile refusal; checked flat-x86-64 guard; unchanged fallback; branch, overflow, ABI, generated differential, mutation, sanitizer, compiler-record, environment, and dispersion-aware benchmark evidence | Eight `whyvec-obligation` tests; `verify_guarded_repair.py`; `verify_demo_mutations.py`; executable demo validation; retained deterministic and actual-model reports |
+| R8 | Report replay and compatibility checks, preliminary caller inventory, explicit strategy decisions, exact candidate/validation linkage, typed refusal, action trace, installable plugin, and actual model-authored repository work | `plan_action.py`; forward tests; clean marketplace installation; `scripts/demo`; and the prompt, observable session, full patch, ledger, action trace, and report under `evidence/codex-live/2026-07-21/` |
 
 ## Detailed phase-gate mapping
 
@@ -51,10 +56,10 @@ completion evidence.
   source bound-object/modified-region predicate.
 - Unsupported volatile and atomic dimensions retain typed declines. Checked
   extent/range arithmetic refuses overflow.
-- The exact production candidate preserves the public C ABI. Eleven retained
-  differential executions are validated on covered executions: seven fast
-  paths and four unchanged fallbacks, including overlap. Two synthetic
-  address-end overflow cases refuse the fast path.
+- The exact production candidate preserves the public C ABI. The expanded
+  deterministic corpus validates 3,271 covered executions: 1,123 fast paths
+  and 2,148 unchanged fallbacks, including every in-range bound position for
+  counts 2–65. Two pure integer address-end cases refuse the fast path.
 - Instrumented and production ASan/UBSan commands pass on the covered corpus.
   Clang observed the fast loop vectorized and the fallback loop missed.
 - Thirty-one alternating-order samples per implementation, median/MAD,
@@ -67,7 +72,7 @@ completion evidence.
   artifact manifest before emitting a create-new trace.
 - External-linkage uncertainty rejects `restrict`; absent repository contract
   authority rejects an API change; a guarded candidate requires its exact
-  digest, all thirteen successful command outcomes, both branch witnesses,
+  digest, every versioned required-check outcome, both branch witnesses,
   clean sanitizer coverage, compiler records, overflow refusal, and measured
   improvement.
 - A mismatched candidate or incomplete branch ledger returns
@@ -86,7 +91,7 @@ completion evidence.
 | Identity | Stable diagnostic fingerprints and LLVM structural loop fingerprints with explicit ambiguity declines |
 | Semantic honesty | Evidence-strength types, schema enums, claim-language checks, `smallest_set_found`, candidate-obligation separation, and covered-execution wording |
 | Safe failure | Three-valued unresolved results; stable baseline, identity, search, obligation, validation, and policy refusals; artifact-tamper tests |
-| Agent accountability | Replayed report identifiers/digests, repository inventory, four-strategy comparison, exact candidate digest/diff, thirteen command outcomes, and residual risks |
+| Agent accountability | Replayed report identifiers/digests, repository inventory, strategy comparison, exact candidate digest/diff, versioned required-check outcomes, actual-model ledger, and residual risks |
 | Behavior preservation | Original-versus-candidate differential corpus with explicit fast/fallback witnesses and production plus instrumented sanitizer executions |
 | Performance evidence | Raw alternating samples, compiler/environment identity, median/MAD dispersion rule, measured-improvement classification, and deterministic noise refusal |
 
@@ -119,8 +124,8 @@ did not catch:
 - The golden C path now ingests one real compilation-database entry and maps
   direct C parameters automatically. C++ ABI mapping and ambiguous entries
   remain explicit declines or expert overrides.
-- Build replay currently requires its recorded local Git object and toolchain;
-  portable redacted export is a later distribution gate.
+- Local replay requires its recorded Git object and toolchain. Shareable Codex
+  and real-world bundles are separately redacted and checked for private paths.
 - The first runtime guard is limited to the recorded flat x86-64 `uintptr_t`
   policy.
 - Tracked-text caller discovery is preliminary. External, indirect, dynamic,

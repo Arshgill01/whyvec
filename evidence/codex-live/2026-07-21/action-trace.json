@@ -1,0 +1,409 @@
+{
+  "alternatives": [
+    {
+      "decision": "rejected",
+      "reason": "caller coverage is incomplete and LLVM noalias is broader than the derived loop range",
+      "strategy": "restrict_annotation"
+    },
+    {
+      "decision": "selected",
+      "reason": "the derived condition is runtime-enforceable with an unchanged fallback",
+      "strategy": "guarded_runtime"
+    },
+    {
+      "decision": "rejected",
+      "reason": "no repository-supported API contract or compatibility authority was supplied",
+      "strategy": "api_change"
+    },
+    {
+      "decision": "not_selected",
+      "reason": "a validated behavior-preserving guard is available",
+      "strategy": "refuse"
+    }
+  ],
+  "candidate_obligation": {
+    "access_summary": {
+      "atomic_accesses": 0,
+      "bound_object": {
+        "byte_width": 4,
+        "name": "count",
+        "signed": true,
+        "source_type": "int"
+      },
+      "calls_in_loop": 0,
+      "function": "add_vectors_",
+      "induction": {
+        "comparison": "less_than",
+        "lower_bound": 0,
+        "source_type": "int",
+        "step": 1,
+        "upper_bound_parameter": "count",
+        "variable": "i",
+        "zero_trip_when_upper_at_most_lower": true
+      },
+      "loop_line": 4,
+      "model": "clang_ast_affine_bound_v1",
+      "volatile_accesses": 0,
+      "writes": [
+        {
+          "base_parameter": "output",
+          "conservative_first_index": "0",
+          "conservative_last_index": "initial(*bound) - 1 rounded by step",
+          "element_bytes": 4,
+          "element_type": "int",
+          "index_expression": "i"
+        }
+      ]
+    },
+    "candidate_assumption": "parameter.count.noalias",
+    "evidence_strength": "derived_obligation",
+    "family": "bound_object_disjoint_from_modified_region",
+    "limitations": [
+      "No claim is made that callers already satisfy this condition.",
+      "The runtime plan requires the recorded flat uintptr_t target policy and checked arithmetic."
+    ],
+    "predicate": "bytes(count, sizeof(*count)) is disjoint from every modified byte in [output] over the initial iteration domain",
+    "runtime_guard": {
+      "capture": "initial_bound = *count before assuming disjointness",
+      "checked_operations": [
+        "checked iteration-count calculation",
+        "checked element-count multiplication",
+        "checked uintptr_t range-end addition"
+      ],
+      "condition": "zero-trip or bytes(count, 4) is disjoint from range(output, checked_extent(0, initial(*count), 1, 4))",
+      "fallback_requirement": "execute the original loop with its pointer-loaded bound unchanged",
+      "fast_path_requirement": "the guard dominates bound caching and every optimized-path assumption",
+      "target_policy": "flat_uintptr_x86_64"
+    }
+  },
+  "claim_language": {
+    "assumption": "tested sufficient assumption",
+    "baseline": "observed",
+    "behavior": "validated on covered executions"
+  },
+  "compiler_facts": {
+    "observed_baseline": "missed",
+    "pipeline_fidelity": "equivalent_confirmed",
+    "tested_sufficient_assumptions": [
+      "parameter.count.noalias"
+    ]
+  },
+  "evidence": {
+    "artifacts_verified": true,
+    "obligation_analysis_id": "wv_9fb51bb02f1fd54d7ede9d29",
+    "obligation_report": "../analyses/wv_9fb51bb02f1fd54d7ede9d29/report.json",
+    "obligation_semantic_digest": "9f1180cbde5993c13355a78d69df129b24e163ca066153df6db745a464c162e9",
+    "optimization_analysis_id": "wv_32c56bc2e71e77ee21ce19aa",
+    "optimization_report": "../analyses/wv_32c56bc2e71e77ee21ce19aa/report.json",
+    "optimization_semantic_digest": "8651b1cca5f7d91dae489a3bd57ac534d6c2f6f528bbe1d3e6142bed84ae422f",
+    "validation_analysis_id": "wv_00a6de7778b7add50211de82",
+    "validation_report": "validation-report.json",
+    "validation_report_sha256": "0902c647a9d16d2c238133fec158c6853671480734f91c0d55125c49987ed761"
+  },
+  "patch": {
+    "candidate_path": ".whyvec/candidates/codex-kernel.c",
+    "candidate_sha256": "8e6490d23439e1f2b362bc24799443a9b4549557b7da94bdf4f538429431d5cf",
+    "unified_diff": "--- a/source\n+++ b/candidate\n@@ -1,6 +1,64 @@\n #include \"whyvec_demo.h\"\n \n+#include <stdint.h>\n+\n+#ifdef WHYVEC_TESTING\n+static unsigned whyvec_fast_paths;\n+static unsigned whyvec_fallback_paths;\n+\n+void whyvec_test_reset_paths(void) {\n+  whyvec_fast_paths = 0;\n+  whyvec_fallback_paths = 0;\n+}\n+\n+unsigned whyvec_test_fast_paths(void) { return whyvec_fast_paths; }\n+unsigned whyvec_test_fallback_paths(void) { return whyvec_fallback_paths; }\n+#define WHYVEC_FAST_PATH() (++whyvec_fast_paths)\n+#define WHYVEC_FALLBACK_PATH() (++whyvec_fallback_paths)\n+#else\n+#define WHYVEC_FAST_PATH() ((void)0)\n+#define WHYVEC_FALLBACK_PATH() ((void)0)\n+#endif\n+\n+static int count_is_outside_output(uintptr_t output_start,\n+                                   uintptr_t count_start,\n+                                   int initial_count) {\n+  if (initial_count <= 0)\n+    return 1;\n+\n+  const uintptr_t elements = (uintptr_t)initial_count;\n+  if (elements > UINTPTR_MAX / sizeof(int))\n+    return 0;\n+  const uintptr_t output_bytes = elements * sizeof(int);\n+  if (output_start > UINTPTR_MAX - output_bytes ||\n+      count_start > UINTPTR_MAX - sizeof(int))\n+    return 0;\n+\n+  const uintptr_t output_end = output_start + output_bytes;\n+  const uintptr_t count_end = count_start + sizeof(int);\n+  return output_end <= count_start || count_end <= output_start;\n+}\n+\n+#ifdef WHYVEC_TESTING\n+int whyvec_test_count_is_outside_output(uintptr_t output_start,\n+                                        uintptr_t count_start,\n+                                        int initial_count) {\n+  return count_is_outside_output(output_start, count_start, initial_count);\n+}\n+#endif\n+\n void add_vectors_(int *output, const int *input, const int *count) {\n+  const int initial_count = *count;\n+  if (count_is_outside_output((uintptr_t)output, (uintptr_t)count,\n+                              initial_count)) {\n+    WHYVEC_FAST_PATH();\n+    for (int i = 0; i < initial_count; ++i) {\n+      output[i] += input[i];\n+    }\n+    return;\n+  }\n+\n+  WHYVEC_FALLBACK_PATH();\n   for (int i = 0; i < *count; ++i) {\n     output[i] += input[i];\n   }\n"
+  },
+  "repository_discovery": {
+    "caller_coverage": "incomplete",
+    "occurrences": [
+      {
+        "excerpt": "void add_vectors_(int *output, const int *input, const int *count);",
+        "kind": "call_or_declaration",
+        "line": 4,
+        "path": "include/whyvec_demo.h"
+      },
+      {
+        "excerpt": "add_vectors_(output, input, count);",
+        "kind": "call_or_declaration",
+        "line": 4,
+        "path": "src/ffi.c"
+      },
+      {
+        "excerpt": "void add_vectors_(int *output, const int *input, const int *count) {",
+        "kind": "call_or_declaration",
+        "line": 3,
+        "path": "src/kernel.c"
+      },
+      {
+        "excerpt": "add_vectors_(output, input, &output[2]);",
+        "kind": "test",
+        "line": 16,
+        "path": "tests/test_kernel.c"
+      }
+    ],
+    "tracked_files_scanned": 6,
+    "uncertain_edges": [
+      {
+        "line": 4,
+        "path": "src/ffi.c",
+        "reason": "external linkage permits callers outside the tracked repository"
+      }
+    ]
+  },
+  "residual_risks": [
+    "unresolved external or dynamic callers do not justify restrict",
+    "the integer-address guard is limited to the recorded target policy",
+    "covered executions do not establish full semantic equivalence"
+  ],
+  "schema_version": "1.0.0",
+  "selected_action": "validated_guarded_runtime",
+  "trace_kind": "codex_repository_action",
+  "validation_command_outcomes": [
+    {
+      "command_index": 0,
+      "exit_status": 0,
+      "name": "repository_native_build",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "8c35b1682f73592d30612d7b0fabdb384fcfff35cb5a076cb48b85b1368aa794",
+      "stdout_size": 22
+    },
+    {
+      "command_index": 1,
+      "exit_status": 0,
+      "name": "repository_native_tests",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "8c0312cc90ee6ad1f6af5227930737d42f8573e5497f96600feb66271859f57d",
+      "stdout_size": 371
+    },
+    {
+      "command_index": 2,
+      "exit_status": 0,
+      "name": "fast_fallback_witness",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "467c6d03b5a1b544ce1332c2656bbc4e892feb220852f49d1d51479127402fca",
+      "stdout_size": 79
+    },
+    {
+      "command_index": 3,
+      "exit_status": 0,
+      "name": "sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 4,
+      "exit_status": 0,
+      "name": "sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "467c6d03b5a1b544ce1332c2656bbc4e892feb220852f49d1d51479127402fca",
+      "stdout_size": 79
+    },
+    {
+      "command_index": 5,
+      "exit_status": 0,
+      "name": "production_sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 6,
+      "exit_status": 0,
+      "name": "production_sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 7,
+      "exit_status": 0,
+      "name": "production_optimization_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 8,
+      "exit_status": 0,
+      "name": "structured_optimization_assertions",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "894fad0ed8ffccf99c3e2cdce5bc0e97250bca01c91dff769956cb48d9de6939",
+      "stdout_size": 93
+    },
+    {
+      "command_index": 9,
+      "exit_status": 0,
+      "name": "benchmark_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "df202c8f8f8ad7a4ca77fa6529ab1c501812a48c2e15624236f6331c9eaa4492",
+      "stdout_size": 10600
+    },
+    {
+      "command_index": 10,
+      "exit_status": 0,
+      "name": "benchmark_distribution_assertions",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "f0779af3beb04046fe4ea0c3931a6c6549c317387c7c4f9c324293bfb4161dab",
+      "stdout_size": 128
+    }
+  ],
+  "validation_commands": [
+    [
+      "cmake",
+      "--build",
+      "<demo-repository>/build"
+    ],
+    [
+      "ctest",
+      "--test-dir",
+      "<demo-repository>/build",
+      "--output-on-failure"
+    ],
+    [
+      "<demo-repository>/build/whyvec_demo_differential"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "-I",
+      "<demo-repository>/include",
+      "<demo-repository>/tests/test_differential.c",
+      "-o",
+      "<demo-repository>/build/whyvec-validation/checks/differential-sanitized"
+    ],
+    [
+      "<demo-repository>/build/whyvec-validation/checks/differential-sanitized"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "-I",
+      "<demo-repository>/include",
+      "<demo-repository>/tests/test_kernel.c",
+      "<demo-repository>/.whyvec/candidates/codex-kernel.c",
+      "<demo-repository>/src/ffi.c",
+      "-o",
+      "<demo-repository>/build/whyvec-validation/checks/production-sanitized"
+    ],
+    [
+      "<demo-repository>/build/whyvec-validation/checks/production-sanitized"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "-gline-tables-only",
+      "-I",
+      "<demo-repository>/include",
+      "-fsave-optimization-record",
+      "-foptimization-record-file=<demo-repository>/build/whyvec-validation/compiler/kernel.opt.yaml",
+      "-c",
+      "<demo-repository>/.whyvec/candidates/codex-kernel.c",
+      "-o",
+      "<demo-repository>/build/whyvec-validation/compiler/kernel.o"
+    ],
+    [
+      "/usr/bin/python3",
+      "<demo-repository>/tools/assert_opt_records.py",
+      "--source",
+      "<demo-repository>/.whyvec/candidates/codex-kernel.c",
+      "--yaml",
+      "<demo-repository>/build/whyvec-validation/compiler/kernel.opt.yaml",
+      "--output",
+      "<demo-repository>/build/whyvec-validation/compiler/records.json"
+    ],
+    [
+      "<demo-repository>/build/whyvec_demo_benchmark"
+    ],
+    [
+      "/usr/bin/python3",
+      "<demo-repository>/tools/analyze_benchmark.py",
+      "--csv",
+      "<demo-repository>/build/whyvec-validation/benchmark/raw.csv",
+      "--raw",
+      "<demo-repository>/build/whyvec-validation/benchmark/raw.json",
+      "--summary",
+      "<demo-repository>/build/whyvec-validation/benchmark/summary.json"
+    ]
+  ],
+  "validation_outcomes": {
+    "benchmark": {
+      "classification": "measured_improvement",
+      "decision_rule": "for sizes >=257, median speedup >1.10 and at least 4/5 median separations exceed three times summed MAD",
+      "guarded_mad_ns": 88760,
+      "guarded_median_ns": 922671,
+      "median_ratio": 4.800710112271871,
+      "original_mad_ns": 63101,
+      "original_median_ns": 4429476
+    },
+    "differential": {
+      "executions": 1127,
+      "fallback_paths": 4,
+      "fast_paths": 1123,
+      "overflow_refusals": 2
+    },
+    "optimization": {
+      "fallback": "missed",
+      "fallback_line": 62,
+      "fast_path": "vectorized",
+      "fast_path_line": 55,
+      "records": [
+        {
+          "column": 5,
+          "function": "add_vectors_",
+          "interleave_count": "4",
+          "kind": "Passed",
+          "line": 55,
+          "name": "Vectorized",
+          "outcome": "vectorized",
+          "pass": "loop-vectorize",
+          "vector_width": "8"
+        },
+        {
+          "column": 3,
+          "function": "add_vectors_",
+          "interleave_count": null,
+          "kind": "Analysis",
+          "line": 62,
+          "name": "UnsupportedUncountableLoop",
+          "outcome": "missed",
+          "pass": "loop-vectorize",
+          "vector_width": null
+        },
+        {
+          "column": 3,
+          "function": "add_vectors_",
+          "interleave_count": null,
+          "kind": "Missed",
+          "line": 62,
+          "name": "MissedDetails",
+          "outcome": "missed",
+          "pass": "loop-vectorize",
+          "vector_width": null
+        }
+      ]
+    },
+    "sanitizer": {
+      "clean": true,
+      "covered": {
+        "executions": 1127,
+        "fallback_paths": 4,
+        "fast_paths": 1123,
+        "overflow_refusals": 2
+      }
+    }
+  }
+}

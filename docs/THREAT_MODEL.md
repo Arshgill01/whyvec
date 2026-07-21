@@ -150,6 +150,11 @@ Controls:
 - append-only validation log;
 - required negative and fallback tests;
 - typed refusal when repository evidence is incomplete.
+- run live model edits only in a disposable repository with the product source
+  outside the working directory;
+- retain only observable messages, commands, file changes, and the final ledger;
+  exclude hidden reasoning, token telemetry, credentials, and private paths;
+- run `check_portable_evidence.py` on every shareable model or real-world bundle.
 
 ### Undefined behavior amplification
 

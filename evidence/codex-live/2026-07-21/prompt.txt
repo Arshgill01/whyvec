@@ -1,0 +1,10 @@
+Use the installed $whyvec-optimize skill for this repository optimization task.
+
+The deterministic WhyVec packet is:
+<demo-repository>/.whyvec/agent-packets/wv_32c56bc2e71e77ee21ce19aa.json
+
+Work in this fresh demo repository. Read the packet and replay its linked reports. Inspect the public header, implementation, FFI-style wrapper, callers, tests, and build configuration. Treat external FFI callers as uncertain. Explicitly reject a global restrict promise and reject unconditional caching of the pointer-loaded bound. Then author the smallest ABI-preserving runtime-guarded candidate yourself; do not copy or consume a pre-supplied candidate. The guard must dominate all fast-path assumptions and the fallback must retain the original pointer-loaded loop behavior.
+
+Add repository-native deterministic validation that covers a generated defined-behavior differential corpus (including zero, negative, vector-width boundaries, scalar tails, many positive counts, bound before/inside/end/after the modified range, overlap in both directions, alignments/layouts, and checked range boundaries), explicit fast/fallback witnesses, ASan/UBSan, structured LLVM YAML assertions for the exact fast and fallback loops, and seeded multi-size benchmark distributions with warmup and raw samples. Run the original build/tests and the complete new validation. If any required gate cannot be implemented or passed, refuse rather than claim success.
+
+Do not commit. Return the requested evidence ledger with observed/tested/validated wording and no hidden reasoning.

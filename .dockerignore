@@ -1,0 +1,5 @@
+.git
+target
+demo/build
+**/__pycache__
+*.pyc

@@ -65,3 +65,13 @@ also binds validation to the exact guarded candidate digest and retains exit
 status plus stdout/stderr digests for every compile and execution command. Its
 separate ABI-preserving candidate adds smallest and largest fixture-supported
 bounds, for 11 differential executions: 7 fast paths and 4 fallbacks.
+
+The executable product demo is the expanded current gate. The exact
+model-authored candidate runs 3,271 deterministic defined-behavior executions:
+1,123 fast paths and 2,148 fallbacks, including every bound position throughout
+the modified interval for counts 2–65. ASan/UBSan repeat that corpus. Eleven
+unsafe candidate/evidence mutations must be rejected, and the structured YAML
+parser must uniquely observe the VF=8/IC=4 fast loop and the missed fallback.
+Eight benchmark sizes retain warmup, seeded randomized ordering, 31 paired raw
+samples, and dispersion. A noisy run returns `noise_decline`; it never borrows
+the retained session's measured result.

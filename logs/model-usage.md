@@ -107,3 +107,31 @@ Evidence strength:
 - behavior remains validated on covered executions;
 - performance is a measured result only when the retained dispersion rule
   classifies `measured_improvement`.
+
+## 2026-07-21T19:07:21Z — Actual installed-skill GPT-5.6/Codex repository run
+
+Product and model identity:
+
+- Codex CLI `0.144.3`;
+- requested and resolved model `gpt-5.6-sol`;
+- installed plugin `whyvec@whyvec-local` version
+  `0.1.0+codex.20260721181611`;
+- fresh task `019f85ee-5913-7761-b003-30898ee62809` in a disposable clean copy
+  of `demo/`.
+
+The model read the installed skill, replayed both WhyVec reports, inspected the
+public header, implementation, FFI wrapper, tests, and build, rejected global
+`restrict` and unconditional bound caching, authored the guarded candidate,
+added repository-native validation, ran the gates, applied the exact candidate,
+and returned a schema-constrained ledger. The candidate digest is
+`8e6490d23439e1f2b362bc24799443a9b4549557b7da94bdf4f538429431d5cf`.
+
+The sanitized prompt, 74 observable completed events, full patch, final ledger,
+action trace, and validation report are retained at
+`evidence/codex-live/2026-07-21/`. Hidden reasoning, usage/token telemetry,
+credentials, raw event streams, and machine-private paths are not retained.
+
+Evidence language remains bounded: compiler outcomes are observed,
+`parameter.count.noalias` is a tested sufficient assumption, behavior is
+validated on covered executions, and the benchmark result applies only to its
+recorded environment.
