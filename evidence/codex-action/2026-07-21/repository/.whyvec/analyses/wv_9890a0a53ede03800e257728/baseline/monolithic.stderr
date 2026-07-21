@@ -1,0 +1,4 @@
+/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/bound-alias/kernel.c:5:3: remark: loop not vectorized: Cannot vectorize uncountable loop [-Rpass-analysis=loop-vectorize]
+    5 |   for (int i = 0; i < *count; ++i)
+      |   ^
+/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/bound-alias/kernel.c:5:3: remark: loop not vectorized [-Rpass-missed=loop-vectorize]

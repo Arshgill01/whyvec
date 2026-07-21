@@ -1,0 +1,102 @@
+{
+  "schema_version": "2.0.0-dev",
+  "analysis_id": "wv_57e62f4f87b35ec273f99f2c",
+  "query_kind": "obligation_derivation",
+  "adapter": "clang_ast_affine_bound_v1",
+  "repository": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository",
+  "source": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/bound-alias/kernel.c",
+  "source_digest": "9dd869e3f87323806fe3fa2a113bdc7dd5c794bf25f19c2eb004ea10fba463d9",
+  "optimization_analysis_id": "wv_9890a0a53ede03800e257728",
+  "optimization_semantic_digest": "313e5f9b0e5a11b309b66061be532370c51034b69fde4035ab00e1246a2c1ef8",
+  "clang": {
+    "invocation_path": "/usr/bin/clang-21",
+    "resolved_path": "/usr/lib/llvm-21/bin/clang",
+    "binary_digest": "78e9dd2ccc9e88859b3a29109a44bfab00e3d6cb70f00f3daae063eed3d05251",
+    "version": "Ubuntu clang version 21.1.8 (6ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/lib/llvm-21/bin"
+  },
+  "obligation": {
+    "evidence_strength": "derived_obligation",
+    "family": "bound_object_disjoint_from_modified_region",
+    "candidate_assumption": "parameter.count.noalias",
+    "predicate": "bytes(count, sizeof(*count)) is disjoint from every modified byte in [output] over the initial iteration domain",
+    "access_summary": {
+      "model": "clang_ast_affine_bound_v1",
+      "function": "add_vectors_",
+      "loop_line": 5,
+      "bound_object": {
+        "name": "count",
+        "source_type": "int",
+        "byte_width": 4,
+        "signed": true
+      },
+      "induction": {
+        "variable": "i",
+        "source_type": "int",
+        "lower_bound": 0,
+        "upper_bound_parameter": "count",
+        "comparison": "less_than",
+        "step": 1,
+        "zero_trip_when_upper_at_most_lower": true
+      },
+      "writes": [
+        {
+          "base_parameter": "output",
+          "element_type": "int",
+          "element_bytes": 4,
+          "index_expression": "i",
+          "conservative_first_index": "0",
+          "conservative_last_index": "initial(*bound) - 1 rounded by step"
+        }
+      ],
+      "calls_in_loop": 0,
+      "volatile_accesses": 0,
+      "atomic_accesses": 0
+    },
+    "runtime_guard": {
+      "target_policy": "flat_uintptr_x86_64",
+      "capture": "initial_bound = *count before assuming disjointness",
+      "checked_operations": [
+        "checked iteration-count calculation",
+        "checked element-count multiplication",
+        "checked uintptr_t range-end addition"
+      ],
+      "condition": "zero-trip or bytes(count, 4) is disjoint from range(output, checked_extent(0, initial(*count), 1, 4))",
+      "fast_path_requirement": "the guard dominates bound caching and every optimized-path assumption",
+      "fallback_requirement": "execute the original loop with its pointer-loaded bound unchanged"
+    },
+    "limitations": [
+      "No claim is made that callers already satisfy this condition.",
+      "The runtime plan requires the recorded flat uintptr_t target policy and checked arithmetic."
+    ]
+  },
+  "decline": null,
+  "replay": {
+    "optimization_report": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/.whyvec/analyses/wv_9890a0a53ede03800e257728/report.json"
+  },
+  "semantic_digest": "1888b650add35f22dd8ef3022653f51dc7bed2378cc41c45c0a837c81b35ed71",
+  "artifacts": [
+    {
+      "path": "ast/clang.json",
+      "sha256": "a855556086ae7bd11a80210214b91bd8fcb11bd5e10245a93abd7f4653b84bad",
+      "size": 29781,
+      "media_type": "application/json"
+    },
+    {
+      "path": "ast/stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "inputs/source",
+      "sha256": "9dd869e3f87323806fe3fa2a113bdc7dd5c794bf25f19c2eb004ea10fba463d9",
+      "size": 338,
+      "media_type": "text/x-c"
+    }
+  ],
+  "artifact_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/.whyvec/analyses/wv_57e62f4f87b35ec273f99f2c/report.json",
+  "caveats": [
+    "The LLVM parameter assumption and this candidate source obligation remain distinct evidence.",
+    "The affine access model covers the selected source loop only; repository callers and concurrency contracts are not inferred."
+  ]
+}

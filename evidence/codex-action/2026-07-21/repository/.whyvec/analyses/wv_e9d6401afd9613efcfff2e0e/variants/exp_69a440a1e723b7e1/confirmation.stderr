@@ -1,0 +1,1 @@
+remark: bound-alias/kernel.c:5:3: vectorized loop (vectorization width: 8, interleaved count: 4)

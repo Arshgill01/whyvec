@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "WhyVec",
     "shortDescription": "Turn missed vectorization into tested compiler obligations.",
-    "longDescription": "WhyVec gives Codex reproducible counterfactual compiler evidence, then guides repository-aware repair selection, validation, or refusal.",
+    "longDescription": "WhyVec gives Codex replayed counterfactual compiler evidence, typed source obligations, repository discovery, explicit strategy comparison, guarded validation, and auditable repair or refusal traces.",
     "developerName": "Arshdeep Singh",
     "category": "Developer Tools",
     "capabilities": [
@@ -26,6 +26,6 @@
       "Code modification",
       "Validation"
     ],
-    "defaultPrompt": "Use WhyVec evidence to diagnose this missed vectorization, inspect repository contracts, and select, validate, or refuse a safe repair."
+    "defaultPrompt": "Use $whyvec-optimize to replay WhyVec evidence, inspect repository contracts, and select, validate, or refuse a safe repair."
   }
 }

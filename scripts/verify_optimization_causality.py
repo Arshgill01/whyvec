@@ -111,12 +111,22 @@ def validate_artifacts(report: dict[str, object]) -> None:
             raise RuntimeError(f"finalized artifact remains writable: {path}")
 
 
+def tamper_copy(report: dict[str, object], destination: Path) -> Path:
+    report_path = Path(str(report["artifact_path"]))
+    shutil.copytree(report_path.parent, destination)
+    return destination / "report.json"
+
+
 def main() -> int:
     run(["cargo", "build", "--quiet", "-p", "whyvec-cli"])
     binary = ROOT / "target/debug/whyvec"
     with tempfile.TemporaryDirectory(prefix="whyvec-opt-cli-") as temporary:
         temporary_path = Path(temporary)
-        repository = temporary_path / "repository"
+        retained_bundle = os.environ.get("WHYVEC_RETAIN_AGENT_BUNDLE_ROOT")
+        bundle_root = Path(retained_bundle).resolve() if retained_bundle else None
+        if bundle_root:
+            bundle_root.mkdir(parents=True, exist_ok=False)
+        repository = bundle_root / "repository" if bundle_root else temporary_path / "repository"
         repository.mkdir()
         shutil.copytree(ROOT / "fixtures/cases/bound-alias", repository / "bound-alias")
         shutil.copytree(
@@ -132,10 +142,17 @@ def main() -> int:
             repository / "cpp-macro-ambiguous",
         )
         shutil.copytree(ROOT / "fixtures/cases/refusal", repository / "refusal")
+        shutil.copytree(
+            ROOT / "fixtures/cases/bound-alias-repair",
+            repository / "bound-alias-repair",
+        )
         run(["git", "init", "--quiet"], repository)
+        run(["git", "add", "."], repository)
 
-        transformer = temporary_path / "whyvec-llvm-transform"
-        identity = temporary_path / "whyvec-llvm-loop-identity"
+        tool_root = bundle_root / "tools" if bundle_root else temporary_path
+        tool_root.mkdir(parents=True, exist_ok=True)
+        transformer = tool_root / "whyvec-llvm-transform"
+        identity = tool_root / "whyvec-llvm-loop-identity"
         compile_helper(
             "tools/whyvec-llvm-transform.cpp",
             transformer,
@@ -170,8 +187,8 @@ def main() -> int:
             "parameter.count.noalias"
         ]:
             raise RuntimeError(f"unexpected sufficient assumption: {finding}")
-        if report.get("minimality") != "minimal_in_declared_search":
-            raise RuntimeError(f"unexpected non-unique minimality: {report.get('minimality')}")
+        if report.get("minimality") != "smallest_set_found":
+            raise RuntimeError(f"incomplete search overstated minimality: {report.get('minimality')}")
         outcomes = {
             experiment["assumptions"][0]: experiment["outcome"]["classification"]
             for experiment in report["experiments"]
@@ -385,6 +402,8 @@ def main() -> int:
         validation_root = (
             Path(retained_validation)
             if retained_validation
+            else bundle_root / "validation"
+            if bundle_root
             else temporary_path / "guarded-validation"
         )
         validation_meta = json.loads(
@@ -407,8 +426,8 @@ def main() -> int:
         ):
             raise RuntimeError("guarded validation overstated or omitted evidence strength")
         if validation_report.get("differential") != {
-            "executions": 9,
-            "fast_paths": 5,
+            "executions": 11,
+            "fast_paths": 7,
             "fallback_paths": 4,
             "overflow_refusals": 2,
         }:
@@ -416,11 +435,99 @@ def main() -> int:
         if validation_report.get("optimization") != {
             "fast_path": "vectorized",
             "fallback": "missed",
-            "fast_path_line": 38,
-            "fallback_line": 43,
+            "fast_path_line": 42,
+            "fallback_line": 47,
         }:
             raise RuntimeError("guarded compiler evidence changed")
         validate_artifacts(validation_report)
+
+        retained_trace = os.environ.get("WHYVEC_RETAIN_AGENT_TRACE_ROOT")
+        trace_root = (
+            Path(retained_trace)
+            if retained_trace
+            else bundle_root / "action"
+            if bundle_root
+            else temporary_path / "agent-trace"
+        )
+        trace_path = trace_root / "trace.json"
+        trace_meta = json.loads(
+            run(
+                [
+                    "python3",
+                    str(
+                        ROOT
+                        / "integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py"
+                    ),
+                    "--optimization-report",
+                    str(report["artifact_path"]),
+                    "--obligation-report",
+                    str(obligation["artifact_path"]),
+                    "--validation-report",
+                    str(validation_meta["report"]),
+                    "--whyvec",
+                    str(binary),
+                    "--repository",
+                    str(repository),
+                    "--candidate-source",
+                    str(repository / "bound-alias-repair/candidate.c"),
+                    "--output",
+                    str(trace_path),
+                ]
+            ).stdout
+        )
+        if trace_meta.get("selected_action") != "validated_guarded_runtime":
+            raise RuntimeError(f"guarded action was not selected: {trace_meta}")
+        trace = json.loads(trace_path.read_text(encoding="utf-8"))
+        if trace.get("repository_discovery", {}).get("caller_coverage") != "incomplete":
+            raise RuntimeError("external linkage was upgraded to closed caller coverage")
+        restrict = next(
+            alternative
+            for alternative in trace["alternatives"]
+            if alternative["strategy"] == "restrict_annotation"
+        )
+        if restrict.get("decision") != "rejected" or "incomplete" not in restrict.get(
+            "reason", ""
+        ):
+            raise RuntimeError(f"uncertain callers did not reject restrict: {restrict}")
+        if trace.get("patch", {}).get("unified_diff") in {None, ""}:
+            raise RuntimeError("guarded action trace did not retain the candidate patch")
+        candidate_diff = trace["patch"]["unified_diff"]
+        if (
+            "+void add_vectors_(" not in candidate_diff
+            or "+#define WHYVEC_GUARD_SCOPE static" not in candidate_diff
+            or "__attribute__((noinline))" in candidate_diff
+        ):
+            raise RuntimeError("selected candidate did not retain the public C ABI")
+
+        mismatched_path = temporary_path / "mismatched-agent-trace/trace.json"
+        mismatched_meta = json.loads(
+            run(
+                [
+                    "python3",
+                    str(
+                        ROOT
+                        / "integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py"
+                    ),
+                    "--optimization-report",
+                    str(report["artifact_path"]),
+                    "--obligation-report",
+                    str(obligation["artifact_path"]),
+                    "--validation-report",
+                    str(validation_meta["report"]),
+                    "--whyvec",
+                    str(binary),
+                    "--repository",
+                    str(repository),
+                    "--candidate-source",
+                    str(repository / "bound-alias-repair/original.c"),
+                    "--output",
+                    str(mismatched_path),
+                ]
+            ).stdout
+        )
+        if mismatched_meta.get("selected_action") != "validation_required":
+            raise RuntimeError("validation for a different candidate authorized a patch")
+        mismatched_trace = json.loads(mismatched_path.read_text(encoding="utf-8"))
 
         volatile_obligation = json.loads(
             run(
@@ -442,6 +549,36 @@ def main() -> int:
         if volatile_obligation.get("obligation") is not None:
             raise RuntimeError("volatile refusal fabricated a source obligation")
         validate_artifacts(volatile_obligation)
+
+        refusal_path = temporary_path / "refusal-agent-trace/trace.json"
+        refusal_meta = json.loads(
+            run(
+                [
+                    "python3",
+                    str(
+                        ROOT
+                        / "integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py"
+                    ),
+                    "--optimization-report",
+                    str(no_success["artifact_path"]),
+                    "--obligation-report",
+                    str(volatile_obligation["artifact_path"]),
+                    "--whyvec",
+                    str(binary),
+                    "--repository",
+                    str(repository),
+                    "--output",
+                    str(refusal_path),
+                ]
+            ).stdout
+        )
+        if refusal_meta.get("selected_action") != "refuse":
+            raise RuntimeError(f"declined obligation was not refused: {refusal_meta}")
+        refusal_trace = json.loads(refusal_path.read_text(encoding="utf-8"))
+        if refusal_trace.get("candidate_obligation") is not None:
+            raise RuntimeError("refusal trace fabricated a candidate obligation")
+        if refusal_trace.get("claim_language", {}).get("behavior") != "not validated":
+            raise RuntimeError("refusal trace upgraded behavior evidence")
 
         schema = json.loads(
             (ROOT / "schemas/whyvec-optimization-report.schema.json").read_text(
@@ -475,10 +612,20 @@ def main() -> int:
         jsonschema.Draft202012Validator.check_schema(obligation_schema)
         jsonschema.validate(obligation, obligation_schema)
         jsonschema.validate(volatile_obligation, obligation_schema)
+        agent_schema = json.loads(
+            (ROOT / "schemas/whyvec-agent-trace.schema.json").read_text(encoding="utf-8")
+        )
+        jsonschema.Draft202012Validator.check_schema(agent_schema)
+        jsonschema.validate(trace, agent_schema)
+        jsonschema.validate(mismatched_trace, agent_schema)
+        jsonschema.validate(refusal_trace, agent_schema)
 
+        obligation_tamper_report = tamper_copy(
+            obligation, temporary_path / "tampered-obligation"
+        )
         obligation_artifact = obligation["artifacts"][0]
         obligation_artifact_path = (
-            Path(str(obligation["artifact_path"])).parent / obligation_artifact["path"]
+            obligation_tamper_report.parent / obligation_artifact["path"]
         )
         obligation_artifact_path.chmod(
             obligation_artifact_path.stat().st_mode | stat.S_IWUSR
@@ -487,7 +634,7 @@ def main() -> int:
             obligation_artifact_path.read_bytes() + b"tampered\n"
         )
         obligation_rejected = subprocess.run(
-            [str(binary), "replay-obligation", str(obligation["artifact_path"])],
+            [str(binary), "replay-obligation", str(obligation_tamper_report)],
             cwd=ROOT,
             check=False,
             capture_output=True,
@@ -503,14 +650,15 @@ def main() -> int:
                 f"{obligation_rejected.stderr}"
             )
 
+        gcc_tamper_report = tamper_copy(gcc_report, temporary_path / "tampered-gcc")
         gcc_artifact = gcc_report["artifacts"][0]
         gcc_artifact_path = (
-            Path(str(gcc_report["artifact_path"])).parent / gcc_artifact["path"]
+            gcc_tamper_report.parent / gcc_artifact["path"]
         )
         gcc_artifact_path.chmod(gcc_artifact_path.stat().st_mode | stat.S_IWUSR)
         gcc_artifact_path.write_bytes(gcc_artifact_path.read_bytes() + b"tampered\n")
         gcc_rejected = subprocess.run(
-            [str(binary), "replay-gcc-opt", str(gcc_report["artifact_path"])],
+            [str(binary), "replay-gcc-opt", str(gcc_tamper_report)],
             cwd=ROOT,
             check=False,
             capture_output=True,
@@ -522,7 +670,7 @@ def main() -> int:
                 f"GCC replay accepted a modified artifact: {gcc_rejected.stderr}"
             )
 
-        declined_path = Path(str(declined["artifact_path"]))
+        declined_path = tamper_copy(declined, temporary_path / "tampered-decline")
         declined_path.chmod(declined_path.stat().st_mode | stat.S_IWUSR)
         altered_report = json.loads(declined_path.read_text(encoding="utf-8"))
         altered_report["caveats"].append("unrecorded semantic change")
@@ -544,12 +692,15 @@ def main() -> int:
                 f"{report_rejected.stderr}"
             )
 
+        optimization_tamper_report = tamper_copy(
+            report, temporary_path / "tampered-optimization"
+        )
         artifact = report["artifacts"][0]
-        artifact_path = Path(str(report["artifact_path"])).parent / artifact["path"]
+        artifact_path = optimization_tamper_report.parent / artifact["path"]
         artifact_path.chmod(artifact_path.stat().st_mode | stat.S_IWUSR)
         artifact_path.write_bytes(artifact_path.read_bytes() + b"tampered\n")
         rejected = subprocess.run(
-            [str(binary), "replay-opt", str(report["artifact_path"])],
+            [str(binary), "replay-opt", str(optimization_tamper_report)],
             cwd=ROOT,
             check=False,
             capture_output=True,
@@ -560,6 +711,54 @@ def main() -> int:
             raise RuntimeError(
                 f"optimization replay accepted a modified artifact: {rejected.stderr}"
             )
+
+        if bundle_root:
+            shutil.rmtree(repository / ".git")
+            retained_opt_replay = json.loads(
+                run([str(binary), "replay-opt", str(report["artifact_path"])]).stdout
+            )
+            retained_obligation_replay = json.loads(
+                run(
+                    [
+                        str(binary),
+                        "replay-obligation",
+                        str(obligation["artifact_path"]),
+                    ]
+                ).stdout
+            )
+            if (
+                retained_opt_replay.get("matched") is not True
+                or retained_obligation_replay.get("matched") is not True
+            ):
+                raise RuntimeError("retained agent bundle did not replay after Git removal")
+            replay_record = bundle_root / "replay.json"
+            replay_record.write_text(
+                json.dumps(
+                    {
+                        "optimization": retained_opt_replay,
+                        "obligation": retained_obligation_replay,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            replay_record.chmod(0o444)
+            retained_ids = {
+                report["analysis_id"],
+                obligation["analysis_id"],
+                retained_opt_replay["replay_analysis_id"],
+                retained_obligation_replay["replay_analysis_id"],
+            }
+            analyses_root = repository / ".whyvec/analyses"
+            for analysis in analyses_root.iterdir():
+                if not analysis.is_dir() or analysis.name in retained_ids:
+                    continue
+                for path in sorted(analysis.rglob("*"), reverse=True):
+                    path.chmod(0o755 if path.is_dir() else 0o644)
+                analysis.chmod(0o755)
+                shutil.rmtree(analysis)
 
     print("optimization-causality CLI validation passed")
     return 0

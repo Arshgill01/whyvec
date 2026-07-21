@@ -1,0 +1,938 @@
+--- !Passed
+Pass:            inline
+Name:            Inlined
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 30, Column: 8 }
+Function:        whyvec_guard_permits
+Args:
+  - String:          ''''
+  - Callee:          checked_end
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 9, Column: 0 }
+  - String:          ''' inlined into '''
+  - Caller:          whyvec_guard_permits
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 19, Column: 0 }
+  - String:          ''''
+  - String:          ' with '
+  - String:          '(cost='
+  - Cost:            '-25'
+  - String:          ', threshold='
+  - Threshold:       '250'
+  - String:          ')'
+  - String:          ' at callsite '
+  - String:          whyvec_guard_permits
+  - String:          ':'
+  - Line:            '14'
+  - String:          ':'
+  - Column:          '8'
+  - String:          ';'
+...
+--- !Passed
+Pass:            inline
+Name:            Inlined
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 31, Column: 8 }
+Function:        whyvec_guard_permits
+Args:
+  - String:          ''''
+  - Callee:          checked_end
+  - String:          ''' inlined into '''
+  - Caller:          whyvec_guard_permits
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 19, Column: 0 }
+  - String:          ''''
+  - String:          ' with '
+  - String:          '(cost='
+  - Cost:            '-15025'
+  - String:          ', threshold='
+  - Threshold:       '250'
+  - String:          ')'
+  - String:          ' at callsite '
+  - String:          whyvec_guard_permits
+  - String:          ':'
+  - Line:            '15'
+  - String:          ':'
+  - Column:          '8'
+  - String:          ';'
+...
+--- !Passed
+Pass:            inline
+Name:            Inlined
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 41, Column: 7 }
+Function:        add_vectors_
+Args:
+  - String:          ''''
+  - Callee:          whyvec_guard_permits
+  - String:          ''' inlined into '''
+  - Caller:          add_vectors_
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 39, Column: 0 }
+  - String:          ''''
+  - String:          ' with '
+  - String:          '(cost='
+  - Cost:            '-14980'
+  - String:          ', threshold='
+  - Threshold:       '250'
+  - String:          ')'
+  - String:          ' at callsite '
+  - String:          add_vectors_
+  - String:          ':'
+  - Line:            '5'
+  - String:          ':'
+  - Column:          '7'
+  - String:          ';'
+...
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Passed
+Pass:            gvn
+Name:            LoadElim
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          'load of type '
+  - Type:            i32
+  - String:          ' eliminated'
+  - String:          ' in favor of '
+  - InfavorOfValue:  load
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 40, Column: 23 }
+...
+--- !Missed
+Pass:            gvn
+Name:            LoadClobbered
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          'load of type '
+  - Type:            i32
+  - String:          ' not eliminated'
+  - String:          ' in favor of '
+  - OtherAccess:     load
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 40, Column: 23 }
+  - String:          ' because it is clobbered by '
+  - ClobberedBy:     store
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 48, Column: 15 }
+...
+--- !Missed
+Pass:            gvn
+Name:            LoadClobbered
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          'load of type '
+  - Type:            i32
+  - String:          ' not eliminated'
+  - String:          ' in favor of '
+  - OtherAccess:     load
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 40, Column: 23 }
+  - String:          ' because it is clobbered by '
+  - ClobberedBy:     store
+    DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                       Line: 48, Column: 15 }
+...
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Analysis
+Pass:            loop-vectorize
+Name:            UnsupportedUncountableLoop
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'loop not vectorized: '
+  - String:          Cannot vectorize uncountable loop
+...
+--- !Missed
+Pass:            loop-vectorize
+Name:            MissedDetails
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          loop not vectorized
+...
+--- !Passed
+Pass:            loop-vectorize
+Name:            Vectorized
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'vectorized '
+  - String:          ''
+  - String:          'loop (vectorization width: '
+  - VectorizationFactor: '8'
+  - String:          ', interleaved count: '
+  - InterleaveCount: '4'
+  - String:          ')'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotPossible
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 43, Column: 17 }
+Function:        add_vectors_
+Args:
+  - String:          'Cannot SLP vectorize list: vectorization was impossible'
+  - String:          ' with available vectorization factors'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotPossible
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 48, Column: 15 }
+Function:        add_vectors_
+Args:
+  - String:          'Cannot SLP vectorize list: vectorization was impossible'
+  - String:          ' with available vectorization factors'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 33, Column: 36 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 33, Column: 36 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 25, Column: 34 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Passed
+Pass:            loop-unroll
+Name:            PartialUnrolled
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'unrolled loop by a factor of '
+  - UnrollCount:     '8'
+  - String:          ' with run-time trip count'
+...
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 47, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Missed
+Pass:            regalloc
+Name:            SpillReloadCopies
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 36, Column: 1 }
+Function:        add_vectors_
+Args:
+  - NumVRCopies:     '8'
+  - String:          ' virtual registers copies '
+  - TotalCopiesCost: '1.066208e+00'
+  - String:          ' total copies cost '
+  - String:          generated in function
+...
+--- !Analysis
+Pass:            prologepilog
+Name:            StackSize
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 39, Column: 0 }
+Function:        add_vectors_
+Args:
+  - NumStackBytes:   '0'
+  - String:          ' stack bytes in function '''
+  - Function:        add_vectors_
+  - String:          ''''
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 40, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          MOVSX64rm32
+  - String:          ': '
+  - INST_MOVSX64rm32: '1'
+  - String:          "\n"
+  - String:          TEST64rr
+  - String:          ': '
+  - INST_TEST64rr:   '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 25, Column: 34 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          SETCCr
+  - String:          ': '
+  - INST_SETCCr:     '2'
+  - String:          "\n"
+  - String:          CMP64ri32
+  - String:          ': '
+  - INST_CMP64ri32:  '1'
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          LEA64r
+  - String:          ': '
+  - INST_LEA64r:     '1'
+  - String:          "\n"
+  - String:          MOV64rr
+  - String:          ': '
+  - INST_MOV64rr:    '1'
+  - String:          "\n"
+  - String:          NOT64r
+  - String:          ': '
+  - INST_NOT64r:     '1'
+  - String:          "\n"
+  - String:          OR8rr
+  - String:          ': '
+  - INST_OR8rr:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 12, Column: 16 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '2'
+  - String:          "\n"
+  - String:          LEA64r
+  - String:          ': '
+  - INST_LEA64r:     '2'
+  - String:          "\n"
+  - String:          SETCCr
+  - String:          ': '
+  - INST_SETCCr:     '2'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          OR8rr
+  - String:          ': '
+  - INST_OR8rr:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP32ri
+  - String:          ': '
+  - INST_CMP32ri:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '2'
+  - String:          "\n"
+  - String:          SETCCr
+  - String:          ': '
+  - INST_SETCCr:     '2'
+  - String:          "\n"
+  - String:          ADD64rr
+  - String:          ': '
+  - INST_ADD64rr:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          TEST8rr
+  - String:          ': '
+  - INST_TEST8rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          XOR32rr
+  - String:          ': '
+  - INST_XOR32rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          AND32ri
+  - String:          ': '
+  - INST_AND32ri:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          MOV32rr
+  - String:          ': '
+  - INST_MOV32rr:    '1'
+  - String:          "\n"
+  - String:          MOV64rr
+  - String:          ': '
+  - INST_MOV64rr:    '1'
+  - String:          "\n"
+  - String:          SUB32rr
+  - String:          ': '
+  - INST_SUB32rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          MOV64rr
+  - String:          ': '
+  - INST_MOV64rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 43, Column: 20 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          ADD32mr
+  - String:          ': '
+  - INST_ADD32mr:    '1'
+  - String:          "\n"
+  - String:          DEC64r
+  - String:          ': '
+  - INST_DEC64r:     '1'
+  - String:          "\n"
+  - String:          INC64r
+  - String:          ': '
+  - INST_INC64r:     '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          MOV32rm
+  - String:          ': '
+  - INST_MOV32rm:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP64ri32
+  - String:          ': '
+  - INST_CMP64ri32:  '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          SUB64rr
+  - String:          ': '
+  - INST_SUB64rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 43, Column: 20 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          ADD32mr
+  - String:          ': '
+  - INST_ADD32mr:    '8'
+  - String:          "\n"
+  - String:          MOV32rm
+  - String:          ': '
+  - INST_MOV32rm:    '8'
+  - String:          "\n"
+  - String:          ADD64ri32
+  - String:          ': '
+  - INST_ADD64ri32:  '1'
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          JMP_1
+  - String:          ': '
+  - INST_JMP_1:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          XOR32rr
+  - String:          ': '
+  - INST_XOR32rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 48, Column: 18 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          ADD32mr
+  - String:          ': '
+  - INST_ADD32mr:    '1'
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          INC64r
+  - String:          ': '
+  - INST_INC64r:     '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          MOV32rm
+  - String:          ': '
+  - INST_MOV32rm:    '1'
+  - String:          "\n"
+  - String:          MOVSX64rm32
+  - String:          ': '
+  - INST_MOVSX64rm32: '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 49, Column: 1 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          RET64
+  - String:          ': '
+  - INST_RET64:      '1'
+  - String:          "\n"
+  - String:          VZEROUPPER
+  - String:          ': '
+  - INST_VZEROUPPER: '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP32ri
+  - String:          ': '
+  - INST_CMP32ri:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          JMP_1
+  - String:          ': '
+  - INST_JMP_1:      '1'
+  - String:          "\n"
+  - String:          XOR32rr
+  - String:          ': '
+  - INST_XOR32rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          AND32ri
+  - String:          ': '
+  - INST_AND32ri:    '2'
+  - String:          "\n"
+  - String:          MOV32rr
+  - String:          ': '
+  - INST_MOV32rr:    '2'
+  - String:          "\n"
+  - String:          SHL64ri
+  - String:          ': '
+  - INST_SHL64ri:    '1'
+  - String:          "\n"
+  - String:          SHR32ri
+  - String:          ': '
+  - INST_SHR32ri:    '1'
+  - String:          "\n"
+  - String:          XOR32rr
+  - String:          ': '
+  - INST_XOR32rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 43, Column: 17 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          VMOVDQUYmr
+  - String:          ': '
+  - INST_VMOVDQUYmr: '4'
+  - String:          "\n"
+  - String:          VMOVDQUYrm
+  - String:          ': '
+  - INST_VMOVDQUYrm: '4'
+  - String:          "\n"
+  - String:          VPADDDYrm
+  - String:          ': '
+  - INST_VPADDDYrm:  '4'
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          SUB64ri32
+  - String:          ': '
+  - INST_SUB64ri32:  '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          TEST8ri
+  - String:          ': '
+  - INST_TEST8ri:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          AND32ri
+  - String:          ': '
+  - INST_AND32ri:    '1'
+  - String:          "\n"
+  - String:          MOV32rr
+  - String:          ': '
+  - INST_MOV32rr:    '1'
+  - String:          "\n"
+  - String:          MOV64rr
+  - String:          ': '
+  - INST_MOV64rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 43, Column: 17 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          ADD64ri32
+  - String:          ': '
+  - INST_ADD64ri32:  '1'
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          VMOVDQUmr
+  - String:          ': '
+  - INST_VMOVDQUmr:  '1'
+  - String:          "\n"
+  - String:          VMOVDQUrm
+  - String:          ': '
+  - INST_VMOVDQUrm:  '1'
+  - String:          "\n"
+  - String:          VPADDDrm
+  - String:          ': '
+  - INST_VPADDDrm:   '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 42, Column: 5 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          JMP_1
+  - String:          ': '
+  - INST_JMP_1:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionCount
+DebugLoc:        { File: 'fixtures/cases/bound-alias-repair/candidate.c', 
+                   Line: 39, Column: 0 }
+Function:        add_vectors_
+Args:
+  - NumInstructions: '115'
+  - String:          ' instructions in function'
+...

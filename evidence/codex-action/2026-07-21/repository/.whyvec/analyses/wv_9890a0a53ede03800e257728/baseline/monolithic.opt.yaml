@@ -1,0 +1,173 @@
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Missed
+Pass:            gvn
+Name:            LoadClobbered
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          'load of type '
+  - Type:            i32
+  - String:          ' not eliminated'
+  - String:          ' in favor of '
+  - OtherAccess:     load
+    DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+  - String:          ' because it is clobbered by '
+  - ClobberedBy:     store
+    DebugLoc:        { File: 'bound-alias/kernel.c', Line: 6, Column: 15 }
+...
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Analysis
+Pass:            loop-vectorize
+Name:            UnsupportedUncountableLoop
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'loop not vectorized: '
+  - String:          Cannot vectorize uncountable loop
+...
+--- !Missed
+Pass:            loop-vectorize
+Name:            MissedDetails
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          loop not vectorized
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotPossible
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 6, Column: 15 }
+Function:        add_vectors_
+Args:
+  - String:          'Cannot SLP vectorize list: vectorization was impossible'
+  - String:          ' with available vectorization factors'
+...
+--- !Missed
+Pass:            licm
+Name:            LoadWithLoopInvariantAddressInvalidated
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          failed to move load with loop-invariant address because the loop may invalidate its value
+...
+--- !Analysis
+Pass:            prologepilog
+Name:            StackSize
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 2, Column: 0 }
+Function:        add_vectors_
+Args:
+  - NumStackBytes:   '0'
+  - String:          ' stack bytes in function '''
+  - Function:        add_vectors_
+  - String:          ''''
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 21 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          CMP32mi
+  - String:          ': '
+  - INST_CMP32mi:    '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          XOR32rr
+  - String:          ': '
+  - INST_XOR32rr:    '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 6, Column: 18 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          ADD32mr
+  - String:          ': '
+  - INST_ADD32mr:    '1'
+  - String:          "\n"
+  - String:          CMP64rr
+  - String:          ': '
+  - INST_CMP64rr:    '1'
+  - String:          "\n"
+  - String:          INC64r
+  - String:          ': '
+  - INST_INC64r:     '1'
+  - String:          "\n"
+  - String:          JCC_1
+  - String:          ': '
+  - INST_JCC_1:      '1'
+  - String:          "\n"
+  - String:          MOV32rm
+  - String:          ': '
+  - INST_MOV32rm:    '1'
+  - String:          "\n"
+  - String:          MOVSX64rm32
+  - String:          ': '
+  - INST_MOVSX64rm32: '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionMix
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 7, Column: 1 }
+Function:        add_vectors_
+Args:
+  - String:          'BasicBlock: '
+  - BasicBlock:      ''
+  - String:          "\n"
+  - String:          RET64
+  - String:          ': '
+  - INST_RET64:      '1'
+  - String:          "\n"
+...
+--- !Analysis
+Pass:            asm-printer
+Name:            InstructionCount
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 2, Column: 0 }
+Function:        add_vectors_
+Args:
+  - NumInstructions: '10'
+  - String:          ' instructions in function'
+...

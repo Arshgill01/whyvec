@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whyvec.dev/schemas/whyvec-agent-trace.schema.json",
+  "title": "WhyVec Codex repository action trace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "trace_kind", "evidence", "compiler_facts", "candidate_obligation", "repository_discovery", "alternatives", "selected_action", "patch", "validation_commands", "validation_command_outcomes", "validation_outcomes", "claim_language", "residual_risks"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "trace_kind": { "const": "codex_repository_action" },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["optimization_analysis_id", "optimization_semantic_digest", "optimization_report", "obligation_analysis_id", "obligation_semantic_digest", "obligation_report", "validation_analysis_id", "validation_report_sha256", "validation_report", "artifacts_verified"],
+      "properties": {
+        "optimization_analysis_id": { "$ref": "#/$defs/analysis_id" },
+        "optimization_semantic_digest": { "$ref": "#/$defs/sha256" },
+        "optimization_report": { "type": "string", "minLength": 1 },
+        "obligation_analysis_id": { "$ref": "#/$defs/analysis_id" },
+        "obligation_semantic_digest": { "$ref": "#/$defs/sha256" },
+        "obligation_report": { "type": "string", "minLength": 1 },
+        "validation_analysis_id": { "oneOf": [{ "$ref": "#/$defs/analysis_id" }, { "type": "null" }] },
+        "validation_report_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "validation_report": { "type": ["string", "null"] },
+        "artifacts_verified": { "const": true }
+      }
+    },
+    "compiler_facts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["observed_baseline", "tested_sufficient_assumptions", "pipeline_fidelity"],
+      "properties": {
+        "observed_baseline": { "type": "string", "minLength": 1 },
+        "tested_sufficient_assumptions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "pipeline_fidelity": { "enum": ["exact", "equivalent_confirmed", "surrogate"] }
+      }
+    },
+    "candidate_obligation": { "type": ["object", "null"] },
+    "repository_discovery": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tracked_files_scanned", "occurrences", "uncertain_edges", "caller_coverage"],
+      "properties": {
+        "tracked_files_scanned": { "type": "integer", "minimum": 1 },
+        "occurrences": { "type": "array", "items": { "$ref": "#/$defs/occurrence" } },
+        "uncertain_edges": { "type": "array", "items": { "$ref": "#/$defs/uncertain" } },
+        "caller_coverage": { "enum": ["incomplete", "closed_within_tracked_sources"] }
+      }
+    },
+    "alternatives": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/alternative" } },
+    "selected_action": { "enum": ["validated_guarded_runtime", "validation_required", "refuse"] },
+    "patch": { "oneOf": [{ "$ref": "#/$defs/patch" }, { "type": "null" }] },
+    "validation_commands": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+    "validation_command_outcomes": { "type": "array", "items": { "$ref": "#/$defs/command_outcome" } },
+    "validation_outcomes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["differential", "sanitizer", "optimization", "benchmark"],
+      "properties": {
+        "differential": { "type": ["object", "null"] },
+        "sanitizer": { "type": ["object", "null"] },
+        "optimization": { "type": ["object", "null"] },
+        "benchmark": { "type": ["object", "null"] }
+      }
+    },
+    "claim_language": {
+      "type": "object", "additionalProperties": false,
+      "required": ["baseline", "assumption", "behavior"],
+      "properties": {
+        "baseline": { "const": "observed" },
+        "assumption": { "const": "tested sufficient assumption" },
+        "behavior": { "enum": ["validated on covered executions", "not validated"] }
+      }
+    },
+    "residual_risks": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
+    "occurrence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "line", "kind", "excerpt"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }, "line": { "type": "integer", "minimum": 1 },
+        "kind": { "enum": ["call_or_declaration", "reference", "documentation", "test"] },
+        "excerpt": { "type": "string" }
+      }
+    },
+    "uncertain": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "line", "reason"],
+      "properties": { "path": { "type": "string", "minLength": 1 }, "line": { "type": "integer", "minimum": 1 }, "reason": { "type": "string", "minLength": 1 } }
+    },
+    "alternative": {
+      "type": "object", "additionalProperties": false,
+      "required": ["strategy", "decision", "reason"],
+      "properties": {
+        "strategy": { "enum": ["restrict_annotation", "guarded_runtime", "api_change", "refuse"] },
+        "decision": { "enum": ["rejected", "selected", "validation_required", "not_selected"] },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "patch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidate_path", "candidate_sha256", "unified_diff"],
+      "properties": {
+        "candidate_path": { "type": "string", "minLength": 1 },
+        "candidate_sha256": { "$ref": "#/$defs/sha256" },
+        "unified_diff": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "command_index", "exit_status", "stdout_sha256", "stdout_size", "stderr_sha256", "stderr_size"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "command_index": { "type": "integer", "minimum": 0 },
+        "exit_status": { "const": 0 },
+        "stdout_sha256": { "$ref": "#/$defs/sha256" },
+        "stdout_size": { "type": "integer", "minimum": 0 },
+        "stderr_sha256": { "$ref": "#/$defs/sha256" },
+        "stderr_size": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

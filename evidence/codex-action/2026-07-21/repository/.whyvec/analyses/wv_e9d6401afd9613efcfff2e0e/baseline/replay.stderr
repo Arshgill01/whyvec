@@ -1,0 +1,2 @@
+remark: bound-alias/kernel.c:5:3: loop not vectorized: Cannot vectorize uncountable loop
+remark: bound-alias/kernel.c:5:3: loop not vectorized

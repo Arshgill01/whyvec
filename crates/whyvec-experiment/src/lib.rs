@@ -244,7 +244,12 @@ where
         }
     }
 
-    let minimality = classify_minimality(&evaluations, &successful_sets, candidates.len());
+    let minimality = classify_minimality(
+        &evaluations,
+        &successful_sets,
+        candidates.len(),
+        evaluations.len() == declared_subsets,
+    );
     Ok(SearchResult {
         candidates,
         evaluations,
@@ -321,6 +326,7 @@ fn classify_minimality(
     evaluations: &[Evaluation],
     successful_sets: &[Vec<InterventionId>],
     candidate_count: usize,
+    declared_space_exhausted: bool,
 ) -> SearchMinimality {
     let Some(first_success) = successful_sets.first() else {
         return SearchMinimality::NoSuccessfulSetFound;
@@ -333,6 +339,9 @@ fn classify_minimality(
         .clone()
         .any(|evaluation| evaluation.verdict != ExperimentVerdict::NotObserved)
     {
+        return SearchMinimality::SmallestSetFound;
+    }
+    if !declared_space_exhausted {
         return SearchMinimality::SmallestSetFound;
     }
 
@@ -401,10 +410,7 @@ mod tests {
             .map(|evaluation| evaluation.interventions()[0].as_str())
             .collect::<Vec<_>>();
         assert_eq!(order, ["a.change", "m.change", "z.change"]);
-        assert_eq!(
-            result.minimality(),
-            SearchMinimality::UniqueMinimalInDeclaredSearch
-        );
+        assert_eq!(result.minimality(), SearchMinimality::SmallestSetFound);
         assert_eq!(
             result.stop_reason(),
             SearchStopReason::FirstSuccessfulCardinalityCompleted

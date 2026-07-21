@@ -139,13 +139,45 @@ def main() -> int:
     artifact_root.mkdir(parents=True, exist_ok=False)
     artifacts: list[dict[str, object]] = []
     commands: list[list[str]] = []
+    command_outcomes: list[dict[str, object]] = []
+
+    def record_outcome(name: str, result: subprocess.CompletedProcess[str]) -> None:
+        stdout = result.stdout.encode()
+        stderr = result.stderr.encode()
+        command_outcomes.append(
+            {
+                "name": name,
+                "command_index": len(commands) - 1,
+                "exit_status": result.returncode,
+                "stdout_sha256": digest(stdout),
+                "stdout_size": len(stdout),
+                "stderr_sha256": digest(stderr),
+                "stderr_size": len(stderr),
+            }
+        )
 
     with tempfile.TemporaryDirectory(prefix="whyvec-guarded-repair-") as directory:
         build = Path(directory)
+        abi_binary = build / "abi"
+        abi_command = [
+            clang["invocation_path"],
+            "-std=c17",
+            "-O2",
+            str(FIXTURE / "candidate.c"),
+            str(FIXTURE / "abi_harness.c"),
+            "-o",
+            str(abi_binary),
+        ]
+        commands.append(abi_command)
+        record_outcome("abi_compile", run(abi_command, ROOT))
+        abi_run = [str(abi_binary)]
+        commands.append(abi_run)
+        record_outcome("abi_execute", run(abi_run, ROOT))
+
         sources = [
             FIXTURE / "original.c",
-            FIXTURE / "guarded.c",
-            FIXTURE / "harness.c",
+            FIXTURE / "candidate.c",
+            FIXTURE / "action_harness.c",
         ]
         differential_binary = build / "differential"
         differential_command = [
@@ -153,17 +185,21 @@ def main() -> int:
             "-std=c17",
             "-O2",
             "-march=x86-64-v3",
+            "-DWHYVEC_GUARD_SCOPE=",
             *map(str, sources),
             "-o",
             str(differential_binary),
         ]
         commands.append(differential_command)
-        run(differential_command, ROOT)
-        differential = run([str(differential_binary)], ROOT)
+        record_outcome("differential_compile", run(differential_command, ROOT))
+        differential_run = [str(differential_binary)]
+        commands.append(differential_run)
+        differential = run(differential_run, ROOT)
+        record_outcome("differential_execute", differential)
         differential_result = json.loads(differential.stdout)
         expected = {
-            "executions": 9,
-            "fast_paths": 5,
+            "executions": 11,
+            "fast_paths": 7,
             "fallback_paths": 4,
             "overflow_refusals": 2,
         }
@@ -178,6 +214,26 @@ def main() -> int:
             )
         )
 
+        production_binary = build / "production-differential"
+        production_command = [
+            clang["invocation_path"],
+            "-std=c17",
+            "-O2",
+            "-march=x86-64-v3",
+            str(FIXTURE / "original.c"),
+            str(FIXTURE / "candidate.c"),
+            str(FIXTURE / "production_harness.c"),
+            "-o",
+            str(production_binary),
+        ]
+        commands.append(production_command)
+        record_outcome(
+            "production_differential_compile", run(production_command, ROOT)
+        )
+        production_run = [str(production_binary)]
+        commands.append(production_run)
+        record_outcome("production_differential_execute", run(production_run, ROOT))
+
         sanitizer_binary = build / "sanitizer"
         sanitizer_command = [
             clang["invocation_path"],
@@ -186,13 +242,17 @@ def main() -> int:
             "-g",
             "-fno-omit-frame-pointer",
             "-fsanitize=address,undefined",
+            "-DWHYVEC_GUARD_SCOPE=",
             *map(str, sources),
             "-o",
             str(sanitizer_binary),
         ]
         commands.append(sanitizer_command)
-        run(sanitizer_command, ROOT)
-        sanitizer = run([str(sanitizer_binary)], ROOT)
+        record_outcome("sanitizer_compile", run(sanitizer_command, ROOT))
+        sanitizer_run = [str(sanitizer_binary)]
+        commands.append(sanitizer_run)
+        sanitizer = run(sanitizer_run, ROOT)
+        record_outcome("sanitizer_execute", sanitizer)
         sanitizer_result = json.loads(sanitizer.stdout)
         if sanitizer_result != expected or sanitizer.stderr:
             raise RuntimeError(
@@ -207,6 +267,35 @@ def main() -> int:
             )
         )
 
+        production_sanitizer_binary = build / "production-sanitizer"
+        production_sanitizer_command = [
+            clang["invocation_path"],
+            "-std=c17",
+            "-O1",
+            "-g",
+            "-fno-omit-frame-pointer",
+            "-fsanitize=address,undefined",
+            str(FIXTURE / "original.c"),
+            str(FIXTURE / "candidate.c"),
+            str(FIXTURE / "production_harness.c"),
+            "-o",
+            str(production_sanitizer_binary),
+        ]
+        commands.append(production_sanitizer_command)
+        record_outcome(
+            "production_sanitizer_compile",
+            run(production_sanitizer_command, ROOT),
+        )
+        production_sanitizer_run = [str(production_sanitizer_binary)]
+        commands.append(production_sanitizer_run)
+        production_sanitizer = run(production_sanitizer_run, ROOT)
+        record_outcome("production_sanitizer_execute", production_sanitizer)
+        if production_sanitizer.stderr:
+            raise RuntimeError(
+                "production sanitizer validation emitted stderr: "
+                f"{production_sanitizer.stderr}"
+            )
+
         optimization_record = build / "guarded.opt.yaml"
         optimization_command = [
             clang["invocation_path"],
@@ -219,15 +308,16 @@ def main() -> int:
             "-fsave-optimization-record=yaml",
             f"-foptimization-record-file={optimization_record}",
             "-c",
-            str(FIXTURE / "guarded.c"),
+            str(FIXTURE / "candidate.c"),
             "-o",
             str(build / "guarded.o"),
         ]
         commands.append(optimization_command)
         optimization = run(optimization_command, ROOT)
-        if "guarded.c:38:5: remark: vectorized loop" not in optimization.stderr:
+        record_outcome("production_optimization_compile", optimization)
+        if "candidate.c:42:5: remark: vectorized loop" not in optimization.stderr:
             raise RuntimeError("fast path did not emit the expected vectorization record")
-        if "guarded.c:43:3: remark: loop not vectorized" not in optimization.stderr:
+        if "candidate.c:47:3: remark: loop not vectorized" not in optimization.stderr:
             raise RuntimeError("unchanged fallback miss was not retained")
         artifacts.extend(
             [
@@ -253,14 +343,18 @@ def main() -> int:
             "-O3",
             "-march=x86-64-v3",
             str(FIXTURE / "original.c"),
-            str(FIXTURE / "guarded.c"),
-            str(FIXTURE / "benchmark.c"),
+            str(FIXTURE / "candidate.c"),
+            str(FIXTURE / "action_benchmark.c"),
             "-o",
             str(benchmark_binary),
         ]
         commands.append(benchmark_command)
-        run(benchmark_command, ROOT)
-        benchmark = json.loads(run([str(benchmark_binary)], ROOT).stdout)
+        record_outcome("production_benchmark_compile", run(benchmark_command, ROOT))
+        benchmark_run = [str(benchmark_binary)]
+        commands.append(benchmark_run)
+        benchmark_result = run(benchmark_run, ROOT)
+        record_outcome("production_benchmark_execute", benchmark_result)
+        benchmark = json.loads(benchmark_result.stdout)
         original_median, original_mad = median_and_mad(benchmark["original_ns"])
         guarded_median, guarded_mad = median_and_mad(benchmark["guarded_ns"])
         ratio = original_median / guarded_median
@@ -299,7 +393,14 @@ def main() -> int:
 
     sources = [
         source_entry(FIXTURE / name)
-        for name in ("original.c", "guarded.c", "harness.c", "benchmark.c")
+        for name in (
+            "original.c",
+            "candidate.c",
+            "abi_harness.c",
+            "action_harness.c",
+            "production_harness.c",
+            "action_benchmark.c",
+        )
     ]
     environment_record = environment()
     normalized_commands = [normalize_command(command, build) for command in commands]
@@ -316,21 +417,23 @@ def main() -> int:
     ).encode()
     analysis_id = f"wv_{digest(material + str(time.time_ns()).encode())[:24]}"
     report = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "analysis_id": analysis_id,
         "query_kind": "repair_validation",
         "evidence_strength": "validated_on_covered_executions",
         "obligation": obligation,
         "toolchain": {"clang": clang, "flags": ["-march=x86-64-v3"]},
         "sources": sources,
+        "candidate_source_sha256": digest((FIXTURE / "candidate.c").read_bytes()),
         "commands": normalized_commands,
+        "command_outcomes": command_outcomes,
         "differential": differential_result,
         "sanitizer": {"clean": True, "covered": sanitizer_result},
         "optimization": {
             "fast_path": "vectorized",
             "fallback": "missed",
-            "fast_path_line": 38,
-            "fallback_line": 43,
+            "fast_path_line": 42,
+            "fallback_line": 47,
         },
         "benchmark": {"raw": benchmark, "summary": benchmark_summary},
         "environment": environment_record,

@@ -117,6 +117,26 @@ runtime guard enforces it.
 
 The executable guarded-repair fixture and its retained validation evidence are
 documented in [Guarded repair validation](docs/GUARDED_REPAIR_VALIDATION.md).
+
+The installable Codex skill consumes linked optimization, obligation, and
+validation reports and creates an auditable repository decision before a source
+edit:
+
+```console
+python3 integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py \
+  --optimization-report <optimization-report.json> \
+  --obligation-report <obligation-report.json> \
+  --validation-report <validation-report.json> \
+  --whyvec target/debug/whyvec \
+  --repository <repository-root> \
+  --candidate-source <candidate.c> \
+  --output <new-action-trace.json>
+```
+
+The planner verifies replay and artifact integrity and compares `restrict`, a
+guarded path, an API change, and refusal. Its tracked-text discovery is only a
+preliminary inventory; Codex must still establish repository contracts and
+uncertain caller edges.
 The report claims differential agreement only on covered executions and keeps
 the original pointer-loaded loop as the overlap and arithmetic-uncertainty
 fallback.

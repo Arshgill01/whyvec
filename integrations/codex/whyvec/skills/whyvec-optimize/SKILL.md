@@ -1,6 +1,6 @@
 ---
 name: whyvec-optimize
-description: Diagnose and repair Clang missed-vectorization cases using WhyVec counterfactual reports. Use when the user asks why a C loop stayed scalar, provides a WhyVec JSON report, wants Codex to inspect callers before applying restrict or a runtime guard, or needs correctness and benchmark validation for a compiler-guided optimization.
+description: Diagnose, repair, or explicitly refuse Clang missed-vectorization work using WhyVec optimization, source-obligation, validation, and repository-action reports. Use when the user asks why a C loop stayed scalar, provides WhyVec JSON evidence, wants Codex to inspect callers before applying restrict or a runtime guard, or needs a correctness and benchmark validation trace for a compiler-guided optimization.
 ---
 
 # WhyVec optimize
@@ -11,18 +11,20 @@ Use deterministic WhyVec output as compiler evidence, inspect the repository for
 
 Before changing source, obtain:
 
-- the WhyVec report or the command and source location needed to produce it;
+- the WhyVec optimization report or the command and source location needed to produce it;
+- the linked WhyVec source-obligation report;
+- linked validation evidence when a guarded candidate already exists;
 - the exact baseline compilation entry and toolchain fingerprint;
 - the selected loop identity and counterfactual finding;
 - the repository's applicable instructions and validation commands.
 
-If the report is unavailable or fails its schema, run diagnosis before proposing a repair. If the WhyVec executable is unavailable, explain that compiler causality remains unverified and do not simulate its output.
+If a report is unavailable, incompatible, fails replay, or has an invalid artifact manifest, run the relevant WhyVec command before proposing a repair. If the WhyVec executable is unavailable, explain that compiler causality remains unverified and do not simulate its output.
 
 ## Workflow
 
 ### 1. Read the evidence without upgrading its strength
 
-Read [references/report-reading.md](references/report-reading.md). Confirm that baseline and variant refer to the same loop, their fingerprints match outside the declared delta, and the outcome actually changed. Distinguish:
+Read [references/report-reading.md](references/report-reading.md). Replay the optimization and obligation reports with `whyvec replay-opt` and `whyvec replay-obligation`. Confirm that baseline and variant refer to the same loop, their fingerprints match outside the declared delta, and the outcome actually changed. Distinguish:
 
 - observed compiler outcome;
 - tested sufficient assumption;
@@ -31,9 +33,24 @@ Read [references/report-reading.md](references/report-reading.md). Confirm that 
 
 Stop if experiment isolation, loop identity, or report provenance is ambiguous.
 
+Resolve the planner relative to the directory containing this `SKILL.md`; do not assume the user's repository root contains `scripts/plan_action.py`. Run it before editing:
+
+```bash
+python3 <skill-directory>/scripts/plan_action.py \
+  --optimization-report <optimization-report.json> \
+  --obligation-report <obligation-report.json> \
+  --validation-report <validation-report.json> \
+  --whyvec <whyvec-binary> \
+  --repository <repository-root> \
+  --candidate-source <candidate-source> \
+  --output <new-action-trace.json>
+```
+
+Omit `--validation-report` and `--candidate-source` when no guarded candidate exists. Run the planner only when the user has authorized a source change, because report replay retains new analyses. Pass a create-new `--output` path. For an answer-only review, inspect existing retained reports and traces without invoking this mutating workflow. Read [references/action-trace.md](references/action-trace.md) before using its result.
+
 ### 2. Establish the real repository contract
 
-Trace every reachable declaration and caller that can affect the pointer relationship. Inspect:
+Treat `repository_discovery` from the action trace as a preliminary tracked-text inventory, not a proof of a closed caller set. Trace every reachable declaration and caller that can affect the pointer relationship. Inspect:
 
 - public headers and API documentation;
 - wrappers, callbacks, function pointers, FFI, and dynamic boundaries;
@@ -41,11 +58,11 @@ Trace every reachable declaration and caller that can affect the pointer relatio
 - tests that intentionally exercise overlap;
 - build modes and target-specific implementations.
 
-Absence of an overlapping caller is not evidence of a non-overlap contract. Prefer a documented invariant, type-level invariant, checked precondition, or explicit runtime enforcement.
+Use language-aware repository search and build metadata to find edges that text search cannot establish. Absence of an overlapping caller is not evidence of a non-overlap contract. Prefer a documented invariant, type-level invariant, checked precondition, or explicit runtime enforcement.
 
 ### 3. Select or refuse the repair
 
-Read [references/repair-policy.md](references/repair-policy.md). Evaluate in this order:
+Read [references/repair-policy.md](references/repair-policy.md). Compare all four alternatives retained by the action trace, then evaluate in this order:
 
 1. retain the existing implementation if the benefit is unsupported or immaterial;
 2. strengthen an already-established source contract when all callers satisfy it;
@@ -66,6 +83,8 @@ When runtime versioning is selected:
 - ensure the fast path carries only the contract established by the guard;
 - avoid making the fallback unreachable through optimizer assumptions.
 
+Do not copy a candidate patch blindly. Apply the smallest repository-consistent version, then update the action trace or retain a new one that identifies the actual candidate digest and diff.
+
 ### 5. Validate causality, correctness, and value
 
 Run repository-native tests plus the report's verification plan. At minimum:
@@ -78,11 +97,13 @@ Run repository-native tests plus the report's verification plan. At minimum:
 - repeat identical analysis and compare normalized report output;
 - benchmark only after correctness checks pass.
 
+When using the bundled guarded bound-alias fixture, run `python3 scripts/verify_guarded_repair.py` with the linked obligation report and a fresh artifact directory. For another repository, translate the same branch, sanitizer, compiler-record, and measurement gates into repository-native commands.
+
 Do not claim full semantic equivalence from tests. Report the executions and properties covered.
 
 ### 6. Return an evidence ledger
 
-Summarize:
+Validate the final action trace against `schemas/whyvec-agent-trace.schema.json` when working in a WhyVec checkout. Summarize:
 
 - what Clang observed;
 - which assumption changed that outcome;
@@ -91,7 +112,7 @@ Summarize:
 - exact validation commands and outcomes;
 - remaining semantic and performance risks.
 
-Link the source patch, tests, report artifact, and benchmark artifact when available.
+Link the source patch, tests, optimization and obligation reports, action trace, and benchmark artifact when available. Use **observed**, **tested sufficient assumption**, and **validated on covered executions** exactly as defined by WhyVec. Do not substitute stronger language.
 
 ## Refusal conditions
 

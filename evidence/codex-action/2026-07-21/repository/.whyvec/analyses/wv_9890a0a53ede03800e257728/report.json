@@ -1,0 +1,675 @@
+{
+  "schema_version": "2.0.0-dev",
+  "analysis_id": "wv_9890a0a53ede03800e257728",
+  "query_kind": "optimization_causality",
+  "adapter": "clang_llvm",
+  "pipeline_fidelity": "equivalent_confirmed",
+  "toolchain": {
+    "clang": {
+      "invocation_path": "/usr/bin/clang-21",
+      "resolved_path": "/usr/lib/llvm-21/bin/clang",
+      "binary_digest": "78e9dd2ccc9e88859b3a29109a44bfab00e3d6cb70f00f3daae063eed3d05251",
+      "version": "Ubuntu clang version 21.1.8 (6ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/lib/llvm-21/bin"
+    },
+    "optimizer": {
+      "invocation_path": "/usr/bin/opt-21",
+      "resolved_path": "/usr/lib/llvm-21/bin/opt",
+      "binary_digest": "cd07d9d8a54a02001b755f407a6401a57adf526da1c81ad3ee27a64303934f16",
+      "version": "Ubuntu LLVM version 21.1.8\n  Optimized build.\n  Default target: x86_64-pc-linux-gnu\n  Host CPU: znver2"
+    },
+    "transformer": {
+      "invocation_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-transform",
+      "resolved_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-transform",
+      "binary_digest": "b506eda8b7ecf3f3bb523eed88a9f7300370b74f52e8f800ccc2297b8fc045dc",
+      "version": "Ubuntu LLVM version 21.1.8\n  Optimized build."
+    },
+    "identity_tool": {
+      "invocation_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-loop-identity",
+      "resolved_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-loop-identity",
+      "binary_digest": "2870c34921329faefff6a678734ca9b50024befd89f594b95e1a6e4be9f3d557",
+      "version": "Ubuntu LLVM version 21.1.8\n  Optimized build."
+    },
+    "optimization": "O3",
+    "cpu": "x86-64-v3",
+    "normalized_flags": [
+      "-O3",
+      "-march=x86-64-v3",
+      "-gline-tables-only",
+      "-gcolumn-info"
+    ]
+  },
+  "repository": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository",
+  "source": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/bound-alias/kernel.c",
+  "source_digest": "9dd869e3f87323806fe3fa2a113bdc7dd5c794bf25f19c2eb004ea10fba463d9",
+  "pipeline_digest": "43d6b77c58036782609223875ee381098fabf6fd2e0f5c687aa5811db7951a9f",
+  "subject": {
+    "function": "add_vectors_",
+    "line": 5,
+    "column": 3,
+    "loop_depth": 1,
+    "block_count": 3,
+    "structural_fingerprint": "2c68670a83e77888e48713065925f0fa",
+    "mapping_confidence": "high"
+  },
+  "candidates": [
+    {
+      "id": "parameter.output.noalias",
+      "source_name": "output",
+      "ir_index": 0,
+      "attribute": "noalias"
+    },
+    {
+      "id": "parameter.input.noalias",
+      "source_name": "input",
+      "ir_index": 1,
+      "attribute": "noalias"
+    },
+    {
+      "id": "parameter.count.noalias",
+      "source_name": "count",
+      "ir_index": 2,
+      "attribute": "noalias"
+    }
+  ],
+  "monolithic_baseline": {
+    "classification": "missed",
+    "vector_factor": null,
+    "interleave_count": null,
+    "selected_remarks": [
+      "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/bound-alias/kernel.c:5:3: remark: loop not vectorized: Cannot vectorize uncountable loop [-Rpass-analysis=loop-vectorize]",
+      "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/bound-alias/kernel.c:5:3: remark: loop not vectorized [-Rpass-missed=loop-vectorize]"
+    ],
+    "exit_code": 0,
+    "timed_out": false,
+    "output_truncated": false,
+    "confirmation_runs": 1,
+    "consistent": true,
+    "artifacts": [
+      {
+        "path": "baseline/monolithic.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0,
+        "media_type": "text/plain"
+      },
+      {
+        "path": "baseline/monolithic.stderr",
+        "sha256": "30325b7f8c104694faed46a380a05390384014899eaa0ae572e37cb2f9a9a82a",
+        "size": 428,
+        "media_type": "text/plain"
+      },
+      {
+        "path": "baseline/monolithic.opt.yaml",
+        "sha256": "abb6ac8082465b6f10edf76dc8fe73e429dcacbdee1374964ac25b5ddcd4e851",
+        "size": 5323,
+        "media_type": "application/yaml"
+      }
+    ]
+  },
+  "replay_baseline": {
+    "classification": "missed",
+    "vector_factor": null,
+    "interleave_count": null,
+    "selected_remarks": [
+      "remark: bound-alias/kernel.c:5:3: loop not vectorized: Cannot vectorize uncountable loop",
+      "remark: bound-alias/kernel.c:5:3: loop not vectorized"
+    ],
+    "exit_code": 0,
+    "timed_out": false,
+    "output_truncated": false,
+    "confirmation_runs": 1,
+    "consistent": true,
+    "artifacts": [
+      {
+        "path": "baseline/replay.stdout",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0,
+        "media_type": "text/plain"
+      },
+      {
+        "path": "baseline/replay.stderr",
+        "sha256": "654c44457b98d11602dbb551f92d027004a1d2f184cdd9df0ac0269c34e7fa9e",
+        "size": 143,
+        "media_type": "text/plain"
+      },
+      {
+        "path": "baseline/replay.opt.yaml",
+        "sha256": "988b66b9590098ea8fe44bf5ac775e5d77c0caca5bc75cbd1a39bfb28c3a78be",
+        "size": 2670,
+        "media_type": "application/yaml"
+      },
+      {
+        "path": "baseline/replay.opt.ll",
+        "sha256": "617615ce09dfd399c4372231b9e5f2d66b8debff5d51b75a280ffaa9cbba5e52",
+        "size": 4023,
+        "media_type": "text/plain"
+      }
+    ]
+  },
+  "experiments": [
+    {
+      "experiment_id": "exp_69a440a1e723b7e1",
+      "assumptions": [
+        "parameter.count.noalias"
+      ],
+      "verdict": "observed",
+      "unresolved_reason": null,
+      "ir_verified": true,
+      "delta_isolated": true,
+      "loop_identity": {
+        "function": "add_vectors_",
+        "line": 5,
+        "column": 3,
+        "loop_depth": 1,
+        "block_count": 3,
+        "structural_fingerprint": "2c68670a83e77888e48713065925f0fa",
+        "mapping_confidence": "high"
+      },
+      "decline": null,
+      "outcome": {
+        "classification": "vectorized",
+        "vector_factor": 8,
+        "interleave_count": 4,
+        "selected_remarks": [
+          "remark: bound-alias/kernel.c:5:3: vectorized loop (vectorization width: 8, interleaved count: 4)"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "output_truncated": false,
+        "confirmation_runs": 2,
+        "consistent": true,
+        "artifacts": [
+          {
+            "path": "variants/exp_69a440a1e723b7e1/optimizer.stdout",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_69a440a1e723b7e1/optimizer.stderr",
+            "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+            "size": 97,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_69a440a1e723b7e1/optimized.ll",
+            "sha256": "984db75a546d66663310813e05c5f778c1c0c157d43ae76d40291184f8edd57b",
+            "size": 14625,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_69a440a1e723b7e1/remarks.yaml",
+            "sha256": "d64b58a36819f0be7c6f444e328f1e4f8fa78bea7582eea205da94f9bb23f1d8",
+            "size": 2747,
+            "media_type": "application/yaml"
+          },
+          {
+            "path": "variants/exp_69a440a1e723b7e1/confirmation.stdout",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_69a440a1e723b7e1/confirmation.stderr",
+            "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+            "size": 97,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_69a440a1e723b7e1/confirmation.ll",
+            "sha256": "984db75a546d66663310813e05c5f778c1c0c157d43ae76d40291184f8edd57b",
+            "size": 14625,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_69a440a1e723b7e1/confirmation.remarks.yaml",
+            "sha256": "d64b58a36819f0be7c6f444e328f1e4f8fa78bea7582eea205da94f9bb23f1d8",
+            "size": 2747,
+            "media_type": "application/yaml"
+          }
+        ]
+      }
+    },
+    {
+      "experiment_id": "exp_d3a6a00258833754",
+      "assumptions": [
+        "parameter.input.noalias"
+      ],
+      "verdict": "not_observed",
+      "unresolved_reason": null,
+      "ir_verified": true,
+      "delta_isolated": true,
+      "loop_identity": {
+        "function": "add_vectors_",
+        "line": 5,
+        "column": 3,
+        "loop_depth": 1,
+        "block_count": 3,
+        "structural_fingerprint": "2c68670a83e77888e48713065925f0fa",
+        "mapping_confidence": "high"
+      },
+      "decline": null,
+      "outcome": {
+        "classification": "missed",
+        "vector_factor": null,
+        "interleave_count": null,
+        "selected_remarks": [
+          "remark: bound-alias/kernel.c:5:3: loop not vectorized: Cannot vectorize uncountable loop",
+          "remark: bound-alias/kernel.c:5:3: loop not vectorized"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "output_truncated": false,
+        "confirmation_runs": 1,
+        "consistent": true,
+        "artifacts": [
+          {
+            "path": "variants/exp_d3a6a00258833754/optimizer.stdout",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_d3a6a00258833754/optimizer.stderr",
+            "sha256": "654c44457b98d11602dbb551f92d027004a1d2f184cdd9df0ac0269c34e7fa9e",
+            "size": 143,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_d3a6a00258833754/optimized.ll",
+            "sha256": "9be8de6d598590ff840af0ffde9ef9131df681b4971fc5f36fb1ccca2a9d6f46",
+            "size": 4053,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_d3a6a00258833754/remarks.yaml",
+            "sha256": "988b66b9590098ea8fe44bf5ac775e5d77c0caca5bc75cbd1a39bfb28c3a78be",
+            "size": 2670,
+            "media_type": "application/yaml"
+          }
+        ]
+      }
+    },
+    {
+      "experiment_id": "exp_6143450e0b4038c0",
+      "assumptions": [
+        "parameter.output.noalias"
+      ],
+      "verdict": "observed",
+      "unresolved_reason": null,
+      "ir_verified": true,
+      "delta_isolated": true,
+      "loop_identity": {
+        "function": "add_vectors_",
+        "line": 5,
+        "column": 3,
+        "loop_depth": 1,
+        "block_count": 3,
+        "structural_fingerprint": "2c68670a83e77888e48713065925f0fa",
+        "mapping_confidence": "high"
+      },
+      "decline": null,
+      "outcome": {
+        "classification": "vectorized",
+        "vector_factor": 8,
+        "interleave_count": 4,
+        "selected_remarks": [
+          "remark: bound-alias/kernel.c:5:3: vectorized loop (vectorization width: 8, interleaved count: 4)"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "output_truncated": false,
+        "confirmation_runs": 2,
+        "consistent": true,
+        "artifacts": [
+          {
+            "path": "variants/exp_6143450e0b4038c0/optimizer.stdout",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_6143450e0b4038c0/optimizer.stderr",
+            "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+            "size": 97,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_6143450e0b4038c0/optimized.ll",
+            "sha256": "04c135810b408dbd222062478d7ac67892cbed52304ef4e558e177bb42cc6abd",
+            "size": 8939,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_6143450e0b4038c0/remarks.yaml",
+            "sha256": "f962504ddfceab476fa8ead434cd1c20469ea3d6f9519a960141557e0849d83c",
+            "size": 1044,
+            "media_type": "application/yaml"
+          },
+          {
+            "path": "variants/exp_6143450e0b4038c0/confirmation.stdout",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_6143450e0b4038c0/confirmation.stderr",
+            "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+            "size": 97,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_6143450e0b4038c0/confirmation.ll",
+            "sha256": "04c135810b408dbd222062478d7ac67892cbed52304ef4e558e177bb42cc6abd",
+            "size": 8939,
+            "media_type": "text/plain"
+          },
+          {
+            "path": "variants/exp_6143450e0b4038c0/confirmation.remarks.yaml",
+            "sha256": "f962504ddfceab476fa8ead434cd1c20469ea3d6f9519a960141557e0849d83c",
+            "size": 1044,
+            "media_type": "application/yaml"
+          }
+        ]
+      }
+    }
+  ],
+  "minimality": "smallest_set_found",
+  "stop_reason": "first_successful_cardinality_completed",
+  "declared_subsets": 7,
+  "finding": {
+    "evidence_strength": "counterfactual_observation",
+    "sufficient_assumptions": [
+      "parameter.count.noalias"
+    ],
+    "minimality": "smallest_set_found",
+    "summary": "Under the recorded toolchain and equivalent-confirmed pipeline, parameter.count.noalias was a tested sufficient assumption for the matched loop to vectorize.",
+    "caveats": [
+      "Parameter-level LLVM noalias is not a source contract or a pairwise range promise.",
+      "Repository and obligation analysis are required before any source change."
+    ]
+  },
+  "decline": null,
+  "replay": {
+    "function": "add_vectors_",
+    "line": 5,
+    "max_evaluations": 256,
+    "max_cardinality": 3
+  },
+  "semantic_digest": "313e5f9b0e5a11b309b66061be532370c51034b69fde4035ab00e1246a2c1ef8",
+  "artifacts": [
+    {
+      "path": "baseline/identity.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "application/json"
+    },
+    {
+      "path": "baseline/identity.stdout",
+      "sha256": "5f23e3492d2cf24cc6c1ff220885a2757d58a9b53222f414808176f91ebb23e3",
+      "size": 186,
+      "media_type": "application/json"
+    },
+    {
+      "path": "baseline/monolithic.opt.yaml",
+      "sha256": "abb6ac8082465b6f10edf76dc8fe73e429dcacbdee1374964ac25b5ddcd4e851",
+      "size": 5323,
+      "media_type": "application/yaml"
+    },
+    {
+      "path": "baseline/monolithic.stderr",
+      "sha256": "30325b7f8c104694faed46a380a05390384014899eaa0ae572e37cb2f9a9a82a",
+      "size": 428,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "baseline/monolithic.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "baseline/pipeline.txt",
+      "sha256": "43d6b77c58036782609223875ee381098fabf6fd2e0f5c687aa5811db7951a9f",
+      "size": 4383,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "baseline/preopt.ll",
+      "sha256": "cd59a792c72556f80e5b7a1d4a92c61a502df871f7ec5c24983396dfe9e0e29a",
+      "size": 5567,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "baseline/replay.opt.ll",
+      "sha256": "617615ce09dfd399c4372231b9e5f2d66b8debff5d51b75a280ffaa9cbba5e52",
+      "size": 4023,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "baseline/replay.opt.yaml",
+      "sha256": "988b66b9590098ea8fe44bf5ac775e5d77c0caca5bc75cbd1a39bfb28c3a78be",
+      "size": 2670,
+      "media_type": "application/yaml"
+    },
+    {
+      "path": "baseline/replay.stderr",
+      "sha256": "654c44457b98d11602dbb551f92d027004a1d2f184cdd9df0ac0269c34e7fa9e",
+      "size": 143,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "baseline/replay.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "inputs/source.c",
+      "sha256": "9dd869e3f87323806fe3fa2a113bdc7dd5c794bf25f19c2eb004ea10fba463d9",
+      "size": 338,
+      "media_type": "text/x-c"
+    },
+    {
+      "path": "inputs/toolchain.json",
+      "sha256": "88d5f81aa533e3f4a39e72c5b91f1ef214c635786177d74e735f44c9a22e92a0",
+      "size": 1692,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/confirmation.ll",
+      "sha256": "04c135810b408dbd222062478d7ac67892cbed52304ef4e558e177bb42cc6abd",
+      "size": 8939,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/confirmation.remarks.yaml",
+      "sha256": "f962504ddfceab476fa8ead434cd1c20469ea3d6f9519a960141557e0849d83c",
+      "size": 1044,
+      "media_type": "application/yaml"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/confirmation.stderr",
+      "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+      "size": 97,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/confirmation.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/delta-0.json",
+      "sha256": "c2921be783ad094eff0e11af64d9da72900e0e81552d4e0cdc76eb4145866eac",
+      "size": 155,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/identity.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/identity.stdout",
+      "sha256": "5f23e3492d2cf24cc6c1ff220885a2757d58a9b53222f414808176f91ebb23e3",
+      "size": 186,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/input.bc",
+      "sha256": "91b2c4d5f213544f4ed9ca55710e75a57eebfa948238a88da8983897f45ed7c2",
+      "size": 3704,
+      "media_type": "application/vnd.llvm.bitcode"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/optimized.ll",
+      "sha256": "04c135810b408dbd222062478d7ac67892cbed52304ef4e558e177bb42cc6abd",
+      "size": 8939,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/optimizer.stderr",
+      "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+      "size": 97,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/optimizer.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_6143450e0b4038c0/remarks.yaml",
+      "sha256": "f962504ddfceab476fa8ead434cd1c20469ea3d6f9519a960141557e0849d83c",
+      "size": 1044,
+      "media_type": "application/yaml"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/confirmation.ll",
+      "sha256": "984db75a546d66663310813e05c5f778c1c0c157d43ae76d40291184f8edd57b",
+      "size": 14625,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/confirmation.remarks.yaml",
+      "sha256": "d64b58a36819f0be7c6f444e328f1e4f8fa78bea7582eea205da94f9bb23f1d8",
+      "size": 2747,
+      "media_type": "application/yaml"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/confirmation.stderr",
+      "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+      "size": 97,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/confirmation.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/delta-0.json",
+      "sha256": "f7f2641cd8a7385a959a3a9351a4e5794edf9edef8239a4c84e3946ec7b2a553",
+      "size": 155,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/identity.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/identity.stdout",
+      "sha256": "5f23e3492d2cf24cc6c1ff220885a2757d58a9b53222f414808176f91ebb23e3",
+      "size": 186,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/input.bc",
+      "sha256": "bcc0a36ddadf5c555974538344795cef43f2b65733c106d6db78f31a590cbee4",
+      "size": 3704,
+      "media_type": "application/vnd.llvm.bitcode"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/optimized.ll",
+      "sha256": "984db75a546d66663310813e05c5f778c1c0c157d43ae76d40291184f8edd57b",
+      "size": 14625,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/optimizer.stderr",
+      "sha256": "6fca553562eca8140ff0140bb73be6a64ad82453323d15083262cc00a6c4599d",
+      "size": 97,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/optimizer.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_69a440a1e723b7e1/remarks.yaml",
+      "sha256": "d64b58a36819f0be7c6f444e328f1e4f8fa78bea7582eea205da94f9bb23f1d8",
+      "size": 2747,
+      "media_type": "application/yaml"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/delta-0.json",
+      "sha256": "7eb9cf0dac6a79f500ea7704eb7941dd3965e7564f1054ce8e7f278c91134a53",
+      "size": 155,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/identity.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/identity.stdout",
+      "sha256": "5f23e3492d2cf24cc6c1ff220885a2757d58a9b53222f414808176f91ebb23e3",
+      "size": 186,
+      "media_type": "application/json"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/input.bc",
+      "sha256": "0cba066bb439e660ecf3ba26427a507a354eab4824b0dce04430d02af91595fc",
+      "size": 3704,
+      "media_type": "application/vnd.llvm.bitcode"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/optimized.ll",
+      "sha256": "9be8de6d598590ff840af0ffde9ef9131df681b4971fc5f36fb1ccca2a9d6f46",
+      "size": 4053,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/optimizer.stderr",
+      "sha256": "654c44457b98d11602dbb551f92d027004a1d2f184cdd9df0ac0269c34e7fa9e",
+      "size": 143,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/optimizer.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "media_type": "text/plain"
+    },
+    {
+      "path": "variants/exp_d3a6a00258833754/remarks.yaml",
+      "sha256": "988b66b9590098ea8fe44bf5ac775e5d77c0caca5bc75cbd1a39bfb28c3a78be",
+      "size": 2670,
+      "media_type": "application/yaml"
+    }
+  ],
+  "artifact_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/repository/.whyvec/analyses/wv_9890a0a53ede03800e257728/report.json",
+  "caveats": [
+    "Clang's printable pipeline is best-effort; fidelity is equivalent_confirmed, not exact."
+  ]
+}

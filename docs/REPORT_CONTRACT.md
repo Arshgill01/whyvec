@@ -82,6 +82,22 @@ records, raw benchmark samples, dispersion, decision rule, and environment.
 Correctness or compiler-record failures prevent report creation. Benchmark
 noise produces `noise_decline`, not a speed claim.
 
+Validation schema `1.1.0` adds the exact candidate source SHA-256. The Codex
+workflow will not apply validation evidence to a different candidate digest.
+Historical `1.0.0` reports remain schema-readable but cannot authorize a new
+validated action trace. Version 1.1 also records every compile and execution
+command's exit status plus stdout/stderr digest and size, and requires a
+successful default-ABI compile and execution before guarded selection.
+
+Codex repository decisions emit a separate create-new
+[action trace](../schemas/whyvec-agent-trace.schema.json). It links replayed
+optimization and obligation semantics, the validation report identifier and
+whole-report digest, preliminary repository discovery, all four repair
+alternatives, a candidate source digest and diff when supplied, exact validation
+commands and outcomes, required evidence vocabulary, and residual risks. The
+trace is an audit handoff, not proof of caller completeness or semantic
+equivalence.
+
 ## Compatibility
 
 The report uses semantic versioning in `schema_version`.

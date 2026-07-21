@@ -24,7 +24,7 @@ This is the living implementation plan. Phase documents contain detailed accepta
 | R5 | Build-causality query | complete | Cargo/rustc stable diagnostic identity, parsed Rust syntax-item grouping with exact-hunk fallback, deterministic nested search, isolated Bubblewrap worktrees, cascade/removal witnesses, immutable reports, CLI, and semantic replay pass positive, interacting, ambiguity, tamper, and hostile-build fixtures |
 | R6 | C++, Rust, TypeScript, and GCC adapter expansion | complete | C++ linkage/template positives and macro ambiguity pass through the LLVM pack; Cargo, Clang, GCC, and TypeScript build adapters pass public schema/replay checks; GCC native optimization records and integrity-checked LLVM comparison pass replay and tamper refusal |
 | R7 | Source-action, validation, and measurement | complete | The derived C bound obligation drives a checked `uintptr_t` guard with cached-bound fast path and unchanged fallback; 9 differential executions, both branch witnesses, overflow refusals, ASan/UBSan, branch-specific optimization records, 31-sample distributions, environment capture, and noise-aware statistics are retained |
-| R8 | GPT-5.6/Codex repository engineering loop | queued | Depends on stable deterministic reports and validation gates |
+| R8 | GPT-5.6/Codex repository engineering loop | verifying | Evidence-replayed action planner, exact candidate linkage, ABI/branch/sanitizer/compiler/benchmark gates, typed refusal, and official plugin validators pass; final clean-checkout validation remains |
 
 ## Workstreams
 

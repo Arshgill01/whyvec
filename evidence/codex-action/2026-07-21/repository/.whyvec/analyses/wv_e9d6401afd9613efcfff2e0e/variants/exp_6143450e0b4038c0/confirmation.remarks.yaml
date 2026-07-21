@@ -1,0 +1,33 @@
+--- !Passed
+Pass:            licm
+Name:            Hoisted
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          'hoisting '
+  - Inst:            load
+    DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+...
+--- !Passed
+Pass:            loop-vectorize
+Name:            Vectorized
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'vectorized '
+  - String:          ''
+  - String:          'loop (vectorization width: '
+  - VectorizationFactor: '8'
+  - String:          ', interleaved count: '
+  - InterleaveCount: '4'
+  - String:          ')'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotPossible
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 6, Column: 15 }
+Function:        add_vectors_
+Args:
+  - String:          'Cannot SLP vectorize list: vectorization was impossible'
+  - String:          ' with available vectorization factors'
+...

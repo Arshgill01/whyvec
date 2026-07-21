@@ -1,0 +1,438 @@
+{
+  "analysis_id": "wv_e0efecf3c531a762ac96aed0",
+  "artifact_path": "evidence/codex-action/2026-07-21/validation/report.json",
+  "artifacts": [
+    {
+      "media_type": "application/json",
+      "path": "checks/differential.json",
+      "sha256": "bc808f2db1cebc6d5845e942faa2be09e3275f52743ee8546db922e9e3808b46",
+      "size": 81
+    },
+    {
+      "media_type": "application/json",
+      "path": "checks/sanitizer.json",
+      "sha256": "bc808f2db1cebc6d5845e942faa2be09e3275f52743ee8546db922e9e3808b46",
+      "size": 81
+    },
+    {
+      "media_type": "application/yaml",
+      "path": "compiler/optimization.opt.yaml",
+      "sha256": "4dfcbf844b9b213014bb9800f63da42f3c24cdf8d4bd5d473be8306a6b5e003b",
+      "size": 27815
+    },
+    {
+      "media_type": "text/plain",
+      "path": "compiler/remarks.txt",
+      "sha256": "ba9d73f321df3733d10d09c153207d171f9ca04d7d9578cbedabda6c7048f405",
+      "size": 644
+    },
+    {
+      "media_type": "application/json",
+      "path": "benchmark/raw.json",
+      "sha256": "818395a16ed87c7143228f73473d5e99e56f8063990ec84fe53e91dcfd032571",
+      "size": 631
+    },
+    {
+      "media_type": "application/json",
+      "path": "benchmark/summary.json",
+      "sha256": "d4250350f3bc657fc6be2a8485a403e6cf77d805f4250f38401cb8903556444c",
+      "size": 290
+    },
+    {
+      "media_type": "application/json",
+      "path": "environment.json",
+      "sha256": "54cd617feeeae489ab409cf339be585caa72fd433642392668c3c76e0d6778db",
+      "size": 149
+    }
+  ],
+  "benchmark": {
+    "raw": {
+      "elements": 1048576,
+      "guarded_ns": [
+        1778322,
+        1390982,
+        1847862,
+        1383872,
+        1612852,
+        1337452,
+        1587362,
+        1147062,
+        1360351,
+        1179042,
+        1513892,
+        1091431,
+        1331541,
+        1056231,
+        1657082,
+        1345572,
+        1440612,
+        1371561,
+        1461221,
+        1340962,
+        1550372,
+        1279472,
+        1606532,
+        1346492,
+        1348522,
+        1324192,
+        1549992,
+        1350111,
+        1539032,
+        1366692,
+        1502732
+      ],
+      "original_ns": [
+        4869746,
+        4566706,
+        4580696,
+        4802586,
+        4700806,
+        4579246,
+        4872826,
+        4599165,
+        4628897,
+        4791186,
+        4580056,
+        4996767,
+        4623146,
+        5754268,
+        4656736,
+        4696476,
+        4501116,
+        4852756,
+        4625126,
+        4607646,
+        4918277,
+        4570746,
+        4825346,
+        4851456,
+        4589226,
+        4858166,
+        4679536,
+        4632746,
+        5030497,
+        4574935,
+        4657577
+      ],
+      "repetitions": 8
+    },
+    "summary": {
+      "classification": "measured_improvement",
+      "decision_rule": "improvement only when median separation exceeds three times summed MAD",
+      "guarded_mad_ns": 92089.0,
+      "guarded_median_ns": 1371561.0,
+      "median_ratio": 3.3958219867727357,
+      "original_mad_ns": 82642.0,
+      "original_median_ns": 4657577.0
+    }
+  },
+  "candidate_source_sha256": "ee090224f286ec013e641fb4cb09b830da092f1491b819e6d492da7bb46ef218",
+  "caveats": [
+    "Differential agreement is validated on covered executions, not full semantic equivalence.",
+    "The uintptr_t guard is limited to the recorded flat x86-64 target policy.",
+    "Benchmark classification applies only to the retained environment and workload."
+  ],
+  "command_outcomes": [
+    {
+      "command_index": 0,
+      "exit_status": 0,
+      "name": "abi_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 1,
+      "exit_status": 0,
+      "name": "abi_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 2,
+      "exit_status": 0,
+      "name": "differential_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 3,
+      "exit_status": 0,
+      "name": "differential_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "c6425566d018ad683b2a71761ec720b97dbec606e7cd8c29f6260e9885c3fb95",
+      "stdout_size": 74
+    },
+    {
+      "command_index": 4,
+      "exit_status": 0,
+      "name": "production_differential_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 5,
+      "exit_status": 0,
+      "name": "production_differential_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 6,
+      "exit_status": 0,
+      "name": "sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 7,
+      "exit_status": 0,
+      "name": "sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "c6425566d018ad683b2a71761ec720b97dbec606e7cd8c29f6260e9885c3fb95",
+      "stdout_size": 74
+    },
+    {
+      "command_index": 8,
+      "exit_status": 0,
+      "name": "production_sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 9,
+      "exit_status": 0,
+      "name": "production_sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 10,
+      "exit_status": 0,
+      "name": "production_optimization_compile",
+      "stderr_sha256": "ba9d73f321df3733d10d09c153207d171f9ca04d7d9578cbedabda6c7048f405",
+      "stderr_size": 644,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 11,
+      "exit_status": 0,
+      "name": "production_benchmark_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 12,
+      "exit_status": 0,
+      "name": "production_benchmark_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "8068f384f5dcc089e1ea03d5736a9612803e30ea72184c4ad685e2fd0f789f20",
+      "stdout_size": 564
+    }
+  ],
+  "commands": [
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O2",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/abi_harness.c",
+      "-o",
+      "<build>/abi"
+    ],
+    [
+      "<build>/abi"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O2",
+      "-march=x86-64-v3",
+      "-DWHYVEC_GUARD_SCOPE=",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/action_harness.c",
+      "-o",
+      "<build>/differential"
+    ],
+    [
+      "<build>/differential"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O2",
+      "-march=x86-64-v3",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/production_harness.c",
+      "-o",
+      "<build>/production-differential"
+    ],
+    [
+      "<build>/production-differential"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "-DWHYVEC_GUARD_SCOPE=",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/action_harness.c",
+      "-o",
+      "<build>/sanitizer"
+    ],
+    [
+      "<build>/sanitizer"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/production_harness.c",
+      "-o",
+      "<build>/production-sanitizer"
+    ],
+    [
+      "<build>/production-sanitizer"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "-Rpass=loop-vectorize",
+      "-Rpass-missed=loop-vectorize",
+      "-Rpass-analysis=loop-vectorize",
+      "-fsave-optimization-record=yaml",
+      "-foptimization-record-file=<build>/guarded.opt.yaml",
+      "-c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "-o",
+      "<build>/guarded.o"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/action_benchmark.c",
+      "-o",
+      "<build>/benchmark"
+    ],
+    [
+      "<build>/benchmark"
+    ]
+  ],
+  "differential": {
+    "executions": 11,
+    "fallback_paths": 4,
+    "fast_paths": 7,
+    "overflow_refusals": 2
+  },
+  "environment": {
+    "affinity": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "cpu_model": "AMD EPYC 7B12",
+    "governor": "unknown",
+    "kernel": "7.0.0-1008-gcp",
+    "machine": "x86_64",
+    "python": "3.14.4"
+  },
+  "evidence_strength": "validated_on_covered_executions",
+  "obligation": {
+    "analysis_id": "wv_57e62f4f87b35ec273f99f2c",
+    "family": "bound_object_disjoint_from_modified_region",
+    "semantic_digest": "1888b650add35f22dd8ef3022653f51dc7bed2378cc41c45c0a837c81b35ed71"
+  },
+  "optimization": {
+    "fallback": "missed",
+    "fallback_line": 47,
+    "fast_path": "vectorized",
+    "fast_path_line": 42
+  },
+  "query_kind": "repair_validation",
+  "sanitizer": {
+    "clean": true,
+    "covered": {
+      "executions": 11,
+      "fallback_paths": 4,
+      "fast_paths": 7,
+      "overflow_refusals": 2
+    }
+  },
+  "schema_version": "1.1.0",
+  "sources": [
+    {
+      "path": "fixtures/cases/bound-alias-repair/original.c",
+      "sha256": "d983f7f7d080a0198cdfd43d1e863b302d02a32f379178675a0ca8de1a23ef89"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/candidate.c",
+      "sha256": "ee090224f286ec013e641fb4cb09b830da092f1491b819e6d492da7bb46ef218"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/abi_harness.c",
+      "sha256": "0dfd0cce8a6feaefb111bd611a108f1cfe59e419d7df2dc2f8380c66532217d1"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/action_harness.c",
+      "sha256": "652f5f194b170c03306f2fe416ed987a945cc4988803906f765086841f5c763c"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/production_harness.c",
+      "sha256": "0e2f783805a67a75743e573d1b61e9782846e1dcbe7692fe279a6b3ca8655547"
+    },
+    {
+      "path": "fixtures/cases/bound-alias-repair/action_benchmark.c",
+      "sha256": "c26dbf960906f323a44e96bb4be77d55814c05d9d68ba5cebb5d01894f435f48"
+    }
+  ],
+  "toolchain": {
+    "clang": {
+      "binary_digest": "78e9dd2ccc9e88859b3a29109a44bfab00e3d6cb70f00f3daae063eed3d05251",
+      "invocation_path": "/usr/lib/llvm-21/bin/clang",
+      "resolved_path": "/usr/lib/llvm-21/bin/clang",
+      "version": "Ubuntu clang version 21.1.8 (6ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/lib/llvm-21/bin"
+    },
+    "flags": [
+      "-march=x86-64-v3"
+    ]
+  }
+}

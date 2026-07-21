@@ -1,0 +1,469 @@
+{
+  "alternatives": [
+    {
+      "decision": "rejected",
+      "reason": "caller coverage is incomplete and LLVM noalias is broader than the derived loop range",
+      "strategy": "restrict_annotation"
+    },
+    {
+      "decision": "selected",
+      "reason": "the derived condition is runtime-enforceable with an unchanged fallback",
+      "strategy": "guarded_runtime"
+    },
+    {
+      "decision": "rejected",
+      "reason": "no repository-supported API contract or compatibility authority was supplied",
+      "strategy": "api_change"
+    },
+    {
+      "decision": "not_selected",
+      "reason": "a validated behavior-preserving guard is available",
+      "strategy": "refuse"
+    }
+  ],
+  "candidate_obligation": {
+    "access_summary": {
+      "atomic_accesses": 0,
+      "bound_object": {
+        "byte_width": 4,
+        "name": "count",
+        "signed": true,
+        "source_type": "int"
+      },
+      "calls_in_loop": 0,
+      "function": "add_vectors_",
+      "induction": {
+        "comparison": "less_than",
+        "lower_bound": 0,
+        "source_type": "int",
+        "step": 1,
+        "upper_bound_parameter": "count",
+        "variable": "i",
+        "zero_trip_when_upper_at_most_lower": true
+      },
+      "loop_line": 5,
+      "model": "clang_ast_affine_bound_v1",
+      "volatile_accesses": 0,
+      "writes": [
+        {
+          "base_parameter": "output",
+          "conservative_first_index": "0",
+          "conservative_last_index": "initial(*bound) - 1 rounded by step",
+          "element_bytes": 4,
+          "element_type": "int",
+          "index_expression": "i"
+        }
+      ]
+    },
+    "candidate_assumption": "parameter.count.noalias",
+    "evidence_strength": "derived_obligation",
+    "family": "bound_object_disjoint_from_modified_region",
+    "limitations": [
+      "No claim is made that callers already satisfy this condition.",
+      "The runtime plan requires the recorded flat uintptr_t target policy and checked arithmetic."
+    ],
+    "predicate": "bytes(count, sizeof(*count)) is disjoint from every modified byte in [output] over the initial iteration domain",
+    "runtime_guard": {
+      "capture": "initial_bound = *count before assuming disjointness",
+      "checked_operations": [
+        "checked iteration-count calculation",
+        "checked element-count multiplication",
+        "checked uintptr_t range-end addition"
+      ],
+      "condition": "zero-trip or bytes(count, 4) is disjoint from range(output, checked_extent(0, initial(*count), 1, 4))",
+      "fallback_requirement": "execute the original loop with its pointer-loaded bound unchanged",
+      "fast_path_requirement": "the guard dominates bound caching and every optimized-path assumption",
+      "target_policy": "flat_uintptr_x86_64"
+    }
+  },
+  "claim_language": {
+    "assumption": "tested sufficient assumption",
+    "baseline": "observed",
+    "behavior": "validated on covered executions"
+  },
+  "compiler_facts": {
+    "observed_baseline": "missed",
+    "pipeline_fidelity": "equivalent_confirmed",
+    "tested_sufficient_assumptions": [
+      "parameter.count.noalias"
+    ]
+  },
+  "evidence": {
+    "artifacts_verified": true,
+    "obligation_analysis_id": "wv_57e62f4f87b35ec273f99f2c",
+    "obligation_report": "../repository/.whyvec/analyses/wv_57e62f4f87b35ec273f99f2c/report.json",
+    "obligation_semantic_digest": "1888b650add35f22dd8ef3022653f51dc7bed2378cc41c45c0a837c81b35ed71",
+    "optimization_analysis_id": "wv_9890a0a53ede03800e257728",
+    "optimization_report": "../repository/.whyvec/analyses/wv_9890a0a53ede03800e257728/report.json",
+    "optimization_semantic_digest": "313e5f9b0e5a11b309b66061be532370c51034b69fde4035ab00e1246a2c1ef8",
+    "validation_analysis_id": "wv_e0efecf3c531a762ac96aed0",
+    "validation_report": "../validation/report.json",
+    "validation_report_sha256": "8f524c88c2adbc8f682e5ea771425c226e5041a86076ec1c092e0293dc0a8306"
+  },
+  "patch": {
+    "candidate_path": "bound-alias-repair/candidate.c",
+    "candidate_sha256": "ee090224f286ec013e641fb4cb09b830da092f1491b819e6d492da7bb46ef218",
+    "unified_diff": "--- a/source\n+++ b/candidate\n@@ -1,7 +1,49 @@\n-// FFI-style kernel: scalar arguments are passed by pointer.\n-void add_vectors_(int *output, const int *input, const int *count) {\n-  // If count points inside output, a write can change the trip count.\n-  // The original semantics must remain available for that overlap case.\n+#include <stdbool.h>\n+#include <stddef.h>\n+#include <stdint.h>\n+\n+#ifndef WHYVEC_GUARD_SCOPE\n+#define WHYVEC_GUARD_SCOPE static\n+#endif\n+\n+static bool checked_end(uintptr_t start, size_t bytes, uintptr_t *end) {\n+  if (bytes > UINTPTR_MAX - start)\n+    return false;\n+  *end = start + bytes;\n+  return true;\n+}\n+\n+WHYVEC_GUARD_SCOPE bool whyvec_guard_permits(\n+    const int *output,\n+    const int *count,\n+    int initial_bound) {\n+  if (initial_bound <= 0)\n+    return false;\n+  size_t elements = (size_t)initial_bound;\n+  if (elements > SIZE_MAX / sizeof(*output))\n+    return false;\n+  size_t output_bytes = elements * sizeof(*output);\n+  uintptr_t output_start = (uintptr_t)output;\n+  uintptr_t count_start = (uintptr_t)count;\n+  uintptr_t output_end;\n+  uintptr_t count_end;\n+  if (!checked_end(output_start, output_bytes, &output_end) ||\n+      !checked_end(count_start, sizeof(*count), &count_end))\n+    return false;\n+  return output_end <= count_start || count_end <= output_start;\n+}\n+\n+void add_vectors_(\n+    int *output,\n+    const int *input,\n+    const int *count) {\n+  int initial_bound = *count;\n+  if (whyvec_guard_permits(output, count, initial_bound)) {\n+    for (int i = 0; i < initial_bound; ++i)\n+      output[i] += input[i];\n+    return;\n+  }\n+\n   for (int i = 0; i < *count; ++i)\n     output[i] += input[i];\n }\n"
+  },
+  "repository_discovery": {
+    "caller_coverage": "incomplete",
+    "occurrences": [
+      {
+        "excerpt": "void add_vectors_(int *output, const int *input, const int *count);",
+        "kind": "call_or_declaration",
+        "line": 3,
+        "path": "bound-alias-repair/abi_harness.c"
+      },
+      {
+        "excerpt": "add_vectors_(output, input, &count);",
+        "kind": "call_or_declaration",
+        "line": 9,
+        "path": "bound-alias-repair/abi_harness.c"
+      },
+      {
+        "excerpt": "void add_vectors_(int *output, const int *input, const int *count);",
+        "kind": "call_or_declaration",
+        "line": 9,
+        "path": "bound-alias-repair/action_benchmark.c"
+      },
+      {
+        "excerpt": "add_vectors_(output, input, &count);",
+        "kind": "call_or_declaration",
+        "line": 43,
+        "path": "bound-alias-repair/action_benchmark.c"
+      },
+      {
+        "excerpt": "guarded[sample] = measure(add_vectors_, output, input, &count);",
+        "kind": "reference",
+        "line": 50,
+        "path": "bound-alias-repair/action_benchmark.c"
+      },
+      {
+        "excerpt": "guarded[sample] = measure(add_vectors_, output, input, &count);",
+        "kind": "reference",
+        "line": 52,
+        "path": "bound-alias-repair/action_benchmark.c"
+      },
+      {
+        "excerpt": "void add_vectors_(int *output, const int *input, const int *count);",
+        "kind": "call_or_declaration",
+        "line": 8,
+        "path": "bound-alias-repair/action_harness.c"
+      },
+      {
+        "excerpt": "add_vectors_(",
+        "kind": "call_or_declaration",
+        "line": 37,
+        "path": "bound-alias-repair/action_harness.c"
+      },
+      {
+        "excerpt": "void add_vectors_(",
+        "kind": "call_or_declaration",
+        "line": 36,
+        "path": "bound-alias-repair/candidate.c"
+      },
+      {
+        "excerpt": "public `void add_vectors_` symbol and keeps the guard helper internal. A",
+        "kind": "documentation",
+        "line": 16,
+        "path": "bound-alias-repair/case.md"
+      },
+      {
+        "excerpt": "void add_vectors_(int *output, const int *input, const int *count);",
+        "kind": "call_or_declaration",
+        "line": 5,
+        "path": "bound-alias-repair/production_harness.c"
+      },
+      {
+        "excerpt": "add_vectors_(",
+        "kind": "call_or_declaration",
+        "line": 25,
+        "path": "bound-alias-repair/production_harness.c"
+      },
+      {
+        "excerpt": "void add_vectors_(",
+        "kind": "call_or_declaration",
+        "line": 2,
+        "path": "bound-alias/count_noalias.c"
+      },
+      {
+        "excerpt": "void add_vectors_(int *output, const int *input, const int *count) {",
+        "kind": "call_or_declaration",
+        "line": 2,
+        "path": "bound-alias/kernel.c"
+      }
+    ],
+    "tracked_files_scanned": 27,
+    "uncertain_edges": [
+      {
+        "line": 3,
+        "path": "bound-alias-repair/abi_harness.c",
+        "reason": "external linkage permits callers outside the tracked repository"
+      }
+    ]
+  },
+  "residual_risks": [
+    "unresolved external or dynamic callers do not justify restrict",
+    "the integer-address guard is limited to the recorded target policy",
+    "covered executions do not establish full semantic equivalence"
+  ],
+  "schema_version": "1.0.0",
+  "selected_action": "validated_guarded_runtime",
+  "trace_kind": "codex_repository_action",
+  "validation_command_outcomes": [
+    {
+      "command_index": 0,
+      "exit_status": 0,
+      "name": "abi_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 1,
+      "exit_status": 0,
+      "name": "abi_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 2,
+      "exit_status": 0,
+      "name": "differential_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 3,
+      "exit_status": 0,
+      "name": "differential_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "c6425566d018ad683b2a71761ec720b97dbec606e7cd8c29f6260e9885c3fb95",
+      "stdout_size": 74
+    },
+    {
+      "command_index": 4,
+      "exit_status": 0,
+      "name": "production_differential_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 5,
+      "exit_status": 0,
+      "name": "production_differential_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 6,
+      "exit_status": 0,
+      "name": "sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 7,
+      "exit_status": 0,
+      "name": "sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "c6425566d018ad683b2a71761ec720b97dbec606e7cd8c29f6260e9885c3fb95",
+      "stdout_size": 74
+    },
+    {
+      "command_index": 8,
+      "exit_status": 0,
+      "name": "production_sanitizer_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 9,
+      "exit_status": 0,
+      "name": "production_sanitizer_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 10,
+      "exit_status": 0,
+      "name": "production_optimization_compile",
+      "stderr_sha256": "ba9d73f321df3733d10d09c153207d171f9ca04d7d9578cbedabda6c7048f405",
+      "stderr_size": 644,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 11,
+      "exit_status": 0,
+      "name": "production_benchmark_compile",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0
+    },
+    {
+      "command_index": 12,
+      "exit_status": 0,
+      "name": "production_benchmark_execute",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0,
+      "stdout_sha256": "8068f384f5dcc089e1ea03d5736a9612803e30ea72184c4ad685e2fd0f789f20",
+      "stdout_size": 564
+    }
+  ],
+  "validation_commands": [
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O2",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/abi_harness.c",
+      "-o",
+      "<build>/abi"
+    ],
+    [
+      "<build>/abi"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O2",
+      "-march=x86-64-v3",
+      "-DWHYVEC_GUARD_SCOPE=",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/action_harness.c",
+      "-o",
+      "<build>/differential"
+    ],
+    [
+      "<build>/differential"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O2",
+      "-march=x86-64-v3",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/production_harness.c",
+      "-o",
+      "<build>/production-differential"
+    ],
+    [
+      "<build>/production-differential"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "-DWHYVEC_GUARD_SCOPE=",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/action_harness.c",
+      "-o",
+      "<build>/sanitizer"
+    ],
+    [
+      "<build>/sanitizer"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O1",
+      "-g",
+      "-fno-omit-frame-pointer",
+      "-fsanitize=address,undefined",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/production_harness.c",
+      "-o",
+      "<build>/production-sanitizer"
+    ],
+    [
+      "<build>/production-sanitizer"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "-Rpass=loop-vectorize",
+      "-Rpass-missed=loop-vectorize",
+      "-Rpass-analysis=loop-vectorize",
+      "-fsave-optimization-record=yaml",
+      "-foptimization-record-file=<build>/guarded.opt.yaml",
+      "-c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "-o",
+      "<build>/guarded.o"
+    ],
+    [
+      "/usr/lib/llvm-21/bin/clang",
+      "-std=c17",
+      "-O3",
+      "-march=x86-64-v3",
+      "<repository>/fixtures/cases/bound-alias-repair/original.c",
+      "<repository>/fixtures/cases/bound-alias-repair/candidate.c",
+      "<repository>/fixtures/cases/bound-alias-repair/action_benchmark.c",
+      "-o",
+      "<build>/benchmark"
+    ],
+    [
+      "<build>/benchmark"
+    ]
+  ],
+  "validation_outcomes": {
+    "benchmark": {
+      "classification": "measured_improvement",
+      "decision_rule": "improvement only when median separation exceeds three times summed MAD",
+      "guarded_mad_ns": 92089.0,
+      "guarded_median_ns": 1371561.0,
+      "median_ratio": 3.3958219867727357,
+      "original_mad_ns": 82642.0,
+      "original_median_ns": 4657577.0
+    },
+    "differential": {
+      "executions": 11,
+      "fallback_paths": 4,
+      "fast_paths": 7,
+      "overflow_refusals": 2
+    },
+    "optimization": {
+      "fallback": "missed",
+      "fallback_line": 47,
+      "fast_path": "vectorized",
+      "fast_path_line": 42
+    },
+    "sanitizer": {
+      "clean": true,
+      "covered": {
+        "executions": 11,
+        "fallback_paths": 4,
+        "fast_paths": 7,
+        "overflow_refusals": 2
+      }
+    }
+  }
+}

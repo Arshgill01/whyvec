@@ -77,8 +77,8 @@ It may not conclude that `A` is true, necessary, globally safe, uniquely causal,
 Let `S` be the declared finite candidate set and `E` the evaluated subsets.
 
 - `smallest_set_found` means no evaluated successful set has lower cardinality.
-- `minimal_in_declared_search` requires every subset smaller than the reported set to be evaluated and unsuccessful.
-- `unique_minimal_in_declared_search` additionally requires every same-cardinality alternative to be evaluated and unsuccessful.
+- `minimal_in_declared_search` requires the complete declared finite search to be evaluated and every smaller subset to be unsuccessful.
+- `unique_minimal_in_declared_search` additionally requires exactly one successful set at the minimum cardinality.
 
 The report includes `S`, `E`, stop conditions, and skipped subsets.
 

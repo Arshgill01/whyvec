@@ -5,8 +5,22 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "analysis_id", "query_kind", "evidence_strength", "obligation", "toolchain", "sources", "commands", "differential", "sanitizer", "optimization", "benchmark", "environment", "artifacts", "artifact_path", "caveats"],
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "1.1.0" } } },
+      "then": {
+        "required": ["candidate_source_sha256", "command_outcomes"],
+        "properties": {
+          "differential": { "$ref": "#/$defs/coverage_v1_1" },
+          "sanitizer": {
+            "properties": { "covered": { "$ref": "#/$defs/coverage_v1_1" } }
+          }
+        }
+      }
+    }
+  ],
   "properties": {
-    "schema_version": { "const": "1.0.0" },
+    "schema_version": { "enum": ["1.0.0", "1.1.0"] },
     "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
     "query_kind": { "const": "repair_validation" },
     "evidence_strength": { "const": "validated_on_covered_executions" },
@@ -28,9 +42,14 @@
       }
     },
     "sources": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/source" } },
+    "candidate_source_sha256": { "$ref": "#/$defs/sha256" },
     "commands": {
       "type": "array", "minItems": 4,
-      "items": { "type": "array", "minItems": 2, "items": { "type": "string" } }
+      "items": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+    },
+    "command_outcomes": {
+      "type": "array", "minItems": 13,
+      "items": { "$ref": "#/$defs/command_outcome" }
     },
     "differential": { "$ref": "#/$defs/coverage" },
     "sanitizer": {
@@ -87,10 +106,24 @@
       "properties": { "path": { "type": "string", "pattern": "^fixtures/" }, "sha256": { "$ref": "#/$defs/sha256" } }
     },
     "coverage": {
+      "oneOf": [
+        { "$ref": "#/$defs/coverage_v1" },
+        { "$ref": "#/$defs/coverage_v1_1" }
+      ]
+    },
+    "coverage_v1": {
       "type": "object", "additionalProperties": false,
       "required": ["executions", "fast_paths", "fallback_paths", "overflow_refusals"],
       "properties": {
         "executions": { "const": 9 }, "fast_paths": { "const": 5 },
+        "fallback_paths": { "const": 4 }, "overflow_refusals": { "const": 2 }
+      }
+    },
+    "coverage_v1_1": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executions", "fast_paths", "fallback_paths", "overflow_refusals"],
+      "properties": {
+        "executions": { "const": 11 }, "fast_paths": { "const": 7 },
         "fallback_paths": { "const": 4 }, "overflow_refusals": { "const": 2 }
       }
     },
@@ -125,6 +158,19 @@
         "sha256": { "$ref": "#/$defs/sha256" },
         "size": { "type": "integer", "minimum": 0 },
         "media_type": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "command_index", "exit_status", "stdout_sha256", "stdout_size", "stderr_sha256", "stderr_size"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "command_index": { "type": "integer", "minimum": 0 },
+        "exit_status": { "const": 0 },
+        "stdout_sha256": { "$ref": "#/$defs/sha256" },
+        "stdout_size": { "type": "integer", "minimum": 0 },
+        "stderr_sha256": { "$ref": "#/$defs/sha256" },
+        "stderr_size": { "type": "integer", "minimum": 0 }
       }
     }
   }

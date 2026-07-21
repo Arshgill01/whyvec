@@ -58,3 +58,10 @@ and its content-digested artifacts record:
 This is validated on covered executions. It is not a claim of full semantic
 equivalence, portability beyond the recorded target policy, or performance on
 another workload or machine.
+
+The historical report above uses validation schema 1.0. The [R8 Codex action
+bundle](../evidence/codex-action/2026-07-21/README.md) uses schema 1.1, which
+also binds validation to the exact guarded candidate digest and retains exit
+status plus stdout/stderr digests for every compile and execution command. Its
+separate ABI-preserving candidate adds smallest and largest fixture-supported
+bounds, for 11 differential executions: 7 fast paths and 4 fallbacks.

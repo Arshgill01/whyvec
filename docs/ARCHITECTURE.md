@@ -256,7 +256,8 @@ Search spaces are explicit finite sets. The engine:
 3. optionally expands combinations according to configuration;
 4. stops only under a declared strategy;
 5. confirms successful candidates;
-6. reports `smallest_set_found` or `minimal_in_declared_search` accurately.
+6. reports `smallest_set_found` for pruned searches and reserves declared-space
+   minimality for a completely evaluated finite search.
 
 No heuristic pruning may be described as exhaustive search.
 
@@ -305,7 +306,7 @@ Schema versioning follows [REPORT_CONTRACT.md](REPORT_CONTRACT.md).
 
 ### Codex integration
 
-The plugin invokes the CLI, reads the JSON report, gathers repository evidence, selects a repair strategy, and validates it. Its authority and refusal rules are defined in [AGENT_CONTRACT.md](AGENT_CONTRACT.md).
+The plugin invokes the CLI, replays optimization and obligation reports, gathers repository evidence, selects a repair strategy, and validates it. A bundled deterministic planner verifies report artifacts, inventories tracked references, rejects `restrict` when caller coverage is visibly incomplete, checks that guarded evidence names the exact candidate digest, and emits a create-new action trace. Codex remains responsible for language-aware caller discovery, contract interpretation, the actual source edit, and repository-native validation. Its authority and refusal rules are defined in [AGENT_CONTRACT.md](AGENT_CONTRACT.md).
 
 ## Failure containment
 

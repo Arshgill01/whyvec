@@ -1753,7 +1753,7 @@ mod tests {
         })
         .expect("causality analysis succeeds");
 
-        assert_eq!(report.minimality, "unique_minimal_in_declared_search");
+        assert_eq!(report.minimality, "smallest_set_found");
         assert_eq!(report.causal_sets.len(), 1);
         assert_eq!(report.causal_sets[0].sufficient_files, ["src/api.rs"]);
         assert!(report.causal_sets[0].target_removed_from_full_patch);

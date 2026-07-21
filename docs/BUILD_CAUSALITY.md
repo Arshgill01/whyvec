@@ -206,8 +206,10 @@ causality.
 - Duplicate candidate IDs and invalid resource limits are rejected before the
   compiler runs.
 - Search budgets and skipped declared subsets remain visible.
-- `unique_minimal_in_declared_search` requires every smaller subset and every
-  same-cardinality alternative to resolve without another success.
+- `minimal_in_declared_search` and `unique_minimal_in_declared_search` require
+  the complete declared finite search to finish. The unique form additionally
+  requires exactly one successful set at the minimum cardinality. A search
+  stopped after its first successful cardinality uses `smallest_set_found`.
 
 ## Process and repository safety
 

@@ -1,0 +1,34 @@
+{
+  "clang": {
+    "invocation_path": "/usr/bin/clang-21",
+    "resolved_path": "/usr/lib/llvm-21/bin/clang",
+    "binary_digest": "78e9dd2ccc9e88859b3a29109a44bfab00e3d6cb70f00f3daae063eed3d05251",
+    "version": "Ubuntu clang version 21.1.8 (6ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/lib/llvm-21/bin"
+  },
+  "optimizer": {
+    "invocation_path": "/usr/bin/opt-21",
+    "resolved_path": "/usr/lib/llvm-21/bin/opt",
+    "binary_digest": "cd07d9d8a54a02001b755f407a6401a57adf526da1c81ad3ee27a64303934f16",
+    "version": "Ubuntu LLVM version 21.1.8\n  Optimized build.\n  Default target: x86_64-pc-linux-gnu\n  Host CPU: znver2"
+  },
+  "transformer": {
+    "invocation_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-transform",
+    "resolved_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-transform",
+    "binary_digest": "b506eda8b7ecf3f3bb523eed88a9f7300370b74f52e8f800ccc2297b8fc045dc",
+    "version": "Ubuntu LLVM version 21.1.8\n  Optimized build."
+  },
+  "identity_tool": {
+    "invocation_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-loop-identity",
+    "resolved_path": "/home/arshdeepsingh/work/github/whyvec/evidence/codex-action/2026-07-21/tools/whyvec-llvm-loop-identity",
+    "binary_digest": "2870c34921329faefff6a678734ca9b50024befd89f594b95e1a6e4be9f3d557",
+    "version": "Ubuntu LLVM version 21.1.8\n  Optimized build."
+  },
+  "optimization": "O3",
+  "cpu": "x86-64-v3",
+  "normalized_flags": [
+    "-O3",
+    "-march=x86-64-v3",
+    "-gline-tables-only",
+    "-gcolumn-info"
+  ]
+}

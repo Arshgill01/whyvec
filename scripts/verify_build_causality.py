@@ -101,7 +101,7 @@ def verify_report(report: dict[str, object], repository: Path) -> None:
         for field in ("network_isolated", "host_root_read_only", "private_tmp")
     ):
         raise RuntimeError(f"build sandbox guarantees are incomplete: {sandbox}")
-    if report.get("minimality") != "unique_minimal_in_declared_search":
+    if report.get("minimality") != "smallest_set_found":
         raise RuntimeError(f"unexpected minimality: {report.get('minimality')}")
     causal_sets = report.get("causal_sets")
     if not isinstance(causal_sets, list) or len(causal_sets) != 1:

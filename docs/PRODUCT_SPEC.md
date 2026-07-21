@@ -53,7 +53,7 @@ The primary `analyze` output is concise. `inspect` and the artifact directory ex
 
 ### Codex integration
 
-The `whyvec-optimize` skill orchestrates diagnosis, repository inspection, repair selection, patching, and validation. It must use the deterministic CLI for every compiler claim.
+The `whyvec-optimize` skill orchestrates diagnosis, repository inspection, repair selection, patching, and validation. It must use the deterministic CLI for every compiler claim and retain a schema-valid repository action trace linking the exact candidate to its validation evidence.
 
 ### Machine report
 

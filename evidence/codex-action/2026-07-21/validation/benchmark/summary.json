@@ -1,0 +1,1 @@
+{"classification": "measured_improvement", "decision_rule": "improvement only when median separation exceeds three times summed MAD", "guarded_mad_ns": 92089.0, "guarded_median_ns": 1371561.0, "median_ratio": 3.3958219867727357, "original_mad_ns": 82642.0, "original_median_ns": 4657577.0}

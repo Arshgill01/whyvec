@@ -40,12 +40,16 @@ REQUIRED_PATHS = (
     "schemas/whyvec-gcc-observation-report.schema.json",
     "schemas/whyvec-obligation-report.schema.json",
     "schemas/whyvec-validation-report.schema.json",
+    "schemas/whyvec-agent-trace.schema.json",
     "schemas/fixture-manifest.schema.json",
     "fixtures/manifest.json",
     "toolchains/clang-21/profile.json",
     "toolchains/rustc-1.96/profile.json",
     "integrations/codex/whyvec/.codex-plugin/plugin.json",
     "integrations/codex/whyvec/skills/whyvec-optimize/SKILL.md",
+    "integrations/codex/whyvec/skills/whyvec-optimize/agents/openai.yaml",
+    "integrations/codex/whyvec/skills/whyvec-optimize/references/action-trace.md",
+    "integrations/codex/whyvec/skills/whyvec-optimize/scripts/plan_action.py",
     "crates/whyvec-experiment/Cargo.toml",
     "crates/whyvec-experiment/src/lib.rs",
     "crates/whyvec-obligation/Cargo.toml",
@@ -59,9 +63,20 @@ REQUIRED_PATHS = (
     "scripts/verify_guarded_repair.py",
     "fixtures/cases/bound-alias-repair/original.c",
     "fixtures/cases/bound-alias-repair/guarded.c",
+    "fixtures/cases/bound-alias-repair/candidate.c",
+    "fixtures/cases/bound-alias-repair/abi_harness.c",
+    "fixtures/cases/bound-alias-repair/action_harness.c",
+    "fixtures/cases/bound-alias-repair/production_harness.c",
+    "fixtures/cases/bound-alias-repair/action_benchmark.c",
     "fixtures/cases/bound-alias-repair/harness.c",
     "fixtures/cases/bound-alias-repair/benchmark.c",
     "evidence/guarded-bound-alias/2026-07-21/report.json",
+    "evidence/codex-action/2026-07-21/README.md",
+    "evidence/codex-action/2026-07-21/action/trace.json",
+    "evidence/codex-action/2026-07-21/replay.json",
+    "evidence/codex-action/2026-07-21/validation/report.json",
+    "evidence/codex-action/2026-07-21/tools/whyvec-llvm-transform",
+    "evidence/codex-action/2026-07-21/tools/whyvec-llvm-loop-identity",
     "tools/typescript-adapter/diagnostics.mjs",
     "tools/typescript-adapter/package-lock.json",
 )
@@ -356,6 +371,58 @@ def validate_guarded_evidence(errors: list[str]) -> None:
             errors.append(f"{source.get('path')}: validation source digest mismatch")
 
 
+def validate_agent_evidence(errors: list[str]) -> None:
+    root = ROOT / "evidence/codex-action/2026-07-21"
+    trace_path = root / "action/trace.json"
+    trace = load_json(trace_path, errors)
+    if not isinstance(trace, dict):
+        return
+    if trace.get("selected_action") != "validated_guarded_runtime":
+        errors.append(f"{trace_path.relative_to(ROOT)}: unexpected selected action")
+    evidence = trace.get("evidence")
+    patch = trace.get("patch")
+    if not isinstance(evidence, dict) or not isinstance(patch, dict):
+        errors.append(f"{trace_path.relative_to(ROOT)}: evidence or patch is absent")
+        return
+    for key in ("optimization_report", "obligation_report", "validation_report"):
+        value = evidence.get(key)
+        resolved = (trace_path.parent / value).resolve() if isinstance(value, str) else None
+        if resolved is None or not resolved.is_file():
+            errors.append(f"{trace_path.relative_to(ROOT)}: missing {key}")
+    validation_value = evidence.get("validation_report")
+    validation_path = (
+        (trace_path.parent / validation_value).resolve()
+        if isinstance(validation_value, str)
+        else Path()
+    )
+    if validation_path.is_file():
+        content = validation_path.read_bytes()
+        if hashlib.sha256(content).hexdigest() != evidence.get("validation_report_sha256"):
+            errors.append(f"{trace_path.relative_to(ROOT)}: validation report digest mismatch")
+        validation = load_json(validation_path, errors)
+        if isinstance(validation, dict):
+            if validation.get("schema_version") != "1.1.0":
+                errors.append(f"{validation_path.relative_to(ROOT)}: schema 1.1 required")
+            if validation.get("candidate_source_sha256") != patch.get("candidate_sha256"):
+                errors.append(f"{validation_path.relative_to(ROOT)}: candidate digest mismatch")
+            if len(validation.get("command_outcomes", [])) != len(
+                validation.get("commands", [])
+            ):
+                errors.append(f"{validation_path.relative_to(ROOT)}: command ledger mismatch")
+    candidate = root / "repository/bound-alias-repair/candidate.c"
+    if (
+        not candidate.is_file()
+        or hashlib.sha256(candidate.read_bytes()).hexdigest() != patch.get("candidate_sha256")
+    ):
+        errors.append(f"{candidate.relative_to(ROOT)}: action candidate digest mismatch")
+    replay_path = root / "replay.json"
+    replay = load_json(replay_path, errors)
+    if isinstance(replay, dict):
+        for name in ("optimization", "obligation"):
+            if replay.get(name, {}).get("matched") is not True:
+                errors.append(f"{replay_path.relative_to(ROOT)}: {name} did not match")
+
+
 def main() -> int:
     errors: list[str] = []
     validate_required_paths(errors)
@@ -365,6 +432,7 @@ def main() -> int:
     validate_plugin(errors)
     validate_text_files(errors)
     validate_guarded_evidence(errors)
+    validate_agent_evidence(errors)
 
     if errors:
         print("repository validation failed:", file=sys.stderr)

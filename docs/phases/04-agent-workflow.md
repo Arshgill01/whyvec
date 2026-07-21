@@ -36,3 +36,15 @@
 - The agent refuses cases the obligation engine declined.
 - Every patch trace records inspected callers, strategy comparison, commands, and outcomes.
 - Plugin and skill validators pass after installation from a clean checkout.
+
+## R8 retained evidence
+
+The executable workflow is covered by `scripts/verify_optimization_causality.py`.
+It produces and schema-validates a guarded selection, a candidate-digest
+mismatch that returns `validation_required`, and a volatile-obligation refusal.
+The retained positive bundle is under
+`evidence/codex-action/2026-07-21/`; it includes replayed upstream reports, the
+exact ABI-preserving candidate, external-caller uncertainty, all four strategy
+decisions, thirteen compile/execute outcomes, both guarded branches, production
+and instrumented sanitizer/compiler coverage, benchmark distributions, and
+residual risks.

@@ -119,6 +119,9 @@ Codex must demonstrate:
 - adding an overlap regression that fails an unsafe cached-bound rewrite;
 - rerunning WhyVec and repository checks after the patch;
 - distinguishing compiler evidence from repository inference in its explanation.
+- refusing to reuse guarded validation when the proposed candidate digest differs;
+- rejecting a guarded source replacement until its default public ABI compiles and executes;
+- producing a schema-valid, create-new action trace for both guarded selection and typed obligation refusal.
 
 ### Security tests
 

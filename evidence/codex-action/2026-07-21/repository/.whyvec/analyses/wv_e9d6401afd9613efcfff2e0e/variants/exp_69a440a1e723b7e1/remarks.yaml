@@ -1,0 +1,87 @@
+--- !Passed
+Pass:            licm
+Name:            Hoisted
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+Function:        add_vectors_
+Args:
+  - String:          'hoisting '
+  - Inst:            load
+    DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 23 }
+...
+--- !Passed
+Pass:            loop-vectorize
+Name:            Vectorized
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'vectorized '
+  - String:          ''
+  - String:          'loop (vectorization width: '
+  - VectorizationFactor: '8'
+  - String:          ', interleaved count: '
+  - InterleaveCount: '4'
+  - String:          ')'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotPossible
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 6, Column: 15 }
+Function:        add_vectors_
+Args:
+  - String:          'Cannot SLP vectorize list: vectorization was impossible'
+  - String:          ' with available vectorization factors'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Missed
+Pass:            slp-vectorizer
+Name:            NotBeneficial
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'List vectorization was possible but not beneficial with cost '
+  - Cost:            '0'
+  - String:          ' >= '
+  - Treshold:        '0'
+...
+--- !Passed
+Pass:            loop-unroll
+Name:            PartialUnrolled
+DebugLoc:        { File: 'bound-alias/kernel.c', Line: 5, Column: 3 }
+Function:        add_vectors_
+Args:
+  - String:          'unrolled loop by a factor of '
+  - UnrollCount:     '8'
+  - String:          ' with run-time trip count'
+...

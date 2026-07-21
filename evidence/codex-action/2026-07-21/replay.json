@@ -1,0 +1,14 @@
+{
+  "obligation": {
+    "matched": true,
+    "original_analysis_id": "wv_57e62f4f87b35ec273f99f2c",
+    "replay_analysis_id": "wv_b05a5639fb3db20c6b39b135",
+    "semantic_digest": "1888b650add35f22dd8ef3022653f51dc7bed2378cc41c45c0a837c81b35ed71"
+  },
+  "optimization": {
+    "matched": true,
+    "original_analysis_id": "wv_9890a0a53ede03800e257728",
+    "replay_analysis_id": "wv_e9d6401afd9613efcfff2e0e",
+    "semantic_digest": "313e5f9b0e5a11b309b66061be532370c51034b69fde4035ab00e1246a2c1ef8"
+  }
+}
