@@ -6,7 +6,7 @@ ARG CODEX_VERSION=0.144.3
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       ca-certificates cmake curl git gnupg jq ninja-build nodejs npm \
+       build-essential ca-certificates cmake curl git gnupg jq ninja-build nodejs npm \
        python3 python3-jsonschema python3-yaml xz-utils \
     && curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
        -o /usr/share/keyrings/apt.llvm.org.asc \

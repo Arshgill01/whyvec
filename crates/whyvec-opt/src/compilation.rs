@@ -565,24 +565,29 @@ mod tests {
         .unwrap();
     }
 
+    fn fixture_compiler(root: &Path) -> PathBuf {
+        let compiler = root.join("clang-21");
+        fs::write(&compiler, "fixture compiler identity\n").unwrap();
+        compiler
+    }
+
     #[test]
     fn resolves_command_form_and_preserves_semantic_flags() {
         let root = fixture("flags");
         let source = root.join("kernel.c");
+        let compiler = fixture_compiler(&root);
         write_database(
             &root,
             &serde_json::json!([{
                 "directory": root,
                 "file": source,
-                "command": format!("/usr/bin/clang-21 -std=c17 --target=x86_64-linux-gnu -I include -DVALUE=3 -O2 -c {} -o build/kernel.o", source.display())
+                "command": format!("{} -std=c17 --target=x86_64-linux-gnu -I include -DVALUE=3 -O2 -c {} -o build/kernel.o", compiler.display(), source.display())
             }]),
         );
         let resolved = resolve_compilation_command(&root, &source).unwrap();
         assert_eq!(
             resolved.compiler,
-            fs::canonicalize("/usr/bin/clang-21")
-                .unwrap()
-                .to_string_lossy()
+            fs::canonicalize(compiler).unwrap().to_string_lossy()
         );
         assert_eq!(
             resolved.arguments,
@@ -602,13 +607,14 @@ mod tests {
     fn expands_and_fingerprints_bounded_response_files() {
         let root = fixture("response");
         let source = root.join("kernel.c");
+        let compiler = fixture_compiler(&root);
         fs::write(root.join("build/flags.rsp"), "-std=c11 -DANSWER=42 -O3").unwrap();
         write_database(
             &root,
             &serde_json::json!([{
                 "directory": root.join("build"),
                 "file": source,
-                "arguments": ["/usr/bin/clang-21", "@flags.rsp", "-c", source]
+                "arguments": [compiler, "@flags.rsp", "-c", source]
             }]),
         );
         let resolved = resolve_compilation_command(&root, &source).unwrap();
@@ -638,6 +644,7 @@ mod tests {
     fn declines_shells_plugins_and_response_escape() {
         let root = fixture("policy");
         let source = root.join("kernel.c");
+        let compiler = fixture_compiler(&root);
         write_database(
             &root,
             &serde_json::json!([{
@@ -655,7 +662,7 @@ mod tests {
             &serde_json::json!([{
                 "directory": root,
                 "file": source,
-                "arguments": ["/usr/bin/clang-21", "-fplugin=evil.so", "-c", source]
+                "arguments": [compiler, "-fplugin=evil.so", "-c", source]
             }]),
         );
         assert!(matches!(

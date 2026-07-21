@@ -158,3 +158,17 @@ the build step because `containers/judge/build.sh` had been added with mode
 
 Safeguard: the script is now tracked as `100755`. A replacement push must build
 and execute the image before the clean-environment gate is considered closed.
+
+## 2026-07-21T19:22:29Z — Host-dependent unit fixture and missing container linker
+
+GitHub run `29861043288` exposed two independent clean-environment defects.
+Three compilation-database unit tests used `/usr/bin/clang-21` as a convenient
+identity to normalize and fingerprint; the minimal Rust job correctly had no
+such path. The judge image installed Clang/LLVM but not a system `cc`, so Rust
+failed while linking dependency build scripts before WhyVec compiled.
+
+Safeguards: the unit fixtures now create a repository-local file named
+`clang-21`, exercising the same canonicalization and policy rules without a
+host tool dependency. The pinned image installs `build-essential` explicitly.
+All fifteen focused optimization tests and strict workspace Clippy pass locally;
+the replacement hosted run must still execute the complete image.
