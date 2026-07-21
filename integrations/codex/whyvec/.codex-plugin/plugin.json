@@ -1,0 +1,31 @@
+{
+  "name": "whyvec",
+  "version": "0.1.0",
+  "description": "Counterfactual compiler evidence for safe, repository-aware loop optimization.",
+  "author": {
+    "name": "Arshdeep Singh"
+  },
+  "repository": "https://github.com/Arshgill01/whyvec",
+  "license": "MIT",
+  "keywords": [
+    "clang",
+    "llvm",
+    "vectorization",
+    "optimization",
+    "compiler"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "WhyVec",
+    "shortDescription": "Turn missed vectorization into tested compiler obligations.",
+    "longDescription": "WhyVec gives Codex reproducible counterfactual compiler evidence, then guides repository-aware repair selection, validation, or refusal.",
+    "developerName": "Arshdeep Singh",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Analysis",
+      "Code modification",
+      "Validation"
+    ],
+    "defaultPrompt": "Use WhyVec evidence to diagnose this missed vectorization, inspect repository contracts, and select, validate, or refuse a safe repair."
+  }
+}

@@ -1,0 +1,36 @@
+name: Repository integrity
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.1 --profile minimal --component clippy,rustfmt
+
+      - name: Validate repository contracts
+        run: python3 scripts/validate_repository.py
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Check domain model
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test domain model
+        run: cargo test --workspace --all-targets --all-features

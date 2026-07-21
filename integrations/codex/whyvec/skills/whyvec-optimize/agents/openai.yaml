@@ -1,0 +1,4 @@
+interface:
+  display_name: "WhyVec Optimize"
+  short_description: "Diagnose and repair missed vectorization"
+  default_prompt: "Use $whyvec-optimize to diagnose a missed Clang vectorization and implement a verified repository-level repair."

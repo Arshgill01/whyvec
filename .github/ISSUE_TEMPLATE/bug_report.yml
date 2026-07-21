@@ -1,0 +1,52 @@
+name: Product defect
+description: Report incorrect behavior, unsafe advice, or a reproducibility failure.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Remove private source, credentials, absolute private paths, and sensitive
+        environment values before attaching artifacts.
+  - type: input
+    id: version
+    attributes:
+      label: WhyVec version or commit
+      placeholder: v0.1.0 or full commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: toolchain
+    attributes:
+      label: Toolchain fingerprint
+      description: Compiler version and digest, target, CPU/features, and normalized flags.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include the exact command, exit code, classification, and decline code if present.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State which documented contract you expected WhyVec to follow.
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Sanitized evidence bundle
+      description: Link report JSON, raw remarks, isolation diff, and reproduction fixture.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed secrets and private source from attached artifacts.
+          required: true
+        - label: I reproduced this using the recorded compiler inputs.
+          required: true

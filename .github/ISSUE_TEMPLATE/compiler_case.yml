@@ -1,0 +1,51 @@
+name: Compiler case
+description: Propose a reproducible optimization case or counterfactual family.
+title: "case: "
+labels: [compiler-case]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Proposal kind
+      options:
+        - Existing noalias-family fixture
+        - New counterfactual family
+        - Toolchain compatibility case
+        - Refusal or adversarial case
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Minimal source and build command
+      description: Provide defined, redistributable source and the complete compiler invocation.
+    validations:
+      required: true
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Baseline evidence
+      description: Include structured remarks, compiler/target fingerprint, and selected loop location.
+    validations:
+      required: true
+  - type: textarea
+    id: delta
+    attributes:
+      label: Proposed isolated delta
+      description: Name the exact semantic assumption and how unrelated changes will be excluded.
+    validations:
+      required: true
+  - type: textarea
+    id: obligation
+    attributes:
+      label: Enforcement model
+      description: Describe the possible source obligation, runtime guard, and mandatory refusals.
+    validations:
+      required: true
+  - type: textarea
+    id: adversarial
+    attributes:
+      label: Adversarial cases
+      description: List counterexamples, undefined inputs, concurrency concerns, and false-positive risks.
+    validations:
+      required: true
