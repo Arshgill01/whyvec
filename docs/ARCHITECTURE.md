@@ -146,6 +146,11 @@ read-only finalization. Adapters decide which compiler inputs and outputs must
 be retained; they cannot replace the shared three-valued or content-integrity
 contracts.
 
+It also owns argv-only subprocess execution, a clear-by-default environment
+allowlist, concurrent bounded stdout/stderr draining, wall-clock timeouts, and
+process-group termination. Adapter policy still decides which executable and
+arguments are authorized before using this runner.
+
 ### Baseline analyzer
 
 Responsibilities:

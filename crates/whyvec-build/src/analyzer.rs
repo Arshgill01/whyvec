@@ -8,8 +8,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use whyvec_domain::{ExperimentVerdict, SearchMinimality, UnresolvedReason};
 use whyvec_experiment::{
-    ArtifactError, ArtifactReference, ArtifactStore, InterventionId, SearchConfigurationError,
-    SearchLimits, SearchStopReason, search_sufficient_sets,
+    ArtifactError, ArtifactReference, ArtifactStore, InterventionId, ProcessError,
+    SearchConfigurationError, SearchLimits, SearchStopReason, process_request, run_process,
+    search_sufficient_sets,
 };
 
 use crate::diagnostics::{
@@ -20,7 +21,6 @@ use crate::git::{
     ChangeAtom, ChangeAtomSummary, GitError, GitRepository, TextHunk, TextHunkSummary,
     apply_text_hunks,
 };
-use crate::process::{self, ProcessError};
 
 const BUILD_TIMEOUT: Duration = Duration::from_mins(3);
 const BUILD_OUTPUT_LIMIT: usize = 32 * 1024 * 1024;
@@ -685,7 +685,7 @@ impl AnalysisSession {
         }
         apply_text_hunks(hunks, worktree)?;
 
-        let mut process_request = process::request(
+        let mut process_request = process_request(
             &self.command.program,
             self.command.adapter_arguments()?,
             worktree,
@@ -700,7 +700,7 @@ impl AnalysisSession {
             (OsString::from("CARGO_NET_OFFLINE"), OsString::from("true")),
             (OsString::from("CARGO_TERM_COLOR"), OsString::from("never")),
         ]);
-        let result = process::run(&process_request)?;
+        let result = run_process(&process_request)?;
         let diagnostics = parse_cargo_json(&result.stdout, worktree);
         let run_name = run_artifact_name(identifiers);
         let artifact_store = ArtifactStore::new(&self.artifact_root);
@@ -1090,13 +1090,13 @@ fn capture_tool(
     current_dir: &Path,
 ) -> Result<ToolIdentity, AnalysisError> {
     let resolved = invocation.canonicalize()?;
-    let mut request = process::request(
+    let mut request = process_request(
         invocation.as_os_str(),
         version_arguments.iter().copied(),
         current_dir,
     );
     request.output_limit = 1024 * 1024;
-    let output = process::run(&request)?;
+    let output = run_process(&request)?;
     if output.timed_out || output.exit_code != Some(0) || output.stdout_truncated {
         return Err(AnalysisError::ArtifactIntegrity(format!(
             "could not fingerprint {}",
@@ -1116,12 +1116,12 @@ fn capture_tool(
 
 fn rustup_which(tool: &str, current_dir: &Path) -> Option<PathBuf> {
     let rustup = resolve_program("rustup").ok()?;
-    let request = process::request(
+    let request = process_request(
         rustup.as_os_str(),
         [OsString::from("which"), OsString::from(tool)],
         current_dir,
     );
-    let output = process::run(&request).ok()?;
+    let output = run_process(&request).ok()?;
     if output.timed_out || output.exit_code != Some(0) || output.stdout_truncated {
         return None;
     }
@@ -1131,12 +1131,12 @@ fn rustup_which(tool: &str, current_dir: &Path) -> Option<PathBuf> {
 
 fn rustup_active_toolchain(current_dir: &Path) -> Option<String> {
     let rustup = resolve_program("rustup").ok()?;
-    let request = process::request(
+    let request = process_request(
         rustup.as_os_str(),
         ["show", "active-toolchain"],
         current_dir,
     );
-    let output = process::run(&request).ok()?;
+    let output = run_process(&request).ok()?;
     if output.timed_out || output.exit_code != Some(0) || output.stdout_truncated {
         return None;
     }

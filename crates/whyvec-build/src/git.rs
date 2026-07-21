@@ -5,8 +5,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-
-use crate::process::{self, ProcessError};
+use whyvec_experiment::{ProcessError, ProcessResult, process_request, run_process};
 
 #[derive(Clone, Debug)]
 enum AtomPayload {
@@ -320,7 +319,7 @@ impl ChangeAtom {
     pub fn apply(&self, worktree: &Path) -> Result<(), GitError> {
         match &self.payload {
             AtomPayload::Patch(patch) => {
-                let mut request = process::request(
+                let mut request = process_request(
                     "git",
                     [
                         "apply",
@@ -332,7 +331,7 @@ impl ChangeAtom {
                     worktree,
                 );
                 request.stdin = Some(patch.clone());
-                let result = process::run(&request)?;
+                let result = run_process(&request)?;
                 if result.timed_out || result.exit_code != Some(0) {
                     return Err(GitError::CommandFailed {
                         operation: "apply",
@@ -400,7 +399,7 @@ pub fn apply_text_hunks(hunks: &[TextHunk], worktree: &Path) -> Result<(), GitEr
             patch.extend_from_slice(&hunk.patch);
         }
     }
-    let mut request = process::request(
+    let mut request = process_request(
         "git",
         [
             "apply",
@@ -412,7 +411,7 @@ pub fn apply_text_hunks(hunks: &[TextHunk], worktree: &Path) -> Result<(), GitEr
         worktree,
     );
     request.stdin = Some(patch);
-    let result = process::run(&request)?;
+    let result = run_process(&request)?;
     if result.timed_out || result.exit_code != Some(0) {
         return Err(GitError::CommandFailed {
             operation: "apply refined hunks",
@@ -583,17 +582,17 @@ fn parse_single_line(bytes: &[u8]) -> Result<String, GitError> {
 fn git<const N: usize>(
     current_dir: &Path,
     arguments: [&str; N],
-) -> Result<process::ProcessResult, GitError> {
+) -> Result<ProcessResult, GitError> {
     git_os(current_dir, arguments.map(OsString::from))
 }
 
 fn git_os(
     current_dir: &Path,
     arguments: impl IntoIterator<Item = OsString>,
-) -> Result<process::ProcessResult, GitError> {
-    let mut request = process::request("git", arguments, current_dir);
+) -> Result<ProcessResult, GitError> {
+    let mut request = process_request("git", arguments, current_dir);
     request.timeout = Duration::from_mins(1);
-    let result = process::run(&request)?;
+    let result = run_process(&request)?;
     if result.timed_out || result.exit_code != Some(0) {
         return Err(GitError::CommandFailed {
             operation: "command",

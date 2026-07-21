@@ -11,8 +11,13 @@ use std::fmt;
 use whyvec_domain::{ExperimentVerdict, SearchMinimality};
 
 mod artifacts;
+mod process;
 
 pub use artifacts::{ArtifactError, ArtifactReference, ArtifactStore};
+pub use process::{
+    ProcessError, ProcessRequest, ProcessResult, inherited_environment, process_request,
+    run_process,
+};
 
 /// Stable identifier of one typed intervention supplied by an adapter or pack.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]

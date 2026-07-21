@@ -186,3 +186,25 @@ Results:
 - The build adapter consumes the shared artifact contract without changing its
   public report schema or replay behavior; the public generated-repository
   replay and tamper-refusal validation remained passing.
+
+## 2026-07-21T12:09:06Z — Shared bounded process runtime validation
+
+Passed commands:
+
+```console
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/verify_build_causality.py
+```
+
+Results:
+
+- Twenty-six Rust tests passed after moving subprocess execution from the
+  Cargo adapter into the shared experiment runtime.
+- Shared process tests exercised concurrent bounded output draining,
+  process-group timeout termination, and the clear-by-default environment
+  allowlist contract.
+- The Cargo/Git adapter retained its wrapper refusal, offline build,
+  diagnostic identity, file/hunk search, artifact, and replay behavior while
+  using the shared runner.

@@ -7,7 +7,6 @@ use std::fmt::Write as _;
 mod analyzer;
 mod diagnostics;
 mod git;
-mod process;
 
 pub use analyzer::{
     AnalysisError, BuildCausalityReport, BuildCausalityRequest, BuildCommand, BuildRunSummary,

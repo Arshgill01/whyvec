@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 #[derive(Clone, Debug)]
-pub(crate) struct ProcessRequest {
+pub struct ProcessRequest {
     pub program: OsString,
     pub arguments: Vec<OsString>,
     pub current_dir: PathBuf,
@@ -20,7 +20,7 @@ pub(crate) struct ProcessRequest {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct ProcessResult {
+pub struct ProcessResult {
     pub exit_code: Option<i32>,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
@@ -37,6 +37,7 @@ pub enum ProcessError {
     },
     Stdin(io::Error),
     Wait(io::Error),
+    MissingPipe(&'static str),
     ReaderThreadPanicked,
     Output(io::Error),
 }
@@ -44,15 +45,14 @@ pub enum ProcessError {
 impl std::fmt::Display for ProcessError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Spawn { program, source } => {
-                write!(
-                    formatter,
-                    "failed to spawn {}: {source}",
-                    program.to_string_lossy()
-                )
-            }
+            Self::Spawn { program, source } => write!(
+                formatter,
+                "failed to spawn {}: {source}",
+                program.to_string_lossy()
+            ),
             Self::Stdin(source) => write!(formatter, "failed to write process stdin: {source}"),
             Self::Wait(source) => write!(formatter, "failed while waiting for process: {source}"),
+            Self::MissingPipe(stream) => write!(formatter, "child {stream} pipe is unavailable"),
             Self::ReaderThreadPanicked => formatter.write_str("output reader thread panicked"),
             Self::Output(source) => write!(formatter, "failed to read process output: {source}"),
         }
@@ -61,7 +61,12 @@ impl std::fmt::Display for ProcessError {
 
 impl std::error::Error for ProcessError {}
 
-pub(crate) fn run(request: &ProcessRequest) -> Result<ProcessResult, ProcessError> {
+/// Executes one argv-only process with bounded output and process-tree timeout termination.
+///
+/// # Errors
+///
+/// Returns `ProcessError` for spawn, stdin, wait, or output-reader failures.
+pub fn run_process(request: &ProcessRequest) -> Result<ProcessResult, ProcessError> {
     let mut command = Command::new(&request.program);
     command
         .args(&request.arguments)
@@ -84,18 +89,25 @@ pub(crate) fn run(request: &ProcessRequest) -> Result<ProcessResult, ProcessErro
         source,
     })?;
 
-    let stdout = child.stdout.take().expect("piped stdout exists");
-    let stderr = child.stderr.take().expect("piped stderr exists");
+    let Some(stdout) = child.stdout.take() else {
+        return stop_for_missing_pipe(&mut child, "stdout");
+    };
+    let Some(stderr) = child.stderr.take() else {
+        return stop_for_missing_pipe(&mut child, "stderr");
+    };
     let output_limit = request.output_limit;
     let stdout_reader = thread::spawn(move || read_bounded(stdout, output_limit));
     let stderr_reader = thread::spawn(move || read_bounded(stderr, output_limit));
 
     if let Some(bytes) = &request.stdin {
-        let write_result = child
-            .stdin
-            .take()
-            .expect("piped stdin exists")
-            .write_all(bytes);
+        let Some(mut stdin) = child.stdin.take() else {
+            terminate_process_tree(&mut child);
+            let _ = child.wait();
+            let _ = stdout_reader.join();
+            let _ = stderr_reader.join();
+            return Err(ProcessError::MissingPipe("stdin"));
+        };
+        let write_result = stdin.write_all(bytes);
         if let Err(source) = write_result {
             terminate_process_tree(&mut child);
             let _ = child.wait();
@@ -135,6 +147,15 @@ pub(crate) fn run(request: &ProcessRequest) -> Result<ProcessResult, ProcessErro
         stdout_truncated,
         stderr_truncated,
     })
+}
+
+fn stop_for_missing_pipe(
+    child: &mut Child,
+    stream: &'static str,
+) -> Result<ProcessResult, ProcessError> {
+    terminate_process_tree(child);
+    let _ = child.wait();
+    Err(ProcessError::MissingPipe(stream))
 }
 
 #[cfg(unix)]
@@ -182,14 +203,15 @@ fn read_bounded(mut reader: impl Read, limit: usize) -> io::Result<(Vec<u8>, boo
     Ok((retained, truncated))
 }
 
-pub(crate) fn inherited_environment(names: &[&str]) -> Vec<(OsString, OsString)> {
+#[must_use]
+pub fn inherited_environment(names: &[&str]) -> Vec<(OsString, OsString)> {
     names
         .iter()
         .filter_map(|name| std::env::var_os(name).map(|value| (OsString::from(name), value)))
         .collect()
 }
 
-pub(crate) fn request(
+pub fn process_request(
     program: impl AsRef<OsStr>,
     arguments: impl IntoIterator<Item = impl AsRef<OsStr>>,
     current_dir: &Path,
@@ -223,13 +245,13 @@ mod tests {
 
     #[test]
     fn retains_only_configured_output_prefix_while_draining() {
-        let mut command = request(
+        let mut command = process_request(
             "sh",
             ["-c", "printf 1234567890; printf abcdefghij >&2"],
             Path::new("."),
         );
         command.output_limit = 4;
-        let result = run(&command).expect("process succeeds");
+        let result = run_process(&command).expect("process succeeds");
         assert_eq!(result.stdout, b"1234");
         assert_eq!(result.stderr, b"abcd");
         assert!(result.stdout_truncated);
@@ -238,9 +260,29 @@ mod tests {
 
     #[test]
     fn terminates_process_after_timeout() {
-        let mut command = request("sh", ["-c", "sleep 5"], Path::new("."));
+        let mut command = process_request("sh", ["-c", "sleep 5"], Path::new("."));
         command.timeout = Duration::from_millis(50);
-        let result = run(&command).expect("timeout is an outcome");
+        let result = run_process(&command).expect("timeout is an outcome");
         assert!(result.timed_out);
+    }
+
+    #[test]
+    fn request_defaults_to_a_cleared_environment_allowlist() {
+        let command = process_request("true", std::iter::empty::<&str>(), Path::new("."));
+        assert!(command.clear_environment);
+        let allowed = [
+            "PATH",
+            "HOME",
+            "USER",
+            "TMPDIR",
+            "RUSTUP_HOME",
+            "CARGO_HOME",
+            "RUSTUP_TOOLCHAIN",
+        ];
+        assert!(command.environment.iter().all(|(name, _)| {
+            allowed
+                .iter()
+                .any(|allowed_name| name == OsStr::new(allowed_name))
+        }));
     }
 }
