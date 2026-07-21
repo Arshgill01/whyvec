@@ -7,6 +7,7 @@ use std::fmt::Write as _;
 mod analyzer;
 mod diagnostics;
 mod git;
+mod syntax;
 
 pub use analyzer::{
     AnalysisError, BuildCausalityReport, BuildCausalityRequest, BuildCommand, BuildRunSummary,
@@ -17,7 +18,7 @@ pub use diagnostics::{
     DiagnosticRecord, DiagnosticSelectionError, DiagnosticSelector, SourceSpan, parse_cargo_json,
     select_diagnostic,
 };
-pub use git::ChangeAtomSummary;
+pub use git::{ChangeAtomSummary, SyntaxEditGroupSummary};
 pub use whyvec_experiment::ArtifactReference;
 
 fn hex_prefix(bytes: &[u8], length: usize) -> String {

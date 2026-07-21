@@ -29,3 +29,5 @@ The format follows Keep a Changelog principles, and releases use semantic versio
   outcomes that stop without inventing a loop or treating uncertainty as a miss.
 - Mandatory fingerprinted Bubblewrap containment for Cargo experiments with an
   isolated network, read-only host root, private `/tmp`, and no unsandboxed fallback.
+- Parsed Rust syntax-item intervention groups that keep dependent separated
+  hunks together while retaining exact patches and explicit text fallbacks.

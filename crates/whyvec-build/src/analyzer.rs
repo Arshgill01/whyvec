@@ -18,8 +18,8 @@ use crate::diagnostics::{
     select_diagnostic,
 };
 use crate::git::{
-    ChangeAtom, ChangeAtomSummary, GitError, GitRepository, TextHunk, TextHunkSummary,
-    apply_text_hunks,
+    ChangeAtom, ChangeAtomSummary, GitError, GitRepository, SyntaxEditGroup,
+    SyntaxEditGroupSummary, TextHunk, TextHunkSummary, apply_text_hunks,
 };
 
 const BUILD_TIMEOUT: Duration = Duration::from_mins(3);
@@ -158,9 +158,11 @@ pub struct CausalSetReport {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct HunkCausalSetReport {
+    pub sufficient_groups: Vec<String>,
     pub sufficient_hunks: Vec<String>,
     pub locations: Vec<String>,
     pub removal_file_atoms: Vec<String>,
+    pub removal_groups: Vec<String>,
     pub removal_hunks: Vec<String>,
     pub target_removed_from_full_patch: bool,
     pub diagnostics_suppressed_with_target: Vec<DiagnosticRecord>,
@@ -171,6 +173,8 @@ pub struct HunkRefinementReport {
     pub parent_sufficient_atoms: Vec<String>,
     pub fixed_atoms: Vec<String>,
     pub hunks: Vec<TextHunkSummary>,
+    pub grouping: String,
+    pub syntax_groups: Vec<SyntaxEditGroupSummary>,
     pub evaluations: Vec<SearchEvaluationSummary>,
     pub minimality: String,
     pub stop_reason: String,
@@ -551,7 +555,7 @@ pub fn explain_build(
         max_hunk_cardinality: request.max_hunk_cardinality.unwrap_or_else(|| {
             hunk_refinements
                 .iter()
-                .map(|refinement| refinement.hunks.len())
+                .map(|refinement| refinement.syntax_groups.len())
                 .max()
                 .unwrap_or(1)
         }),
@@ -681,6 +685,49 @@ impl AnalysisSession {
         Ok(summary)
     }
 
+    fn syntax_groups(
+        &mut self,
+        file_identifiers: &[String],
+        hunks: &[TextHunk],
+    ) -> Result<Vec<SyntaxEditGroup>, AnalysisError> {
+        let worktree = self
+            .worktree_root
+            .join(format!("grouping-{:05}", self.next_worktree));
+        self.next_worktree += 1;
+        self.repository.add_worktree(&worktree)?;
+        let files = hunks
+            .iter()
+            .map(|hunk| hunk.summary.file.clone())
+            .collect::<BTreeSet<_>>();
+        let old_sources = read_text_sources(&worktree, &files);
+        let selected = file_identifiers
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        let grouping = (|| {
+            for atom in &self.atoms {
+                if selected.contains(atom.id.as_str()) {
+                    atom.apply(&worktree)?;
+                }
+            }
+            apply_text_hunks(hunks, &worktree)?;
+            let new_sources = read_text_sources(&worktree, &files);
+            Ok(crate::syntax::group_hunks(
+                hunks,
+                &old_sources,
+                &new_sources,
+            ))
+        })();
+        let cleanup = self.repository.remove_worktree(&worktree);
+        if let Err(source) = cleanup {
+            return Err(AnalysisError::WorktreeCleanup {
+                path: worktree,
+                source,
+            });
+        }
+        grouping
+    }
+
     fn evaluate_in_worktree(
         &self,
         file_identifiers: &[String],
@@ -761,6 +808,17 @@ impl AnalysisSession {
     }
 }
 
+fn read_text_sources(worktree: &Path, files: &BTreeSet<String>) -> BTreeMap<String, String> {
+    files
+        .iter()
+        .filter_map(|file| {
+            fs::read_to_string(worktree.join(file))
+                .ok()
+                .map(|source| (file.clone(), source))
+        })
+        .collect()
+}
+
 #[allow(clippy::too_many_lines)]
 fn refine_hunks(
     session: &mut AnalysisSession,
@@ -798,11 +856,12 @@ fn refine_hunks(
             parent.sufficient_atoms.clone(),
         ));
     }
-    let candidates = hunks
+    let groups = session.syntax_groups(&fixed_atoms, &hunks)?;
+    let candidates = groups
         .iter()
-        .map(|hunk| {
-            InterventionId::new(hunk.summary.id.clone())
-                .map_err(|_| AnalysisError::InterventionId(hunk.summary.id.clone()))
+        .map(|group| {
+            InterventionId::new(group.summary.id.clone())
+                .map_err(|_| AnalysisError::InterventionId(group.summary.id.clone()))
         })
         .collect::<Result<Vec<_>, _>>()?;
     let max_cardinality = request
@@ -814,15 +873,16 @@ fn refine_hunks(
         max_evaluations: request.max_hunk_evaluations,
         stop_after_first_successful_cardinality: true,
     };
-    let hunk_map = hunks
+    let group_map = groups
         .iter()
-        .map(|hunk| (hunk.summary.id.clone(), hunk.clone()))
+        .map(|group| (group.summary.id.clone(), group.clone()))
         .collect::<BTreeMap<_, _>>();
     let mut oracle_failure = None;
     let search = search_sufficient_sets(candidates, limits, |subset| {
         let selected = subset
             .iter()
-            .filter_map(|id| hunk_map.get(id.as_str()).cloned())
+            .filter_map(|id| group_map.get(id.as_str()))
+            .flat_map(|group| group.hunks.iter().cloned())
             .collect::<Vec<_>>();
         match session.evaluate_variant(&fixed_atoms, &selected) {
             Ok(run) => classify_run(&run, &target.id),
@@ -851,14 +911,22 @@ fn refine_hunks(
         .collect::<Vec<_>>();
     let mut causal_sets = Vec::new();
     for sufficient in search.successful_sets() {
-        let sufficient_ids = sufficient
+        let sufficient_groups = sufficient
             .iter()
             .map(|id| id.as_str().to_owned())
             .collect::<BTreeSet<_>>();
-        let complement = hunks
+        let sufficient_hunks = sufficient_groups
             .iter()
-            .filter(|hunk| !sufficient_ids.contains(&hunk.summary.id))
-            .cloned()
+            .filter_map(|id| group_map.get(id))
+            .flat_map(|group| group.hunks.iter().map(|hunk| hunk.summary.id.clone()))
+            .collect::<BTreeSet<_>>();
+        let complement_groups = groups
+            .iter()
+            .filter(|group| !sufficient_groups.contains(&group.summary.id))
+            .collect::<Vec<_>>();
+        let complement = complement_groups
+            .iter()
+            .flat_map(|group| group.hunks.iter().cloned())
             .collect::<Vec<_>>();
         let removal = session.evaluate_variant(&outside_parent, &complement)?;
         let removal_ids = removal
@@ -867,13 +935,24 @@ fn refine_hunks(
             .map(|diagnostic| diagnostic.id.as_str())
             .collect::<BTreeSet<_>>();
         causal_sets.push(HunkCausalSetReport {
-            sufficient_hunks: sufficient_ids.iter().cloned().collect(),
-            locations: sufficient_ids
+            sufficient_groups: sufficient_groups.iter().cloned().collect(),
+            sufficient_hunks: sufficient_hunks.iter().cloned().collect(),
+            locations: sufficient_groups
                 .iter()
-                .filter_map(|id| hunk_map.get(id))
-                .map(|hunk| format!("{}:{}", hunk.summary.file, hunk.summary.new_start))
+                .filter_map(|id| group_map.get(id))
+                .map(|group| {
+                    let line = group.hunks.first().map_or(0, |hunk| hunk.summary.new_start);
+                    group.summary.symbol.as_ref().map_or_else(
+                        || format!("{}:{line}", group.summary.file),
+                        |symbol| format!("{}:{line} ({symbol})", group.summary.file),
+                    )
+                })
                 .collect(),
             removal_file_atoms: outside_parent.clone(),
+            removal_groups: complement_groups
+                .iter()
+                .map(|group| group.summary.id.clone())
+                .collect(),
             removal_hunks: complement
                 .iter()
                 .map(|hunk| hunk.summary.id.clone())
@@ -900,7 +979,12 @@ fn refine_hunks(
                 .map(|id| id.as_str().to_owned())
                 .collect::<Vec<_>>();
             let mut cache_ids = fixed_atoms.clone();
-            cache_ids.extend(subset.iter().cloned());
+            cache_ids.extend(
+                subset
+                    .iter()
+                    .filter_map(|id| group_map.get(id))
+                    .flat_map(|group| group.hunks.iter().map(|hunk| hunk.summary.id.clone())),
+            );
             let (verdict, unresolved_reason) = verdict_strings(evaluation.verdict());
             let mut summary = evaluation_summary(session, cache_ids, verdict, unresolved_reason)?;
             summary.subset = subset;
@@ -911,6 +995,12 @@ fn refine_hunks(
         parent_sufficient_atoms: parent.sufficient_atoms.clone(),
         fixed_atoms,
         hunks: hunks.iter().map(|hunk| hunk.summary.clone()).collect(),
+        grouping: if groups.iter().all(|group| group.summary.language == "rust") {
+            "rust_item".to_owned()
+        } else {
+            "text_hunk_fallback".to_owned()
+        },
+        syntax_groups: groups.iter().map(|group| group.summary.clone()).collect(),
         evaluations,
         minimality: minimality_name(search.minimality()).to_owned(),
         stop_reason: stop_reason_name(search.stop_reason()).to_owned(),
@@ -1341,7 +1431,7 @@ mod tests {
             .expect("write manifest");
             fs::write(
                 root.join("src/api.rs"),
-                "pub trait Marker {}\npub struct Item;\n\n\npub fn measure(value: i32) -> usize { value as usize }\n\n\npub fn stable() -> usize { 1 }\n",
+                "pub trait Marker {}\npub struct Item;\n\n\npub fn measure(value: i32) -> usize {\n\n    value as usize\n}\n\n\npub fn stable() -> usize { 1 }\n",
             )
             .expect("write API");
             fs::write(
@@ -1392,7 +1482,7 @@ mod tests {
         let repository = TestRepository::new();
         fs::write(
             repository.root.join("src/api.rs"),
-            "pub trait Marker {}\npub struct Item;\n\n\npub fn measure(value: &str) -> usize { value.len() }\n\n\npub fn stable() -> usize { 2 }\n",
+            "pub trait Marker {}\npub struct Item;\n\n\npub fn measure(value: &str) -> usize {\n\n    value.len()\n}\n\n\npub fn stable() -> usize { 2 }\n",
         )
         .expect("change API");
         fs::write(
@@ -1424,13 +1514,18 @@ mod tests {
         assert_eq!(report.causal_sets[0].sufficient_files, ["src/api.rs"]);
         assert!(report.causal_sets[0].target_removed_from_full_patch);
         assert_eq!(report.hunk_refinements.len(), 1);
-        assert_eq!(report.hunk_refinements[0].hunks.len(), 2);
+        assert_eq!(report.hunk_refinements[0].hunks.len(), 3);
+        assert_eq!(report.hunk_refinements[0].grouping, "rust_item");
+        assert_eq!(report.hunk_refinements[0].syntax_groups.len(), 2);
+        assert!(report.hunk_refinements[0].syntax_groups.iter().any(
+            |group| group.member_hunks.len() == 2 && group.symbol.as_deref() == Some("measure")
+        ));
         assert_eq!(report.hunk_refinements[0].causal_sets.len(), 1);
         assert_eq!(
             report.hunk_refinements[0].causal_sets[0]
                 .sufficient_hunks
                 .len(),
-            1
+            2
         );
         assert!(report.hunk_refinements[0].causal_sets[0].target_removed_from_full_patch);
         assert!(
@@ -1474,7 +1569,7 @@ mod tests {
         let repository = TestRepository::new();
         fs::write(
             repository.root.join("src/api.rs"),
-            "pub trait Marker {}\npub struct Item;\nimpl Marker for Item {}\n\n\npub fn measure(value: i32) -> usize { value as usize }\n\n\npub fn stable() -> usize { 1 }\n\n\nimpl Marker for Item {}\n",
+            "pub trait Marker {}\npub struct Item;\nimpl Marker for Item {}\n\n\npub fn measure(value: i32) -> usize {\n\n    value as usize\n}\n\n\npub fn stable() -> usize { 1 }\n\n\nimpl Marker for Item {}\n",
         )
         .expect("add conflicting implementations");
 

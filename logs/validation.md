@@ -375,3 +375,30 @@ Results:
 - An adversarial `build.rs` could not reach an external TCP endpoint or write
   into the original repository. Its successful private `/tmp` write did not
   reach the host filesystem.
+
+## 2026-07-21T13:23:50Z — R5 syntax grouping and exit-gate validation
+
+Passed commands:
+
+```console
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 scripts/verify_llvm_transformer.py
+python3 scripts/verify_llvm_loop_identity.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- Thirty-one Rust tests passed, including parsed multi-hunk function grouping
+  and malformed-Rust text fallback coverage.
+- The public build query reported two Rust item groups from three exact hunks,
+  found the one sufficient function group, retained its two member hunks, and
+  reproduced that semantic projection.
+- Build and optimization schemas, security containment, tamper refusal,
+  compiler fixtures, LLVM identity/delta isolation, and positive/refusal paths
+  all remained passing.

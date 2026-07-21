@@ -263,3 +263,29 @@ Evidence strength and limitation:
 - This validates the covered network and mount-isolation attempts on the
   recorded Linux host. It is not a claim of immunity from kernel or compiler
   vulnerabilities, and seccomp/cgroup resource enforcement remains separate.
+
+## 2026-07-21T13:23:50Z — Dependent Rust function-edit grouping
+
+Command:
+
+```console
+python3 scripts/verify_build_causality.py
+```
+
+Observed results:
+
+- The captured API change contained separate zero-context signature and body
+  hunks inside `measure` plus an unrelated hunk inside `stable`.
+- Parsed old/new Rust item spans produced two syntax groups: one `measure`
+  function group containing both dependent hunks and one `stable` group.
+- The `measure` group alone reproduced the selected caller `E0308`. Its two
+  invalid partial edits were not represented or executed as independent search
+  candidates.
+- Removing that group from the full change suppressed the target and its
+  recorded cascade; public replay reproduced the same group search and digest.
+
+Evidence strength and limitation:
+
+- This is a tested sufficient syntax-item edit group under the recorded Cargo
+  build. Grouping prevents false hunk independence; it does not establish that
+  every edit in the function is semantically necessary or correct.

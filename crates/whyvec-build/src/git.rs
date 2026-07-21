@@ -54,8 +54,24 @@ pub struct TextHunkSummary {
 #[derive(Clone, Debug)]
 pub struct TextHunk {
     pub summary: TextHunkSummary,
-    header: Vec<u8>,
-    patch: Vec<u8>,
+    pub(crate) header: Vec<u8>,
+    pub(crate) patch: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SyntaxEditGroupSummary {
+    pub id: String,
+    pub language: String,
+    pub kind: String,
+    pub symbol: Option<String>,
+    pub file: String,
+    pub member_hunks: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SyntaxEditGroup {
+    pub summary: SyntaxEditGroupSummary,
+    pub hunks: Vec<TextHunk>,
 }
 
 impl From<&ChangeAtom> for ChangeAtomSummary {

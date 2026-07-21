@@ -39,3 +39,15 @@
 - Added the sandbox binary identity and asserted isolation properties to build
   toolchain provenance and replay command digests. Missing Bubblewrap has no
   unsandboxed fallback.
+
+## 2026-07-21T13:23:50Z — Rust syntax-aware build interventions
+
+- Added parsed Rust item spans for functions, methods, traits, implementations,
+  modules, data types, constants, statics, aliases, and macros.
+- Grouped separated zero-context hunks by their smallest enclosing item while
+  retaining every exact hunk as the executable payload; malformed Rust and
+  other text use explicit one-hunk fallback groups.
+- Changed nested causal search and minimality to operate on declared syntax
+  groups, with group/hunk membership and removal witnesses serialized in the
+  build report and reproduced semantically.
+- Closed the remaining R5 grouping gate after the mandatory sandbox milestone.

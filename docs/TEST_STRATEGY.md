@@ -119,6 +119,13 @@ write. The build succeeds only when network and host-root access are denied;
 neither write may appear on the host, and the report must retain the Bubblewrap
 fingerprint and enabled isolation properties.
 
+Rust build-causality fixtures include separated signature/body hunks inside one
+function. The parser must report one function group containing both exact
+hunks, keep an unrelated function in another group, avoid executing invalid
+partial function edits as independent candidates, and reproduce the grouped
+search through the public replay command. Malformed or non-Rust source must use
+declared text-hunk fallback groups.
+
 ## Determinism protocol
 
 Run identical analyses in fresh artifact directories and compare normalized reports. Timestamps, durations, random identifiers, absolute ephemeral paths, and run-artifact references are excluded from semantic comparison; toolchain, outcome, search, finding, and obligation semantics must match, while every retained artifact must independently pass its recorded digest and size check.

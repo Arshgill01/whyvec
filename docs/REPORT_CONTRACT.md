@@ -14,9 +14,10 @@ The executable Cargo/rustc build vertical currently emits the deliberately
 separate [build report schema](../schemas/whyvec-build-report.schema.json). Its
 `2.0.0-dev` identifier makes the incompatibility explicit while diagnostic,
 file/hunk intervention, and artifact contracts are hardened. Nested hunk
-refinements retain their parent sufficient file set, fixed atoms, independent
-search trace, and full-patch removal witness. It does not silently redefine the
-version 1 optimization report.
+refinements retain their parent sufficient file set, fixed atoms, parsed Rust
+syntax groups (or explicit text fallback groups), underlying exact hunks,
+independent search trace, and full-patch removal witness. It does not silently
+redefine the version 1 optimization report.
 
 The executable Clang/LLVM development vertical similarly emits the separate
 [optimization report schema](../schemas/whyvec-optimization-report.schema.json)
@@ -108,6 +109,10 @@ The canonical schema is [schemas/whyvec-report.schema.json](../schemas/whyvec-re
 - evaluated and skipped subsets;
 - stop condition;
 - exhaustiveness status.
+
+Build-query nested search records syntax-group identifiers separately from
+their member Git hunks. Minimality applies to the declared executable groups,
+not to arbitrary textual lines inside one parsed item.
 
 ### Experiments
 

@@ -34,8 +34,9 @@ cargo run -p whyvec-cli -- explain-build \
 WhyVec verifies that the base passes, reconstructs the working-tree change in
 isolated detached worktrees, identifies sufficient changed-file sets for the
 selected rustc diagnostic, refines successful text files into independently
-tested hunks, and then removes each sufficient set from the full patch to
-measure which diagnostics disappear with it. See
+tested Rust syntax-item groups backed by exact Git hunks, and then removes each
+sufficient set from the full patch to measure which diagnostics disappear with
+it. See
 [Build causality](docs/BUILD_CAUSALITY.md) for the evidence model and refusal
 surface.
 

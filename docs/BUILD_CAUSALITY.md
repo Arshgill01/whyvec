@@ -62,13 +62,16 @@ search traces, causal sets, and provenance digests are not.
 9. Classify each run through a three-valued oracle.
 10. Split refinable successful text-file atoms into immutable zero-context Git
     hunks and verify that their complete reconstruction reproduces the target.
-11. Search individual and interacting hunk sets while holding non-refinable
+11. Parse captured old and new Rust sources, group separated hunks by the
+    smallest enclosing function, method, type, module, or macro item, and use a
+    one-hunk text group when parsing or mapping is unavailable.
+12. Search individual and interacting syntax groups while holding non-refinable
     parent atoms fixed.
-12. For every sufficient set found, apply its complement to the base and test
+13. For every sufficient set found, apply its complement to the base and test
     whether removing the set from the full patch makes the diagnostic disappear.
-13. Record other full-patch diagnostics that disappear in that removal witness.
-14. Persist the report and remove every temporary worktree.
-15. Mark retained input and compiler-run artifact files read-only after report
+14. Record other full-patch diagnostics that disappear in that removal witness.
+15. Persist the report and remove every temporary worktree.
+16. Mark retained input and compiler-run artifact files read-only after report
     finalization.
 
 The user's source tree, index, and branch are never reset, checked out, or
@@ -124,15 +127,19 @@ changes are preserved through Git binary patches.
 Every sufficient file set is then refined when its tracked text patches contain
 unified-diff hunks. WhyVec regenerates the parent patch from all captured hunks
 and requires it to reproduce the same diagnostic before beginning nested
-search. It tests singleton hunks and interacting hunk combinations with the
-same three-valued oracle. Non-text, untracked, rename, and binary atoms remain
-explicit fixed conditions rather than being silently discarded.
+search. For Rust, it parses both source states and groups hunks by the smallest
+enclosing syntax item. This keeps separated edits to one function or method as
+one executable intervention. Parse or mapping failure produces explicit
+one-hunk text fallback groups; it does not invent symbol identity. The same
+three-valued oracle tests singleton groups and interacting combinations.
+Non-text, untracked, rename, and binary atoms remain explicit fixed conditions
+rather than being silently discarded.
 
-The report retains old and new ranges, bounded previews, parent file identity,
-minimality, and a full-patch hunk-removal witness. A zero-context Git hunk is an
-executable syntax-edit region, not an AST-level semantic unit; nearby edits may
-still be grouped by Git and dependent hunks may be unresolved or sufficient
-only together.
+The report retains each syntax group, language, item kind, optional symbol,
+member hunk identifiers, old/new ranges, bounded previews, parent file
+identity, minimality, and a full-patch group-removal witness. Syntax grouping
+defines executable edit regions; it does not prove semantic independence or
+developer intent.
 
 ## Three-valued build oracle
 
@@ -221,8 +228,8 @@ group, and output bounds.
 - The base revision must pass the exact Cargo command.
 - The full change must fail and contain one uniquely selected diagnostic.
 - Cargo is the only executable build adapter.
-- Text patches refine to zero-context Git hunks; AST-level edit grouping is not
-  yet available.
+- Rust text patches use parsed syntax-item grouping; other languages and Rust
+  parse failures retain explicit one-hunk text fallback groups.
 - Dirty submodules, unmerged files, non-UTF-8 paths, and special untracked files
   are unsupported.
 - Compiler output beyond the configured bound is not silently treated as
