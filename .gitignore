@@ -1,0 +1,29 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# WhyVec analysis artifacts
+/.whyvec/
+*.whyvec-report.json
+*.opt.yaml
+*.opt.bitstream
+*.bc
+*.ll
+
+# Build systems
+/build/
+/out/
+compile_commands.json
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+whyvec.local.toml
