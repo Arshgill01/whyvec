@@ -36,6 +36,7 @@ pub struct ChangeAtomSummary {
     pub id: String,
     pub display: String,
     pub paths: Vec<String>,
+    pub sha256: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -64,6 +65,7 @@ impl From<&ChangeAtom> for ChangeAtomSummary {
             id: value.id.clone(),
             display: value.display.clone(),
             paths: value.paths.clone(),
+            sha256: value.payload_digest(),
         }
     }
 }
@@ -279,6 +281,42 @@ impl GitRepository {
 }
 
 impl ChangeAtom {
+    pub fn captured_bytes(&self) -> Vec<u8> {
+        match &self.payload {
+            AtomPayload::Patch(patch) => patch.clone(),
+            AtomPayload::UntrackedFile {
+                content,
+                permissions,
+                ..
+            } => {
+                let mut bytes = b"whyvec-untracked-file\0".to_vec();
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt as _;
+                    bytes.extend_from_slice(&permissions.mode().to_le_bytes());
+                }
+                bytes.extend_from_slice(content);
+                bytes
+            }
+            AtomPayload::UntrackedSymlink {
+                target,
+                target_is_dir,
+                ..
+            } => {
+                let mut bytes = b"whyvec-untracked-symlink\0".to_vec();
+                bytes.push(u8::from(*target_is_dir));
+                bytes.extend_from_slice(target.as_os_str().as_encoded_bytes());
+                bytes
+            }
+        }
+    }
+
+    fn payload_digest(&self) -> String {
+        let bytes = self.captured_bytes();
+        let digest = Sha256::digest(bytes);
+        crate::hex_prefix(&digest, digest.len())
+    }
+
     pub fn apply(&self, worktree: &Path) -> Result<(), GitError> {
         match &self.payload {
             AtomPayload::Patch(patch) => {

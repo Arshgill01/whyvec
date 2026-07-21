@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use whyvec_build::{
     BuildCausalityReport, BuildCausalityRequest, BuildCommand, DiagnosticSelector, explain_build,
+    replay_build,
 };
 
 fn main() {
@@ -17,6 +18,9 @@ fn main() {
 #[allow(clippy::too_many_lines)]
 fn run() -> Result<(), String> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if arguments.first().map(String::as_str) == Some("replay-build") {
+        return run_replay(&arguments[1..]);
+    }
     if arguments.first().map(String::as_str) != Some("explain-build") {
         return Err(usage());
     }
@@ -130,6 +134,18 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+fn run_replay(arguments: &[String]) -> Result<(), String> {
+    let [report] = arguments else {
+        return Err("usage: whyvec replay-build <report.json>".to_owned());
+    };
+    let result = replay_build(&PathBuf::from(report)).map_err(|error| error.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
 fn parse_positive(name: &str, value: &str) -> Result<usize, String> {
     let parsed = value
         .parse::<usize>()
@@ -222,5 +238,5 @@ fn print_human(report: &BuildCausalityReport) {
 }
 
 fn usage() -> String {
-    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]".to_owned()
+    "usage: whyvec explain-build --diagnostic <rustc-code> [--at <path>] [--base <rev>] [--repository <path>] [--max-evaluations <n>] [--max-cardinality <n>] [--max-hunk-evaluations <n>] [--max-hunk-cardinality <n>] [--format human|json] -- cargo check [cargo options]\n       whyvec replay-build <report.json>".to_owned()
 }

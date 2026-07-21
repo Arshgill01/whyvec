@@ -12,6 +12,9 @@
     "evidence_strength",
     "repository",
     "base_commit",
+    "input_digest",
+    "command_digest",
+    "toolchain",
     "command",
     "target_diagnostic",
     "atoms",
@@ -23,6 +26,9 @@
     "declared_subsets",
     "causal_sets",
     "hunk_refinements",
+    "semantic_digest",
+    "replay",
+    "artifacts",
     "artifact_path",
     "caveats"
   ],
@@ -34,6 +40,9 @@
     "evidence_strength": { "const": "counterfactual_observation" },
     "repository": { "type": "string", "minLength": 1 },
     "base_commit": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+    "input_digest": { "$ref": "#/$defs/sha256" },
+    "command_digest": { "$ref": "#/$defs/sha256" },
+    "toolchain": { "$ref": "#/$defs/toolchain" },
     "command": { "$ref": "#/$defs/command" },
     "target_diagnostic": { "$ref": "#/$defs/diagnostic" },
     "atoms": {
@@ -72,6 +81,13 @@
       "type": "array",
       "items": { "$ref": "#/$defs/hunk_refinement" }
     },
+    "semantic_digest": { "$ref": "#/$defs/sha256" },
+    "replay": { "$ref": "#/$defs/replay" },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
     "artifact_path": { "type": "string", "minLength": 1 },
     "caveats": {
       "type": "array",
@@ -79,6 +95,58 @@
     }
   },
   "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size", "media_type"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "pattern": "^(inputs|runs)/" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size": { "type": "integer", "minimum": 0 },
+        "media_type": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invocation_path", "invocation_sha256", "resolved_path", "resolved_sha256", "version"],
+      "properties": {
+        "invocation_path": { "type": "string", "minLength": 1 },
+        "invocation_sha256": { "$ref": "#/$defs/sha256" },
+        "resolved_path": { "type": "string", "minLength": 1 },
+        "resolved_sha256": { "$ref": "#/$defs/sha256" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rustup_toolchain", "cargo", "delegated_cargo", "rustc", "delegated_rustc"],
+      "properties": {
+        "rustup_toolchain": { "type": ["string", "null"] },
+        "cargo": { "$ref": "#/$defs/tool" },
+        "delegated_cargo": { "oneOf": [{ "$ref": "#/$defs/tool" }, { "type": "null" }] },
+        "rustc": { "$ref": "#/$defs/tool" },
+        "delegated_rustc": { "oneOf": [{ "$ref": "#/$defs/tool" }, { "type": "null" }] }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_digest", "command_digest", "max_evaluations", "max_cardinality", "max_hunk_evaluations", "max_hunk_cardinality"],
+      "properties": {
+        "input_digest": { "$ref": "#/$defs/sha256" },
+        "command_digest": { "$ref": "#/$defs/sha256" },
+        "max_evaluations": { "type": "integer", "minimum": 1 },
+        "max_cardinality": { "type": "integer", "minimum": 1 },
+        "max_hunk_evaluations": { "type": "integer", "minimum": 1 },
+        "max_hunk_cardinality": { "type": "integer", "minimum": 1 }
+      }
+    },
     "command": {
       "type": "object",
       "additionalProperties": false,
@@ -135,7 +203,7 @@
     "atom": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "display", "paths"],
+      "required": ["id", "display", "paths", "sha256"],
       "properties": {
         "id": { "type": "string", "pattern": "^file\\.[a-f0-9]{16}$" },
         "display": { "type": "string", "minLength": 1 },
@@ -143,7 +211,8 @@
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
-        }
+        },
+        "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
     "run": {
@@ -154,7 +223,8 @@
         "exit_code",
         "timed_out",
         "output_truncated",
-        "diagnostics"
+        "diagnostics",
+        "artifacts"
       ],
       "properties": {
         "subset": {
@@ -167,7 +237,8 @@
         "diagnostics": {
           "type": "array",
           "items": { "$ref": "#/$defs/diagnostic" }
-        }
+        },
+        "artifacts": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/artifact" } }
       }
     },
     "evaluation": {
@@ -179,7 +250,8 @@
         "unresolved_reason",
         "exit_code",
         "timed_out",
-        "output_truncated"
+        "output_truncated",
+        "artifacts"
       ],
       "properties": {
         "subset": {
@@ -193,7 +265,8 @@
         },
         "exit_code": { "type": ["integer", "null"] },
         "timed_out": { "type": "boolean" },
-        "output_truncated": { "type": "boolean" }
+        "output_truncated": { "type": "boolean" },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } }
       }
     },
     "hunk": {

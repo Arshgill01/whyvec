@@ -16,3 +16,5 @@ The format follows Keep a Changelog principles, and releases use semantic versio
 - Installable Codex plugin with a specialized optimization and refusal workflow.
 - Append-only evidence logs and repository-integrity validation.
 - Pinned-Clang fixture verification and continuous Rust/repository checks.
+- Content-digested build-causality intervention and compiler-run artifacts,
+  proxy-aware Cargo/rustc provenance, and tamper-detecting semantic replay.

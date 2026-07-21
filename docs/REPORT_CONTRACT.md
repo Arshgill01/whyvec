@@ -18,6 +18,12 @@ refinements retain their parent sufficient file set, fixed atoms, independent
 search trace, and full-patch removal witness. It does not silently redefine the
 version 1 optimization report.
 
+The development build report also retains SHA-256-addressed intervention and
+compiler-stream artifacts, proxy-aware Cargo/rustc identities, an aggregate
+input and command digest, replay limits, and a normalized semantic digest.
+`replay-build` verifies content before executing and rejects input, toolchain,
+or semantic drift rather than reporting a reproduced result.
+
 ## Compatibility
 
 The report uses semantic versioning in `schema_version`.

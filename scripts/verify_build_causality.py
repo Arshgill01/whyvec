@@ -159,8 +159,20 @@ def causal_projection(report: dict[str, object]) -> dict[str, object]:
             }
             for causal_set in causal_sets
         ],
-        "hunk_refinements": report["hunk_refinements"],
+        "hunk_refinements": without_artifacts(report["hunk_refinements"]),
     }
+
+
+def without_artifacts(value: object) -> object:
+    if isinstance(value, dict):
+        return {
+            key: without_artifacts(child)
+            for key, child in value.items()
+            if key != "artifacts"
+        }
+    if isinstance(value, list):
+        return [without_artifacts(child) for child in value]
+    return value
 
 
 def main() -> int:
@@ -251,6 +263,31 @@ def main() -> int:
                 f"first={json.dumps(first_projection, indent=2, sort_keys=True)}\n"
                 f"second={json.dumps(second_projection, indent=2, sort_keys=True)}"
             )
+        replayed = run(
+            [str(binary), "replay-build", report["artifact_path"]],
+            ROOT,
+        )
+        replay_result = json.loads(replayed.stdout)
+        if replay_result.get("matched") is not True:
+            raise RuntimeError(f"replay did not match: {replay_result}")
+        if replay_result.get("semantic_digest") != report.get("semantic_digest"):
+            raise RuntimeError("replay semantic digest differs from original")
+
+        first_artifact = report["artifacts"][0]
+        artifact_path = Path(report["artifact_path"]).parent / first_artifact["path"]
+        artifact_path.chmod(0o600)
+        with artifact_path.open("ab") as artifact_file:
+            artifact_file.write(b"tamper")
+        tampered = subprocess.run(
+            [str(binary), "replay-build", report["artifact_path"]],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if tampered.returncode == 0 or "artifact integrity check failed" not in tampered.stderr:
+            raise RuntimeError("tampered retained artifact was not rejected")
     print("build-causality CLI validation passed")
     return 0
 

@@ -75,6 +75,11 @@ that omit the target diagnostic are unresolved rather than negative evidence.
 The implementation and exact safety boundary are specified in
 [BUILD_CAUSALITY.md](BUILD_CAUSALITY.md).
 
+Completed build queries retain digested atom payloads and bounded raw compiler
+streams. Replay first verifies those files, then requires identical aggregate
+input, normalized command, and Cargo/rustc fingerprints before re-executing the
+search and comparing its normalized semantic digest.
+
 ### CLI and application service
 
 Responsibilities:

@@ -97,3 +97,35 @@ Observed results:
 - Repeated CLI analysis by exact diagnostic identity retained the same nested causal projection and both reports passed schema validation.
 
 Evidence strength: executable counterfactual observation over captured Git hunks. A hunk is an intervention region, not a semantic AST cause.
+
+## 2026-07-21T11:59:26Z — Build-causality semantic replay and tamper check
+
+Commands:
+
+```console
+python3 scripts/verify_build_causality.py
+whyvec replay-build <generated-report.json>
+```
+
+Observed results:
+
+- The generated Cargo fixture retained the exact captured patch/untracked atom
+  payloads, raw bounded Cargo JSON and stderr streams, and SHA-256 plus byte
+  length for each artifact.
+- The report recorded the base commit, aggregate input digest, normalized
+  command digest, rustup active toolchain, Cargo and rustc invocation/resolved
+  binaries, delegated tools, versions, and binary digests.
+- A replay with unchanged repository input and toolchain re-executed the search
+  and matched the original normalized semantic digest. Run artifact bytes were
+  allowed to differ because ephemeral worktree paths are not compiler
+  semantics; diagnostic identity, verdicts, minimality, and causal evidence
+  remained identical.
+- After one retained artifact was modified, replay stopped at the content
+  integrity check and did not claim reproduction.
+
+Evidence strength and limitation:
+
+- This is a reproduced counterfactual observation for the generated fixture on
+  the recorded local toolchain. Replay currently depends on the original local
+  Git repository and base object; it is not yet a portable redacted
+  reproduction bundle.

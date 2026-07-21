@@ -130,3 +130,38 @@ Results:
 - The public CLI report and repeated exact-identity result passed Draft 2020-12 schema validation.
 - Existing Clang and rustc/LLVM fixture results remained passing.
 - Correction: the invalid-independent-patch path is implemented as `unresolved/intervention_invalid`, but a dedicated context-conflict fixture remains required before treating that path as separately validated.
+
+## 2026-07-21T11:59:26Z — Content-digested build replay validation
+
+Environment:
+
+- Rust `1.96.1`; Cargo `1.96.1`; rustc LLVM `22.1.2` on
+  `x86_64-unknown-linux-gnu`.
+
+Passed commands:
+
+```console
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 -c 'import json; from pathlib import Path; import jsonschema; schema=json.loads(Path("schemas/whyvec-build-report.schema.json").read_text()); jsonschema.Draft202012Validator.check_schema(schema)'
+git diff --check
+```
+
+Results:
+
+- Twenty-one Rust tests passed, including rejection of Cargo-named wrapper
+  paths in addition to the existing search, identity, process, and isolation
+  coverage.
+- The generated public-CLI fixture retained SHA-256-addressed atom snapshots,
+  normalized command and input digests, Cargo/rustc proxy and delegated-tool
+  fingerprints, and bounded stdout/stderr for every compiler run.
+- `whyvec replay-build` verified the retained artifact set, recaptured the same
+  input and toolchain, reran the complete file/hunk search, and reproduced the
+  normalized semantic digest.
+- An adversarial byte append to a retained artifact was rejected before replay.
+- The generated report passed its expanded Draft 2020-12 schema. Repository,
+  Clang, and rustc/LLVM fixture validation remained passing.

@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::io::Write as _;
+use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -41,11 +42,7 @@ impl BuildCommand {
     }
 
     fn adapter_arguments(&self) -> Result<Vec<OsString>, AnalysisError> {
-        if Path::new(&self.program)
-            .file_name()
-            .and_then(|name| name.to_str())
-            != Some("cargo")
-        {
+        if self.program != "cargo" {
             return Err(AnalysisError::UnsupportedBuildCommand(self.program.clone()));
         }
         validate_message_format(&self.arguments)?;
@@ -58,6 +55,17 @@ impl BuildCommand {
             arguments.push(OsString::from("--message-format=json"));
         }
         Ok(arguments)
+    }
+
+    fn normalized(&self) -> Result<Self, AnalysisError> {
+        Ok(Self {
+            program: self.program.clone(),
+            arguments: self
+                .adapter_arguments()?
+                .into_iter()
+                .map(|argument| argument.to_string_lossy().into_owned())
+                .collect(),
+        })
     }
 }
 
@@ -80,6 +88,7 @@ pub struct BuildRunSummary {
     pub timed_out: bool,
     pub output_truncated: bool,
     pub diagnostics: Vec<DiagnosticRecord>,
+    pub artifacts: Vec<ArtifactReference>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -90,6 +99,51 @@ pub struct SearchEvaluationSummary {
     pub exit_code: Option<i32>,
     pub timed_out: bool,
     pub output_truncated: bool,
+    pub artifacts: Vec<ArtifactReference>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct ArtifactReference {
+    pub path: String,
+    pub sha256: String,
+    pub size: u64,
+    pub media_type: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ToolIdentity {
+    pub invocation_path: String,
+    pub invocation_sha256: String,
+    pub resolved_path: String,
+    pub resolved_sha256: String,
+    pub version: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct BuildToolchainProvenance {
+    pub rustup_toolchain: Option<String>,
+    pub cargo: ToolIdentity,
+    pub delegated_cargo: Option<ToolIdentity>,
+    pub rustc: ToolIdentity,
+    pub delegated_rustc: Option<ToolIdentity>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ReplaySpecification {
+    pub input_digest: String,
+    pub command_digest: String,
+    pub max_evaluations: usize,
+    pub max_cardinality: usize,
+    pub max_hunk_evaluations: usize,
+    pub max_hunk_cardinality: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ReplayResult {
+    pub original_analysis_id: String,
+    pub replay_analysis_id: String,
+    pub semantic_digest: String,
+    pub matched: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -132,6 +186,9 @@ pub struct BuildCausalityReport {
     pub evidence_strength: String,
     pub repository: String,
     pub base_commit: String,
+    pub input_digest: String,
+    pub command_digest: String,
+    pub toolchain: BuildToolchainProvenance,
     pub command: BuildCommand,
     pub target_diagnostic: DiagnosticRecord,
     pub atoms: Vec<ChangeAtomSummary>,
@@ -143,6 +200,9 @@ pub struct BuildCausalityReport {
     pub declared_subsets: usize,
     pub causal_sets: Vec<CausalSetReport>,
     pub hunk_refinements: Vec<HunkRefinementReport>,
+    pub semantic_digest: String,
+    pub replay: ReplaySpecification,
+    pub artifacts: Vec<ArtifactReference>,
     pub artifact_path: String,
     pub caveats: Vec<String>,
 }
@@ -163,6 +223,10 @@ pub enum AnalysisError {
     InterventionId(String),
     MissingCachedEvaluation(Vec<String>),
     RefinementDidNotReproduce(Vec<String>),
+    ArtifactIntegrity(String),
+    ReplayInputChanged { expected: String, observed: String },
+    ReplayToolchainChanged,
+    ReplayOutcomeChanged { expected: String, observed: String },
     WorktreeCleanup { path: PathBuf, source: GitError },
 }
 
@@ -201,6 +265,20 @@ impl std::fmt::Display for AnalysisError {
             Self::RefinementDidNotReproduce(atoms) => write!(
                 formatter,
                 "zero-context hunk reconstruction did not reproduce sufficient file set {atoms:?}"
+            ),
+            Self::ArtifactIntegrity(detail) => {
+                write!(formatter, "artifact integrity check failed: {detail}")
+            }
+            Self::ReplayInputChanged { expected, observed } => write!(
+                formatter,
+                "replay input digest changed (expected {expected}, observed {observed})"
+            ),
+            Self::ReplayToolchainChanged => formatter.write_str(
+                "replay toolchain fingerprint differs from the recorded Cargo/rustc toolchain",
+            ),
+            Self::ReplayOutcomeChanged { expected, observed } => write!(
+                formatter,
+                "replay semantic digest changed (expected {expected}, observed {observed})"
             ),
             Self::WorktreeCleanup { path, source } => write!(
                 formatter,
@@ -269,6 +347,33 @@ pub fn explain_build(
     let artifact_root = artifact_parent.join(&analysis_id);
     fs::create_dir_all(&artifact_parent)?;
     fs::create_dir(&artifact_root)?;
+    let command = request.command.normalized()?;
+    let toolchain = capture_toolchain(&repository.root, &command)?;
+    let input_digest = input_digest(&repository, &atoms);
+    let command_digest = command_digest(&command, &toolchain);
+    let mut retained_artifacts = Vec::new();
+    for atom in &atoms {
+        retained_artifacts.push(write_artifact(
+            &artifact_root,
+            &format!("inputs/atoms/{}.bin", atom.id),
+            &atom.captured_bytes(),
+            "application/octet-stream",
+        )?);
+    }
+    let provenance = serde_json::to_vec_pretty(&serde_json::json!({
+        "base_commit": repository.base_commit,
+        "input_digest": input_digest,
+        "command_digest": command_digest,
+        "command": command,
+        "toolchain": toolchain,
+        "atoms": atoms.iter().map(ChangeAtomSummary::from).collect::<Vec<_>>(),
+    }))?;
+    retained_artifacts.push(write_artifact(
+        &artifact_root,
+        "inputs/provenance.json",
+        &provenance,
+        "application/json",
+    )?);
     let temporary_root = std::env::temp_dir().join(format!("whyvec-{analysis_id}"));
     fs::create_dir(&temporary_root)?;
     let _temporary_guard = DirectoryCleanup(temporary_root.clone());
@@ -278,11 +383,13 @@ pub fn explain_build(
     let mut session = AnalysisSession {
         repository,
         atoms,
-        command: request.command.clone(),
+        command: command.clone(),
         target_dir,
         worktree_root: temporary_root.join("worktrees"),
+        artifact_root: artifact_root.clone(),
         next_worktree: 0,
         cache: BTreeMap::new(),
+        artifacts: retained_artifacts,
     };
     fs::create_dir_all(&session.worktree_root)?;
 
@@ -425,6 +532,20 @@ pub fn explain_build(
         })
         .collect::<Result<Vec<_>, AnalysisError>>()?;
     let artifact_path = artifact_root.join("report.json");
+    let replay = ReplaySpecification {
+        input_digest: input_digest.clone(),
+        command_digest: command_digest.clone(),
+        max_evaluations: request.max_evaluations,
+        max_cardinality,
+        max_hunk_evaluations: request.max_hunk_evaluations,
+        max_hunk_cardinality: request.max_hunk_cardinality.unwrap_or_else(|| {
+            hunk_refinements
+                .iter()
+                .map(|refinement| refinement.hunks.len())
+                .max()
+                .unwrap_or(1)
+        }),
+    };
     let mut report = BuildCausalityReport {
         schema_version: "2.0.0-dev".to_owned(),
         analysis_id,
@@ -433,7 +554,10 @@ pub fn explain_build(
         evidence_strength: "counterfactual_observation".to_owned(),
         repository: session.repository.root.to_string_lossy().into_owned(),
         base_commit: session.repository.base_commit.clone(),
-        command: request.command.clone(),
+        input_digest,
+        command_digest,
+        toolchain,
+        command,
         target_diagnostic: target,
         atoms: session.atoms.iter().map(ChangeAtomSummary::from).collect(),
         baseline,
@@ -444,6 +568,9 @@ pub fn explain_build(
         declared_subsets: search.declared_subsets(),
         causal_sets,
         hunk_refinements,
+        semantic_digest: String::new(),
+        replay,
+        artifacts: session.artifacts.clone(),
         artifact_path: artifact_path.to_string_lossy().into_owned(),
         caveats: vec![
             "A sufficient edit set changes the selected compiler observation; it does not prove the edit is semantically wrong.".to_owned(),
@@ -468,8 +595,12 @@ pub fn explain_build(
             temporary_root.display()
         ));
     }
+    report.artifacts.sort();
+    report.artifacts.dedup();
+    report.semantic_digest = semantic_digest(&report)?;
     let serialized = serde_json::to_vec_pretty(&report)?;
-    fs::write(&artifact_path, serialized)?;
+    write_new_file(&artifact_path, &serialized)?;
+    make_artifacts_read_only(&artifact_root)?;
     Ok(report)
 }
 
@@ -479,8 +610,10 @@ struct AnalysisSession {
     command: BuildCommand,
     target_dir: PathBuf,
     worktree_root: PathBuf,
+    artifact_root: PathBuf,
     next_worktree: usize,
     cache: BTreeMap<String, BuildRunSummary>,
+    artifacts: Vec<ArtifactReference>,
 }
 
 struct DirectoryCleanup(PathBuf);
@@ -531,6 +664,7 @@ impl AnalysisSession {
             });
         }
         let summary = evaluation?;
+        self.artifacts.extend(summary.artifacts.iter().cloned());
         self.cache.insert(key, summary.clone());
         Ok(summary)
     }
@@ -570,12 +704,26 @@ impl AnalysisSession {
         ]);
         let result = process::run(&process_request)?;
         let diagnostics = parse_cargo_json(&result.stdout, worktree);
+        let run_name = run_artifact_name(identifiers);
+        let stdout = write_artifact(
+            &self.artifact_root,
+            &format!("runs/{run_name}/stdout.jsonl"),
+            &result.stdout,
+            "application/jsonl",
+        )?;
+        let stderr = write_artifact(
+            &self.artifact_root,
+            &format!("runs/{run_name}/stderr.txt"),
+            &result.stderr,
+            "text/plain",
+        )?;
         Ok(BuildRunSummary {
             subset: identifiers.to_vec(),
             exit_code: result.exit_code,
             timed_out: result.timed_out,
             output_truncated: result.stdout_truncated || result.stderr_truncated,
             diagnostics,
+            artifacts: vec![stdout, stderr],
         })
     }
 }
@@ -762,6 +910,7 @@ fn evaluation_summary(
             exit_code: run.exit_code,
             timed_out: run.timed_out,
             output_truncated: run.output_truncated,
+            artifacts: run.artifacts.clone(),
         });
     }
     if unresolved_reason == Some("intervention_invalid") {
@@ -772,6 +921,7 @@ fn evaluation_summary(
             exit_code: None,
             timed_out: false,
             output_truncated: false,
+            artifacts: Vec::new(),
         });
     }
     Err(AnalysisError::MissingCachedEvaluation(subset))
@@ -882,6 +1032,323 @@ fn analysis_id(repository: &GitRepository, atoms: &[ChangeAtom]) -> String {
     let bytes = digest.finalize();
     let short = crate::hex_prefix(&bytes, 12);
     format!("wv_{short}")
+}
+
+fn input_digest(repository: &GitRepository, atoms: &[ChangeAtom]) -> String {
+    let mut digest = Sha256::new();
+    digest.update(repository.base_commit.as_bytes());
+    for atom in atoms {
+        digest.update(atom.id.as_bytes());
+        digest.update(atom.captured_bytes());
+    }
+    full_digest(&digest.finalize())
+}
+
+fn command_digest(command: &BuildCommand, toolchain: &BuildToolchainProvenance) -> String {
+    let bytes = serde_json::to_vec(&(command, toolchain))
+        .expect("serializing report-owned command provenance cannot fail");
+    full_digest(&Sha256::digest(bytes))
+}
+
+fn full_digest(bytes: &[u8]) -> String {
+    crate::hex_prefix(bytes, bytes.len())
+}
+
+fn run_artifact_name(identifiers: &[String]) -> String {
+    let mut digest = Sha256::new();
+    if identifiers.is_empty() {
+        digest.update(b"baseline");
+    } else {
+        for identifier in identifiers {
+            digest.update(identifier.len().to_le_bytes());
+            digest.update(identifier.as_bytes());
+        }
+    }
+    format!("run-{}", crate::hex_prefix(&digest.finalize(), 12))
+}
+
+fn write_artifact(
+    root: &Path,
+    relative: &str,
+    bytes: &[u8],
+    media_type: &str,
+) -> Result<ArtifactReference, AnalysisError> {
+    let relative_path = Path::new(relative);
+    if relative_path.is_absolute()
+        || relative_path
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
+    {
+        return Err(AnalysisError::ArtifactIntegrity(format!(
+            "unsafe artifact path {relative}"
+        )));
+    }
+    let destination = root.join(relative_path);
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    write_new_file(&destination, bytes)?;
+    Ok(ArtifactReference {
+        path: relative.replace('\\', "/"),
+        sha256: full_digest(&Sha256::digest(bytes)),
+        size: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+        media_type: media_type.to_owned(),
+    })
+}
+
+fn write_new_file(path: &Path, bytes: &[u8]) -> Result<(), AnalysisError> {
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()?;
+    Ok(())
+}
+
+fn make_artifacts_read_only(root: &Path) -> Result<(), AnalysisError> {
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(path) = pending.pop() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let file_type = entry.file_type()?;
+            if file_type.is_dir() {
+                pending.push(entry.path());
+            } else if file_type.is_file() {
+                let mut permissions = entry.metadata()?.permissions();
+                permissions.set_readonly(true);
+                fs::set_permissions(entry.path(), permissions)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn resolve_program(program: &str) -> Result<PathBuf, AnalysisError> {
+    let path = Path::new(program);
+    if path.components().count() > 1 {
+        return if path.is_absolute() {
+            Ok(path.to_path_buf())
+        } else {
+            Ok(std::env::current_dir()?.join(path))
+        };
+    }
+    let search = std::env::var_os("PATH").ok_or_else(|| {
+        AnalysisError::ArtifactIntegrity("PATH is absent while fingerprinting tools".to_owned())
+    })?;
+    std::env::split_paths(&search)
+        .map(|directory| directory.join(program))
+        .find(|candidate| candidate.is_file())
+        .ok_or_else(|| {
+            AnalysisError::ArtifactIntegrity(format!("could not resolve tool invocation {program}"))
+        })
+}
+
+fn capture_tool(
+    invocation: &Path,
+    version_arguments: &[&str],
+    current_dir: &Path,
+) -> Result<ToolIdentity, AnalysisError> {
+    let resolved = invocation.canonicalize()?;
+    let mut request = process::request(
+        invocation.as_os_str(),
+        version_arguments.iter().copied(),
+        current_dir,
+    );
+    request.output_limit = 1024 * 1024;
+    let output = process::run(&request)?;
+    if output.timed_out || output.exit_code != Some(0) || output.stdout_truncated {
+        return Err(AnalysisError::ArtifactIntegrity(format!(
+            "could not fingerprint {}",
+            invocation.display()
+        )));
+    }
+    let invocation_bytes = fs::read(invocation)?;
+    let resolved_bytes = fs::read(&resolved)?;
+    Ok(ToolIdentity {
+        invocation_path: invocation.to_string_lossy().into_owned(),
+        invocation_sha256: full_digest(&Sha256::digest(invocation_bytes)),
+        resolved_path: resolved.to_string_lossy().into_owned(),
+        resolved_sha256: full_digest(&Sha256::digest(resolved_bytes)),
+        version: String::from_utf8_lossy(&output.stdout).trim().to_owned(),
+    })
+}
+
+fn rustup_which(tool: &str, current_dir: &Path) -> Option<PathBuf> {
+    let rustup = resolve_program("rustup").ok()?;
+    let request = process::request(
+        rustup.as_os_str(),
+        [OsString::from("which"), OsString::from(tool)],
+        current_dir,
+    );
+    let output = process::run(&request).ok()?;
+    if output.timed_out || output.exit_code != Some(0) || output.stdout_truncated {
+        return None;
+    }
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (!path.is_empty()).then(|| PathBuf::from(path))
+}
+
+fn rustup_active_toolchain(current_dir: &Path) -> Option<String> {
+    let rustup = resolve_program("rustup").ok()?;
+    let request = process::request(
+        rustup.as_os_str(),
+        ["show", "active-toolchain"],
+        current_dir,
+    );
+    let output = process::run(&request).ok()?;
+    if output.timed_out || output.exit_code != Some(0) || output.stdout_truncated {
+        return None;
+    }
+    let value = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (!value.is_empty()).then_some(value)
+}
+
+fn capture_toolchain(
+    current_dir: &Path,
+    command: &BuildCommand,
+) -> Result<BuildToolchainProvenance, AnalysisError> {
+    let cargo_path = resolve_program(&command.program)?;
+    let rustc_path = resolve_program("rustc")?;
+    let cargo = capture_tool(&cargo_path, &["-Vv"], current_dir)?;
+    let rustc = capture_tool(&rustc_path, &["-vV"], current_dir)?;
+    let delegated_cargo = rustup_which("cargo", current_dir)
+        .filter(|path| path != &cargo_path)
+        .map(|path| capture_tool(&path, &["-Vv"], current_dir))
+        .transpose()?;
+    let delegated_rustc = rustup_which("rustc", current_dir)
+        .filter(|path| path != &rustc_path)
+        .map(|path| capture_tool(&path, &["-vV"], current_dir))
+        .transpose()?;
+    Ok(BuildToolchainProvenance {
+        rustup_toolchain: rustup_active_toolchain(current_dir),
+        cargo,
+        delegated_cargo,
+        rustc,
+        delegated_rustc,
+    })
+}
+
+fn semantic_digest(report: &BuildCausalityReport) -> Result<String, AnalysisError> {
+    let mut value = serde_json::to_value(report)?;
+    strip_non_semantic_fields(&mut value);
+    Ok(full_digest(&Sha256::digest(serde_json::to_vec(&value)?)))
+}
+
+fn strip_non_semantic_fields(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            for field in [
+                "analysis_id",
+                "artifact_path",
+                "artifacts",
+                "repository",
+                "rendered",
+                "semantic_digest",
+            ] {
+                object.remove(field);
+            }
+            for child in object.values_mut() {
+                strip_non_semantic_fields(child);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                strip_non_semantic_fields(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn verify_artifacts(
+    report_path: &Path,
+    report: &BuildCausalityReport,
+) -> Result<(), AnalysisError> {
+    let root = report_path.parent().ok_or_else(|| {
+        AnalysisError::ArtifactIntegrity("report path has no parent directory".to_owned())
+    })?;
+    for artifact in &report.artifacts {
+        let relative = Path::new(&artifact.path);
+        if relative.is_absolute()
+            || relative
+                .components()
+                .any(|component| !matches!(component, Component::Normal(_) | Component::CurDir))
+        {
+            return Err(AnalysisError::ArtifactIntegrity(format!(
+                "unsafe retained path {}",
+                artifact.path
+            )));
+        }
+        let bytes = fs::read(root.join(relative))?;
+        let observed = full_digest(&Sha256::digest(&bytes));
+        if observed != artifact.sha256 || u64::try_from(bytes.len()).ok() != Some(artifact.size) {
+            return Err(AnalysisError::ArtifactIntegrity(format!(
+                "digest or size mismatch for {}",
+                artifact.path
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Re-executes a retained build-causality report and verifies its semantic projection.
+///
+/// # Errors
+///
+/// Returns `AnalysisError` when retained artifacts fail integrity checks, the
+/// captured working-tree input or toolchain changed, or the replayed compiler
+/// observation differs.
+pub fn replay_build(report_path: &Path) -> Result<ReplayResult, AnalysisError> {
+    let original: BuildCausalityReport = serde_json::from_slice(&fs::read(report_path)?)?;
+    verify_artifacts(report_path, &original)?;
+    if semantic_digest(&original)? != original.semantic_digest {
+        return Err(AnalysisError::ArtifactIntegrity(
+            "report semantic digest does not match its contents".to_owned(),
+        ));
+    }
+    let repository =
+        GitRepository::discover(Path::new(&original.repository), &original.base_commit)?;
+    let atoms = repository.capture_atoms()?;
+    let observed_input = input_digest(&repository, &atoms);
+    if observed_input != original.replay.input_digest {
+        return Err(AnalysisError::ReplayInputChanged {
+            expected: original.replay.input_digest.clone(),
+            observed: observed_input,
+        });
+    }
+    let observed_toolchain = capture_toolchain(&repository.root, &original.command)?;
+    if observed_toolchain != original.toolchain
+        || command_digest(&original.command, &observed_toolchain) != original.replay.command_digest
+    {
+        return Err(AnalysisError::ReplayToolchainChanged);
+    }
+    let replayed = explain_build(&BuildCausalityRequest {
+        repository: repository.root,
+        base: original.base_commit.clone(),
+        diagnostic: DiagnosticSelector {
+            code: original.target_diagnostic.code.clone().unwrap_or_default(),
+            identity: Some(original.target_diagnostic.id.clone()),
+            source_path: None,
+        },
+        command: original.command.clone(),
+        max_evaluations: original.replay.max_evaluations,
+        max_cardinality: Some(original.replay.max_cardinality),
+        max_hunk_evaluations: original.replay.max_hunk_evaluations,
+        max_hunk_cardinality: Some(original.replay.max_hunk_cardinality),
+    })?;
+    if replayed.semantic_digest != original.semantic_digest {
+        return Err(AnalysisError::ReplayOutcomeChanged {
+            expected: original.semantic_digest,
+            observed: replayed.semantic_digest,
+        });
+    }
+    Ok(ReplayResult {
+        original_analysis_id: original.analysis_id,
+        replay_analysis_id: replayed.analysis_id,
+        semantic_digest: replayed.semantic_digest,
+        matched: true,
+    })
 }
 
 #[cfg(test)]
@@ -1023,6 +1490,18 @@ mod tests {
         assert!(matches!(
             command.adapter_arguments(),
             Err(AnalysisError::UnsupportedMessageFormat(format)) if format == "short"
+        ));
+    }
+
+    #[test]
+    fn build_adapter_rejects_cargo_named_wrapper_paths() {
+        let command = BuildCommand {
+            program: "./cargo".to_owned(),
+            arguments: vec!["check".to_owned()],
+        };
+        assert!(matches!(
+            command.adapter_arguments(),
+            Err(AnalysisError::UnsupportedBuildCommand(program)) if program == "./cargo"
         ));
     }
 

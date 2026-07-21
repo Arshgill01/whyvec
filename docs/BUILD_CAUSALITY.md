@@ -38,6 +38,14 @@ whyvec explain-build \
 `--format json` emits the same report model shown in the terminal. The retained
 report is written beneath `.whyvec/analyses/<analysis-id>/report.json`.
 
+`whyvec replay-build <report.json>` verifies every retained artifact digest,
+requires the same captured working-tree input and Cargo/rustc toolchain
+fingerprints, reruns the query, and compares a normalized semantic digest. Raw
+Cargo JSON and stderr are retained for every executed subset. Artifact paths,
+analysis identifiers, rendered diagnostic prose, and repository location are
+excluded from the semantic comparison; diagnostic identities, outcomes,
+search traces, causal sets, and provenance digests are not.
+
 ## Executed protocol
 
 1. Resolve the repository and exact base commit.
@@ -60,6 +68,8 @@ report is written beneath `.whyvec/analyses/<analysis-id>/report.json`.
     whether removing the set from the full patch makes the diagnostic disappear.
 13. Record other full-patch diagnostics that disappear in that removal witness.
 14. Persist the report and remove every temporary worktree.
+15. Mark retained input and compiler-run artifact files read-only after report
+    finalization.
 
 The user's source tree, index, and branch are never reset, checked out, or
 patched.
@@ -73,6 +83,13 @@ Tracked patches, untracked file bytes and permissions, and in-repository
 symlink targets are snapshotted before the baseline executes. Every subset run
 therefore receives the same captured intervention even if the source working
 tree changes while the analysis is running.
+
+The report records a SHA-256 digest for each atom payload, an aggregate input
+digest, the normalized executed Cargo command digest, Cargo and rustc proxy and
+delegated-binary fingerprints where rustup exposes them, and a digest/size for
+every retained artifact. Replay currently requires the recorded Git repository
+and base object to remain locally available; a portable source-bearing export
+bundle is a later distribution gate.
 
 ## Diagnostic identity
 

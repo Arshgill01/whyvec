@@ -39,6 +39,13 @@ measure which diagnostics disappear with it. See
 [Build causality](docs/BUILD_CAUSALITY.md) for the evidence model and refusal
 surface.
 
+Every completed query retains content-digested intervention snapshots and raw
+compiler streams. Re-execute and compare the normalized semantic result with:
+
+```console
+whyvec replay-build .whyvec/analyses/<analysis-id>/report.json
+```
+
 ## Product contract
 
 WhyVec separates three kinds of reasoning that must never be conflated:
