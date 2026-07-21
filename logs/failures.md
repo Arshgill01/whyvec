@@ -185,3 +185,18 @@ Safeguard: the Ubuntu 22.04 product job now installs `llvm-22` from the matching
 pinned apt.llvm.org suite, and both clean surfaces install
 `libclang-rt-21-dev`. These packages satisfy explicit recorded validation
 inputs; neither failure is reclassified as a compiler or candidate result.
+
+## 2026-07-21T19:33:30Z — Moving LLVM 22 channel did not match retained profile
+
+Run `29861591643` passed the portable suite and complete judge container. The
+product job installed apt.llvm.org's LLVM 22.1.8, then the Rust surrogate
+fixture correctly rejected it because the retained rustc 1.96.1 profile uses
+LLVM 22.1.2. Treating a same-major tool as equivalent would invalidate the
+recorded comparison.
+
+Safeguard: the clean hosted product job does not run this exact-version fixture
+against a moving apt channel. The 22.1.2 fixture remains locally executed and
+retained; CI continues to run the portable Rust suite, build adapters, Clang 21
+compiler product, LLVM transformer/identity/causality, mutations, plugin install,
+demo, real-world case, and pinned judge container. No version assertion was
+weakened.
