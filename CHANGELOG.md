@@ -18,3 +18,5 @@ The format follows Keep a Changelog principles, and releases use semantic versio
 - Pinned-Clang fixture verification and continuous Rust/repository checks.
 - Content-digested build-causality intervention and compiler-run artifacts,
   proxy-aware Cargo/rustc provenance, and tamper-detecting semantic replay.
+- A pinned LLVM API transformer for verified parameter-level `noalias`
+  interventions with exact-delta and typed-refusal validation.

@@ -208,3 +208,27 @@ Results:
 - The Cargo/Git adapter retained its wrapper refusal, offline build,
   diagnostic identity, file/hunk search, artifact, and replay behavior while
   using the shared runner.
+
+## 2026-07-21T12:13:49Z — Typed LLVM intervention validation
+
+Environment:
+
+- Clang/LLVM and LLVM libraries `21.1.8`.
+
+Passed command:
+
+```console
+python3 scripts/verify_llvm_transformer.py
+```
+
+Results:
+
+- The LLVM C++ API transformer parsed the pinned bound-alias pre-optimization
+  module, selected `add_vectors_` argument 2, applied only parameter-level
+  `noalias`, passed LLVM verification, and emitted bitcode accepted by
+  `opt-21 -passes=verify`.
+- Canonical disassembly comparison established that the fixture output differed
+  only by the declared argument attribute (excluding the incidental module-ID
+  line).
+- Existing `noalias`, non-pointer arguments, and absent functions produced
+  typed declines and no accepted variant output.

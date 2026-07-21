@@ -179,6 +179,12 @@ Matching returns a confidence level and supporting signals. Low-confidence match
 
 The generator copies baseline pre-optimization IR and applies a typed assumption delta. The current family adds parameter-level `noalias` to one selected pointer parameter without changing source text, flags, target, or pass pipeline.
 
+Production mutation uses the pinned LLVM C++ API: it parses the module, resolves
+the exact function and argument index, requires a pointer argument without an
+existing `noalias`, adds the typed attribute, runs LLVM's verifier, and writes
+bitcode. The earlier textual transformer remains fixture-only and is not an
+authorized production path.
+
 Each variant records:
 
 - source value and IR argument identity;

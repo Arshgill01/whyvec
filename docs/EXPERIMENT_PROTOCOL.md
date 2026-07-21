@@ -55,6 +55,11 @@ For every evaluated assumption set:
 9. Repeat successful results according to confirmation policy.
 10. Finalize the variant artifact directory as immutable.
 
+The production parameter-attribute edit is performed through the matching
+LLVM library API, not by rewriting textual IR. Function absence, argument
+absence, non-pointer arguments, existing attributes, invalid IR, verifier
+failure, and output failure are typed transformation declines.
+
 ## Confound detection
 
 Decline or mark inconclusive when:

@@ -131,6 +131,7 @@ NEXT ACTION
 - [crates/whyvec-build](crates/whyvec-build) — isolated Git/Cargo build oracle, rustc diagnostic identity, and causal report generation.
 - [crates/whyvec-cli](crates/whyvec-cli) — `whyvec explain-build` command-line product surface.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.
+- [tools/whyvec-llvm-transform.cpp](tools/whyvec-llvm-transform.cpp) — pinned-LLVM typed IR intervention helper used by the optimization pack.
 
 ## Current foundation
 
