@@ -229,11 +229,34 @@ def emit_rust_preopt_ir(toolchain: Toolchain, source: Path, output: Path) -> Non
     )
 
 
-def optimize_ir(toolchain: Toolchain, source: Path, output: Path) -> str:
+def capture_clang_pipeline(toolchain: Toolchain, source: Path, output: Path) -> str:
+    profile = toolchain.profile
+    completed = run(
+        [
+            str(toolchain.frontend_path),
+            f"-{profile['optimization']}",
+            f"-march={profile['cpu']}",
+            "-mllvm",
+            "-print-pipeline-passes",
+            "-c",
+            str(source),
+            "-o",
+            str(output),
+        ]
+    )
+    pipeline = completed.stdout.strip()
+    if not pipeline or "loop-vectorize" not in pipeline:
+        raise VerificationError("Clang did not emit a replayable vectorization pipeline")
+    return pipeline
+
+
+def optimize_ir(
+    toolchain: Toolchain, source: Path, output: Path, pipeline: str
+) -> str:
     completed = run(
         [
             str(toolchain.optimizer_path),
-            "-passes=default<O3>",
+            f"-passes={pipeline}",
             *optimization_remark_flags(),
             "-S",
             str(source),
@@ -301,6 +324,8 @@ def verify_counterfactuals(
     toolchain: Toolchain,
     preopt_ir: Path,
     output_root: Path,
+    pipeline: str,
+    transformer: Path,
 ) -> None:
     expected_values = case.get("expected_successful_singletons")
     if not isinstance(expected_values, list):
@@ -315,6 +340,7 @@ def verify_counterfactuals(
         toolchain,
         preopt_ir,
         output_root / f"{case['id']}.split-baseline.opt.ll",
+        pipeline,
     )
     if classify_remarks(baseline_remarks) != "missed":
         raise VerificationError(f"{case['id']}: split baseline must remain scalar")
@@ -324,15 +350,30 @@ def verify_counterfactuals(
     function = str(selector["function"])
     for parameter_name, raw_index in sorted(parameters.items()):
         intervention_id = f"parameter.{parameter_name}.noalias"
-        changed_ir = add_parameter_noalias(original_ir, function, int(raw_index))
-        variant = output_root / f"{case['id']}.{parameter_name}.noalias.pre.ll"
-        variant.write_text(changed_ir, encoding="utf-8")
+        variant = output_root / f"{case['id']}.{parameter_name}.noalias.pre.bc"
+        if toolchain.frontend == "clang":
+            run(
+                [
+                    str(transformer),
+                    str(preopt_ir),
+                    "--output",
+                    str(variant),
+                    "--function",
+                    function,
+                    "--parameter-index",
+                    str(raw_index),
+                ]
+            )
+        else:
+            changed_ir = add_parameter_noalias(original_ir, function, int(raw_index))
+            variant.write_text(changed_ir, encoding="utf-8")
 
         run([str(toolchain.optimizer_path), "-passes=verify", str(variant), "-o", os.devnull])
         remarks = optimize_ir(
             toolchain,
             variant,
             output_root / f"{case['id']}.{parameter_name}.noalias.opt.ll",
+            pipeline,
         )
         if classify_remarks(remarks) == "vectorized":
             actual.add(intervention_id)
@@ -385,6 +426,7 @@ def verify_case(
     case: dict[str, object],
     toolchain: Toolchain,
     output_root: Path,
+    transformer: Path,
 ) -> None:
     source = ROOT / "fixtures" / str(case["source"])
     case_id = str(case["id"])
@@ -394,9 +436,13 @@ def verify_case(
     if toolchain.frontend == "clang":
         remarks = compile_clang_baseline(toolchain, source, frontend_output)
         emit_clang_preopt_ir(toolchain, source, preopt_ir)
+        pipeline = capture_clang_pipeline(
+            toolchain, source, output_root / f"{case_id}.pipeline.o"
+        )
     elif toolchain.frontend == "rustc":
         remarks = compile_rust_baseline(toolchain, source, frontend_output)
         emit_rust_preopt_ir(toolchain, source, preopt_ir)
+        pipeline = "default<O3>"
     else:
         raise VerificationError(f"{case_id}: unsupported frontend")
 
@@ -415,12 +461,44 @@ def verify_case(
     if case_id == "volatile-bound-refusal" and "volatile read" not in remarks:
         raise VerificationError(f"{case_id}: missing volatile-read observation")
 
-    verify_counterfactuals(case, toolchain, preopt_ir, output_root)
+    verify_counterfactuals(
+        case, toolchain, preopt_ir, output_root, pipeline, transformer
+    )
     fidelity = case.get("pipeline_fidelity", "not_applicable")
     print(
         f"{case_id}: frontend={toolchain.frontend} baseline={actual} "
         f"counterfactual_pipeline={fidelity}"
     )
+
+
+def build_transformer(output_root: Path) -> Path:
+    llvm_config = require_tool("WHYVEC_LLVM_CONFIG_21", "llvm-config-21")
+    compiler = require_tool("WHYVEC_CLANGXX_21", "clang++-21")
+    flags = run(
+        [
+            str(llvm_config),
+            "--cxxflags",
+            "--ldflags",
+            "--system-libs",
+            "--libs",
+            "core",
+            "irreader",
+            "bitwriter",
+            "support",
+        ]
+    ).stdout.split()
+    transformer = output_root / "whyvec-llvm-transform"
+    run(
+        [
+            str(compiler),
+            "-std=c++17",
+            str(ROOT / "tools/whyvec-llvm-transform.cpp"),
+            *flags,
+            "-o",
+            str(transformer),
+        ]
+    )
+    return transformer
 
 
 def main() -> int:
@@ -437,9 +515,10 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="whyvec-compiler-fixtures-") as temporary:
         output_root = Path(temporary)
+        transformer = build_transformer(output_root)
         for case in manifest["cases"]:
             profile_id = str(case["toolchain_profile"])
-            verify_case(case, toolchains[profile_id], output_root)
+            verify_case(case, toolchains[profile_id], output_root, transformer)
 
     print("cross-frontend compiler fixture validation passed")
     return 0

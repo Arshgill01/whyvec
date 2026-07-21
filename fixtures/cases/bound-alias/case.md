@@ -15,8 +15,10 @@ The preferred explanatory finding uses the narrower relevant subject, `count`, w
 The committed `count_noalias.c` witness independently confirms that a
 monolithic Clang compilation also vectorizes when the preferred intervention
 is expressed as the corresponding C `restrict` contract. This validates the
-selected observation across monolithic and split pipelines; it does not make
-the source contract true for the original callers.
+selected observation across the monolithic build and replay of Clang's
+recorded printable pass pipeline. LLVM documents pipeline printing as
+best-effort, so the fixture remains `equivalent_confirmed` rather than `exact`.
+This evidence does not make the source contract true for the original callers.
 
 ## Required obligation behavior
 

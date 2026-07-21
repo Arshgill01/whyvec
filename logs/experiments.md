@@ -129,3 +129,30 @@ Evidence strength and limitation:
   the recorded local toolchain. Replay currently depends on the original local
   Git repository and base object; it is not yet a portable redacted
   reproduction bundle.
+
+## 2026-07-21T12:18:41Z — Clang printable-pipeline counterfactual replay
+
+Command:
+
+```console
+python3 scripts/verify_compiler_fixtures.py
+```
+
+Observed results:
+
+- Clang 21.1.8 emitted its instantiated O3 pass sequence for the pinned
+  x86-64-v3 fixture. Matching `opt-21` replay of that sequence observed the same
+  uncountable-loop miss at `kernel.c:5` as the monolithic baseline.
+- The LLVM API transformer changed only argument 2 to parameter-level
+  `noalias`; replay then observed vectorization at width 8 and interleave count
+  4. Argument 1 remained a negative singleton, and argument 0 was also a
+  successful but broader singleton.
+- The monolithic `count_noalias.c` witness independently observed the same
+  preferred changed outcome.
+
+Evidence strength and limitation:
+
+- This is a tested sufficient assumption under the recorded Clang/LLVM
+  toolchain and an `equivalent_confirmed` pipeline. It is not an `exact`
+  pipeline claim, because LLVM's printable pass string is best-effort, and it
+  does not establish that the source-level alias contract is true.

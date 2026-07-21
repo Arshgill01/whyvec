@@ -19,7 +19,8 @@
   "pipeline_fidelity": {
     "monolithic_baseline": "exact",
     "split_ir_counterfactual": "equivalent_confirmed",
-    "basis": "The monolithic and split pipelines agree on the selected fixture observation. This is observation-level equivalence, not a claim that every Clang pipeline detail is identical to opt default<O3>."
+    "pipeline_capture": "clang -mllvm -print-pipeline-passes",
+    "basis": "The monolithic build and replay of Clang's recorded printable pass pipeline agree on the selected baseline and preferred counterfactual observations. LLVM describes printable pipelines as best-effort, so this remains observation-level equivalence rather than exact replay."
   },
   "binary_digests": {
     "clang": null,

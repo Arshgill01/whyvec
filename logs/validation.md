@@ -232,3 +232,25 @@ Results:
   line).
 - Existing `noalias`, non-pointer arguments, and absent functions produced
   typed declines and no accepted variant output.
+
+## 2026-07-21T12:18:41Z — Recorded Clang pipeline replay validation
+
+Passed command:
+
+```console
+python3 scripts/verify_compiler_fixtures.py
+```
+
+Results:
+
+- The Clang fixture captured the instantiated O3 pass sequence through
+  `-mllvm -print-pipeline-passes` and replayed that exact retained string
+  through matching `opt-21`, replacing the earlier generic `default<O3>`
+  approximation for the C fixture.
+- The replay reproduced the observed uncountable-loop baseline miss.
+- Variants were produced by the typed LLVM transformer; `count noalias` and
+  `output noalias` vectorized while `input noalias` remained scalar.
+- The committed monolithic `restrict` witness and the preferred typed replay
+  both vectorized. Fidelity remains `equivalent_confirmed`, because LLVM's
+  printable pipeline is documented as best-effort rather than an exact
+  serialization of every extension callback.

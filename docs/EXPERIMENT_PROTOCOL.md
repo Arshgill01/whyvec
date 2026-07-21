@@ -28,6 +28,12 @@ Produce a reproducible comparison in which the declared semantic assumption is t
 11. Locate and classify the selected loop.
 12. Repeat when confirmation policy requires it and compare semantic outputs.
 
+For Clang 21, WhyVec captures the instantiated printable pass pipeline with
+`-mllvm -print-pipeline-passes` and replays that string through the matching
+`opt`. Because LLVM labels this representation best-effort, matching baseline
+and monolithic counterfactual observations support `equivalent_confirmed`, not
+`exact`, fidelity.
+
 ## Candidate enumeration
 
 For the parameter `noalias` family:
