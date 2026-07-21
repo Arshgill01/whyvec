@@ -1,12 +1,23 @@
 # WhyVec
 
-WhyVec is a counterfactual optimization debugger for compiler-guided engineering agents.
+WhyVec is becoming a causal debugger for compiler decisions.
 
-Compiler remarks describe the decision a compiler made. WhyVec asks a different question:
+Compilers describe the final program they received. WhyVec executes controlled
+counterfactuals to answer two questions they generally do not answer directly:
 
-> Which tested semantic assumption is sufficient to change that decision under this exact toolchain, target, flag set, and optimization pipeline?
+> Which tested change is sufficient to produce this compiler failure?
 
-The first fully specified analysis family targets missed Clang loop vectorization caused by a writable array potentially aliasing a pointer-loaded loop bound. WhyVec runs controlled shadow compilations, records the smallest sufficient assumption set found within its declared search space, derives an enforceable source-level obligation where the access pattern supports it, and gives Codex the evidence needed to implement or refuse a repository-level repair.
+> Which tested compiler assumption is sufficient to change this optimization
+> decision under the recorded toolchain, target, flags, and pipeline?
+
+The LLVM alias/trip-count analyzer remains the first deep optimization pack. It
+now runs inside an adapter-aware experiment architecture alongside build-causality
+queries. Executable fixtures cover Clang 21 and rustc 1.96.1 with LLVM 22; every
+result records whether its optimizer pipeline is exact, independently confirmed,
+or only a surrogate.
+
+The full re-foundation and defect register live in
+[docs/REFOUNDATION_AUDIT.md](docs/REFOUNDATION_AUDIT.md).
 
 ## Product contract
 
@@ -88,6 +99,7 @@ NEXT ACTION
 - [fixtures](fixtures) — positive, fallback, refusal, and already-optimized cases.
 - [integrations/codex/whyvec](integrations/codex/whyvec) — installable Codex plugin and workflow skill.
 - [crates/whyvec-domain](crates/whyvec-domain) — compileable evidence and lifecycle invariants.
+- [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle and evidence-safe minimality.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.
 
 ## Current foundation

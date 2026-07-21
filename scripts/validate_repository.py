@@ -28,13 +28,18 @@ REQUIRED_PATHS = (
     "docs/TEST_STRATEGY.md",
     "docs/THREAT_MODEL.md",
     "docs/RISK_REGISTER.md",
+    "docs/REFOUNDATION_AUDIT.md",
+    "docs/decisions/0005-causal-compiler-debugger.md",
     "schemas/whyvec-config.schema.json",
     "schemas/whyvec-report.schema.json",
     "schemas/fixture-manifest.schema.json",
     "fixtures/manifest.json",
     "toolchains/clang-21/profile.json",
+    "toolchains/rustc-1.96/profile.json",
     "integrations/codex/whyvec/.codex-plugin/plugin.json",
     "integrations/codex/whyvec/skills/whyvec-optimize/SKILL.md",
+    "crates/whyvec-experiment/Cargo.toml",
+    "crates/whyvec-experiment/src/lib.rs",
 )
 
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")
@@ -97,10 +102,29 @@ def validate_fixture_manifest(errors: list[str]) -> None:
     if manifest.get("$schema") != "../schemas/fixture-manifest.schema.json":
         errors.append("fixtures/manifest.json: unexpected schema reference")
 
-    profile_id = manifest.get("toolchain_profile")
-    profile = load_json(ROOT / "toolchains/clang-21/profile.json", errors)
-    if isinstance(profile, dict) and profile.get("profile_id") != profile_id:
-        errors.append("fixtures/manifest.json: toolchain profile id does not resolve")
+    declared_profiles = manifest.get("toolchain_profiles")
+    if not isinstance(declared_profiles, list) or not declared_profiles:
+        errors.append("fixtures/manifest.json: toolchain_profiles must be non-empty")
+        declared_profiles = []
+
+    resolved_profiles: set[str] = set()
+    for profile_path in sorted((ROOT / "toolchains").glob("*/profile.json")):
+        profile = load_json(profile_path, errors)
+        if not isinstance(profile, dict):
+            continue
+        profile_id = profile.get("profile_id")
+        if not isinstance(profile_id, str) or not profile_id:
+            errors.append(f"{profile_path.relative_to(ROOT)}: missing profile_id")
+            continue
+        if profile_id in resolved_profiles:
+            errors.append(f"duplicate toolchain profile id: {profile_id}")
+        resolved_profiles.add(profile_id)
+
+    for profile_id in declared_profiles:
+        if profile_id not in resolved_profiles:
+            errors.append(
+                f"fixtures/manifest.json: toolchain profile does not resolve: {profile_id}"
+            )
 
     cases = manifest.get("cases")
     if not isinstance(cases, list) or not cases:
@@ -122,6 +146,14 @@ def validate_fixture_manifest(errors: list[str]) -> None:
         else:
             seen.add(case_id)
 
+        frontend = case.get("frontend")
+        if frontend not in {"clang", "rustc"}:
+            errors.append(f"{prefix}.frontend is unsupported")
+
+        case_profile = case.get("toolchain_profile")
+        if case_profile not in declared_profiles:
+            errors.append(f"{prefix}.toolchain_profile is not declared")
+
         source_value = case.get("source")
         if not isinstance(source_value, str):
             errors.append(f"{prefix}.source must be a string")
@@ -136,6 +168,32 @@ def validate_fixture_manifest(errors: list[str]) -> None:
             errors.append(f"{prefix}.source does not exist: {source_value}")
             continue
 
+        monolithic = case.get("monolithic_counterfactuals", {})
+        if not isinstance(monolithic, dict):
+            errors.append(f"{prefix}.monolithic_counterfactuals must be an object")
+        else:
+            for intervention_id, variant_value in monolithic.items():
+                if not isinstance(variant_value, str):
+                    errors.append(
+                        f"{prefix}.monolithic_counterfactuals[{intervention_id}] "
+                        "must be a path"
+                    )
+                    continue
+                variant = (ROOT / "fixtures" / variant_value).resolve()
+                try:
+                    variant.relative_to(ROOT / "fixtures")
+                except ValueError:
+                    errors.append(
+                        f"{prefix}.monolithic_counterfactuals[{intervention_id}] "
+                        "escapes fixtures directory"
+                    )
+                    continue
+                if not variant.is_file():
+                    errors.append(
+                        f"{prefix}.monolithic_counterfactuals[{intervention_id}] "
+                        f"does not exist: {variant_value}"
+                    )
+
         selector = case.get("selector")
         if not isinstance(selector, dict):
             errors.append(f"{prefix}.selector must be an object")
@@ -147,8 +205,8 @@ def validate_fixture_manifest(errors: list[str]) -> None:
         lines = source.read_text(encoding="utf-8").splitlines()
         if line > len(lines):
             errors.append(f"{prefix}.selector.line is outside the source file")
-        elif not re.search(r"\bfor\s*\(", lines[line - 1]):
-            errors.append(f"{prefix}.selector.line does not select a for-loop")
+        elif not re.search(r"\b(?:for\s*\(|while\b)", lines[line - 1]):
+            errors.append(f"{prefix}.selector.line does not select a loop")
 
         decline = case.get("expected_decline")
         if decline is not None and (
@@ -211,7 +269,18 @@ def validate_text_files(errors: list[str]) -> None:
     for path in sorted(ROOT.rglob("*")):
         if not path.is_file() or IGNORED_DIRECTORIES.intersection(path.parts):
             continue
-        if path.suffix not in {".md", ".json", ".toml", ".py", ".yml", ".yaml", ".c"}:
+        if path.suffix not in {
+            ".md",
+            ".json",
+            ".toml",
+            ".py",
+            ".yml",
+            ".yaml",
+            ".c",
+            ".cc",
+            ".cpp",
+            ".rs",
+        }:
             continue
         raw = path.read_bytes()
         if raw and not raw.endswith(b"\n"):

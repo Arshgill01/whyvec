@@ -59,26 +59,99 @@ impl AnalysisState {
     }
 }
 
-/// Compiler outcome for a selected and matched source loop.
+/// A concrete compiler question supported by the experiment engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum OutcomeClassification {
-    Vectorized,
-    Missed,
-    CompileFailed,
-    LoopAbsent,
-    LoopAmbiguous,
-    LoopTransformed,
+pub enum QueryKind {
+    /// Determine which working-tree interventions produce a diagnostic.
+    BuildCausality,
+    /// Determine which compiler assumptions change an optimization decision.
+    OptimizationCausality,
+    /// Determine which recorded input makes compiler outcomes diverge.
+    CompilerDivergence,
+}
+
+/// The compiler-owned observation tracked across counterfactual variants.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum ObservationKind {
+    Diagnostic,
+    OptimizationDecision,
+    BuildStatus,
+    CodeGenerationProperty,
+}
+
+/// Result of asking whether the same observation exists in one variant.
+///
+/// This is deliberately three-valued. A variant that cannot be compiled or
+/// whose subject cannot be matched provides no evidence for or against the
+/// intervention.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExperimentVerdict {
+    Observed,
+    NotObserved,
+    Unresolved(UnresolvedReason),
+}
+
+/// Why a counterfactual variant cannot answer the selected compiler question.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum UnresolvedReason {
+    SubjectAbsent,
+    SubjectAmbiguous,
+    InterventionInvalid,
+    CompileFailedForDifferentReason,
     ToolFailed,
     TimedOut,
     PolicyDenied,
+    NonDeterministic,
+}
+
+/// Fidelity between the production frontend pipeline and an experiment run.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum PipelineFidelity {
+    /// The intervention is evaluated in a surrogate pipeline with known gaps.
+    Surrogate,
+    /// Independent evidence confirms the replay is equivalent for the query.
+    EquivalentConfirmed,
+    /// The exact recorded frontend and optimizer pipeline is replayed.
+    Exact,
+}
+
+impl PipelineFidelity {
+    /// Whether compiler evidence from this pipeline may enter source-action
+    /// evaluation. Repository contracts and validation are still required.
+    #[must_use]
+    pub const fn permits_source_action_evaluation(self) -> bool {
+        matches!(self, Self::EquivalentConfirmed | Self::Exact)
+    }
+}
+
+/// Stable adapter family that owns command capture and observation identity.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum AdapterKind {
+    Clang,
+    Rustc,
+    TypeScript,
+    Gcc,
+}
+
+/// Semantic level at which one experiment changes its input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum InterventionKind {
+    PatchAtom,
+    CompilerAssumption,
+    CompilerFlag,
+    ToolchainSelection,
 }
 
 /// The strongest minimality statement supported by a completed search.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SearchMinimality {
-    NoSuccessfulSet,
+    NoSuccessfulSetFound,
     SmallestSetFound,
     MinimalInDeclaredSearch,
     UniqueMinimalInDeclaredSearch,
@@ -149,8 +222,11 @@ impl Decline {
 #[non_exhaustive]
 pub enum DeclineStage {
     Policy,
+    AdapterResolution,
     CommandResolution,
     Baseline,
+    ObservationIdentity,
+    Intervention,
     LoopIdentity,
     CounterfactualSearch,
     ObligationDerivation,
@@ -230,6 +306,21 @@ mod tests {
         assert!(AnalysisState::Running.can_transition_to(AnalysisState::Declined));
         assert!(AnalysisState::Running.can_transition_to(AnalysisState::Interrupted));
         assert!(AnalysisState::Running.can_transition_to(AnalysisState::Failed));
+    }
+
+    #[test]
+    fn unresolved_experiment_is_not_negative_evidence() {
+        assert_ne!(
+            ExperimentVerdict::Unresolved(UnresolvedReason::SubjectAmbiguous),
+            ExperimentVerdict::NotObserved
+        );
+    }
+
+    #[test]
+    fn surrogate_pipeline_cannot_authorize_source_action_evaluation() {
+        assert!(!PipelineFidelity::Surrogate.permits_source_action_evaluation());
+        assert!(PipelineFidelity::EquivalentConfirmed.permits_source_action_evaluation());
+        assert!(PipelineFidelity::Exact.permits_source_action_evaluation());
     }
 
     #[test]

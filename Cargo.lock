@@ -5,3 +5,10 @@ version = 4
 [[package]]
 name = "whyvec-domain"
 version = "0.1.0"
+
+[[package]]
+name = "whyvec-experiment"
+version = "0.1.0"
+dependencies = [
+ "whyvec-domain",
+]

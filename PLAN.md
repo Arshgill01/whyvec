@@ -10,30 +10,43 @@ This is the living implementation plan. Phase documents contain detailed accepta
 - `verifying` — implementation exists and exit gates are being evaluated.
 - `complete` — every exit gate has evidence.
 - `blocked` — a named external or semantic condition prevents progress.
+- `superseded` — a later architectural decision replaces the phase contract.
 
 ## Current state
 
 | Phase | Capability | Status | Evidence |
 | --- | --- | --- | --- |
-| 00 | Repository foundation and contracts | complete | [Foundation validation](logs/validation.md) |
-| 01 | Reproducible Clang baseline analysis | ready | Pending implementation evidence |
-| 02 | Counterfactual noalias search | queued | Depends on stable loop identity and baseline capture |
-| 03 | Obligation derivation and refusal model | queued | Depends on counterfactual report contract |
-| 04 | Codex/GPT-5.6 repository workflow | queued | Depends on stable JSON and refusal semantics |
-| 05 | Guarded repair validation and benchmarking | queued | Depends on obligation and agent workflows |
-| 06 | Product hardening and distribution | queued | Depends on end-to-end evidence |
-| 07 | Counterfactual family expansion | queued | Depends on hardened experiment infrastructure |
+| 00 | Original vectorization foundation | superseded | [ADR 0005](docs/decisions/0005-causal-compiler-debugger.md) broadens the shared core |
+| R1 | Generic compiler-question and experiment domain | active | Query, observation, intervention, three-valued oracle, and pipeline-fidelity types compile |
+| R2 | Per-adapter toolchain and fixture system | active | Clang 21 and rustc 1.96.1/LLVM 22 fixtures execute; Rust split pipeline remains labeled surrogate |
+| R3 | Immutable counterfactual experiment runtime | ready | Depends on generalized artifact and report contracts |
+| R4 | LLVM optimization-causality pack | queued | Depends on exact pipeline replay and stable region identity |
+| R5 | Build-causality query | queued | Depends on diagnostic identity and patch-atom model |
+| R6 | C++, Rust, TypeScript, and GCC adapter expansion | queued | Depends on shared experiment runtime and adapter conformance suite |
+| R7 | Source-action, validation, and measurement | queued | Depends on family- and language-specific obligation models |
+| R8 | GPT-5.6/Codex repository engineering loop | queued | Depends on stable deterministic reports and validation gates |
 
 ## Workstreams
 
-### Deterministic engine
+### Counterfactual experiment engine
 
-- Discover and normalize compilation database entries without shell interpretation.
+- Resolve frontend/build adapters and normalize commands without shell interpretation.
+- Represent build diagnostics, optimization decisions, and divergences as typed observations.
+- Represent patch atoms and compiler assumptions as typed interventions.
+- Use a three-valued oracle and retain unresolved variants without converting them to negative evidence.
 - Fingerprint compiler inputs and retain raw optimization records.
-- Establish stable loop identity across IR variants.
+- Establish stable observation identity across variants.
 - Generate one-delta shadow variants.
-- Search declared assumption sets deterministically.
+- Search declared intervention sets deterministically.
 - Detect confounded experiments and decline ambiguous comparisons.
+
+### Adapter conformance
+
+- Clang C/C++: compilation database, SARIF/structured diagnostics, LLVM records, AST/IR identity.
+- Cargo/rustc: Cargo compilation units, rustc JSON diagnostics, matching LLVM profile, Rust item identity.
+- TypeScript: compiler API diagnostics, program graph, configuration identity, patch interventions.
+- GCC C/C++: JSON diagnostics, optimization records, and compiler-divergence observations.
+- Require positive, negative, ambiguous, tool-failure, and policy-denied fixtures for every adapter.
 
 ### Semantic obligation engine
 

@@ -1,5 +1,46 @@
 # Semantic model
 
+## Compiler questions
+
+The shared engine supports distinct compiler questions without pretending they
+have one source-language meaning:
+
+- `build_causality` tracks whether a selected compiler diagnostic is observed
+  under subsets of a working-tree change;
+- `optimization_causality` tracks whether a selected optimization decision is
+  observed under typed compiler assumptions;
+- `compiler_divergence` tracks whether two recorded compiler configurations
+  disagree on a selected build or code-generation property.
+
+Every question names an adapter, observation identity, intervention family,
+and oracle. Loop vectorization is an optimization-pack observation, not a
+shared-core outcome type.
+
+## Three-valued experiment oracle
+
+A variant result is one of:
+
+1. `observed` — the matched target observation exists;
+2. `not_observed` — the target was matched adequately and does not exist;
+3. `unresolved` — the experiment cannot answer the question.
+
+Unresolved includes invalid intervention combinations, a different compile
+failure, absent or ambiguous subjects, tool failures, policy denial, timeout,
+or nondeterminism. It is never treated as evidence that an intervention is
+irrelevant.
+
+## Pipeline fidelity
+
+Optimization experiments record one of:
+
+- `exact` — the recorded production frontend and optimizer pipeline is replayed;
+- `equivalent_confirmed` — independent comparison establishes equivalence for
+  the selected observation;
+- `surrogate` — a known approximation such as `default<O3>` is used.
+
+Surrogate results may establish mechanism feasibility and guide another
+experiment. They cannot enter source-action evaluation or authorize a repair.
+
 ## Evidence lattice
 
 WhyVec attaches an evidence strength to every material statement.

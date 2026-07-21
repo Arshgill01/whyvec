@@ -1,5 +1,6 @@
 {
   "profile_id": "clang-21-x86_64-v3",
+  "frontend": "clang",
   "clang_version": "21.1.8",
   "llvm_version": "21.1.8",
   "target_triple": "x86_64-unknown-linux-gnu",
@@ -15,6 +16,11 @@
     "-Rpass-missed=loop-vectorize",
     "-Rpass-analysis=loop-vectorize"
   ],
+  "pipeline_fidelity": {
+    "monolithic_baseline": "exact",
+    "split_ir_counterfactual": "equivalent_confirmed",
+    "basis": "The monolithic and split pipelines agree on the selected fixture observation. This is observation-level equivalence, not a claim that every Clang pipeline detail is identical to opt default<O3>."
+  },
   "binary_digests": {
     "clang": null,
     "opt": null

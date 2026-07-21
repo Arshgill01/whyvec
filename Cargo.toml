@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/whyvec-domain"]
+members = ["crates/whyvec-domain", "crates/whyvec-experiment"]
 resolver = "2"
 
 [workspace.package]

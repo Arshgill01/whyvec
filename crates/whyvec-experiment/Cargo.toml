@@ -1,0 +1,14 @@
+[package]
+name = "whyvec-experiment"
+description = "Deterministic sufficient-set search for counterfactual compiler queries"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+whyvec-domain = { path = "../whyvec-domain" }
+
+[lints]
+workspace = true

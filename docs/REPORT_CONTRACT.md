@@ -1,5 +1,15 @@
 # Report contract
 
+## Re-foundation status
+
+The checked-in `whyvec-report.schema.json` is the version 1 contract for the
+LLVM vectorization pack. It cannot serialize build-causality queries, generic
+compiler observations, three-valued experiment verdicts, adapter identity, or
+pipeline fidelity. [ADR 0005](decisions/0005-causal-compiler-debugger.md)
+requires a major-version report schema before the shared experiment runtime is
+considered complete. No generic query may be forced into the version 1 loop
+fields.
+
 ## Compatibility
 
 The report uses semantic versioning in `schema_version`.

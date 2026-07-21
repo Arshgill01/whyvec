@@ -1,5 +1,10 @@
 # Phase 00: Repository foundation and contracts
 
+> Historical phase: [ADR 0005](../decisions/0005-causal-compiler-debugger.md)
+> supersedes the vectorization-only product boundary. Document validation from
+> this phase remains useful, but it is not sufficient evidence that the new
+> shared compiler experiment foundation is complete.
+
 ## Outcome
 
 Establish a repository in which implementation decisions, semantic claims, schemas, tests, security boundaries, agent authority, and evidence logs are explicit and machine-checkable.

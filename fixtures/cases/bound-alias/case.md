@@ -12,6 +12,12 @@ Under the pinned Clang 21 x86-64-v3 profile, the loop misses vectorization becau
 
 The preferred explanatory finding uses the narrower relevant subject, `count`, while reporting every successful evaluated singleton.
 
+The committed `count_noalias.c` witness independently confirms that a
+monolithic Clang compilation also vectorizes when the preferred intervention
+is expressed as the corresponding C `restrict` contract. This validates the
+selected observation across monolithic and split pipelines; it does not make
+the source contract true for the original callers.
+
 ## Required obligation behavior
 
 The obligation engine identifies the object loaded through `count` and the region modified through `output`. It must keep LLVM's parameter assumption distinct from the candidate source-level non-overlap condition.

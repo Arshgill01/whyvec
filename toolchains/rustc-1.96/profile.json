@@ -1,0 +1,26 @@
+{
+  "profile_id": "rustc-1.96.1-llvm-22-x86_64-v3",
+  "frontend": "rustc",
+  "rustc_version": "1.96.1",
+  "llvm_version": "22.1.2",
+  "target_triple": "x86_64-unknown-linux-gnu",
+  "cpu": "x86-64-v3",
+  "optimization": "3",
+  "required_flags": [
+    "--edition=2024",
+    "-O",
+    "-Ccodegen-units=1",
+    "-Cdebuginfo=1",
+    "-Ctarget-cpu=x86-64-v3"
+  ],
+  "pipeline_fidelity": {
+    "monolithic_baseline": "exact",
+    "split_ir_counterfactual": "surrogate",
+    "graduation_requirement": "Capture or independently confirm the exact rustc LLVM pipeline before a counterfactual can authorize a source repair."
+  },
+  "binary_digests": {
+    "rustc": null,
+    "opt": null
+  },
+  "digest_policy": "Distribution images must replace null digests with the packaged binary digests before release."
+}

@@ -2,6 +2,11 @@
 
 ## System context
 
+[ADR 0005](decisions/0005-causal-compiler-debugger.md) generalizes the original
+vectorization pipeline below. The shared core now receives a compiler question,
+adapter-owned observation identity, and typed intervention provider. The LLVM
+loop pipeline remains one optimization pack.
+
 WhyVec sits between an existing native-code repository, a pinned Clang/LLVM toolchain, and a repository-aware coding agent.
 
 ```text
@@ -144,6 +149,11 @@ Search spaces are explicit finite sets. The engine:
 6. reports `smallest_set_found` or `minimal_in_declared_search` accurately.
 
 No heuristic pruning may be described as exhaustive search.
+
+The shared implementation uses a three-valued oracle. `unresolved` variants
+remain distinct from `not_observed`, and any unresolved smaller subset prevents
+a minimality claim. Build-causality patch atoms and LLVM assumption sets use the
+same cardinality-first deterministic engine.
 
 ### Outcome comparator
 
