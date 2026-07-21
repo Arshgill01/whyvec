@@ -807,3 +807,23 @@ helpers, CMake, Ninja, Rust, Python, and Codex resolved. The independent
 SuperLU checkout again passed its repository-native test and retained a
 principled refusal. The pinned judge image cannot be built locally because no
 Docker daemon is available; the dedicated GitHub job is the distribution gate.
+
+## 2026-07-21T19:52:00Z — Clean hosted product and judge gates
+
+GitHub Actions run `29862981671` passed at commit `3c4cd86`:
+
+- `validate` passed repository contracts, formatting, strict Clippy, all 56
+  Rust tests, and the mandatory Bubblewrap isolation smoke on Ubuntu 22.04.
+- `judge-container` built the pinned Ubuntu 24.04 image, installed the complete
+  CLI/helper/plugin surface, and ran `scripts/demo --ci` through the exact
+  retained candidate, sanitizers, structured compiler records, benchmark, and
+  mutation checks.
+- `compiler-product` passed clean CLI/helper installation and `doctor`, native
+  build causality, LLVM transformer and loop identity, optimization causality,
+  all eleven unsafe mutations, marketplace plugin installation, executable
+  demo validation, the pinned SuperLU repository-native test and principled
+  refusal, replay, and portable evidence checks.
+
+The exact Rust/LLVM 22.1.2, GCC 15, and TypeScript 7 cross-frontend profiles
+remain covered by the final local commands above rather than being substituted
+with semantically different hosted distribution versions.
