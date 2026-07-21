@@ -149,3 +149,12 @@ The expanded non-unit-step unit test also exposed that `i += 2` was collected
 as though it were an array write. The obligation analyzer now excludes a direct
 induction-variable update from memory-write collection; the positive test and
 all typed-refusal tests pass.
+
+## 2026-07-21T19:19:23Z — Judge entrypoint lacked its executable mode
+
+GitHub run `29860939811` reached the new judge-container job but exited 126 on
+the build step because `containers/judge/build.sh` had been added with mode
+`100644`. Docker did not run, so this failure says nothing about the image.
+
+Safeguard: the script is now tracked as `100755`. A replacement push must build
+and execute the image before the clean-environment gate is considered closed.
