@@ -44,9 +44,11 @@ Controls:
 
 Current build-causality status: the Cargo command is explicit, tokenized, run
 with an environment allowlist, bounded, and forced offline for dependency
-resolution. Arbitrary `build.rs` execution is **not yet OS-sandboxed** and can
-still use direct filesystem or socket APIs. The Cargo adapter therefore accepts
-only trusted build execution until a platform sandbox is active.
+resolution. It is executed through mandatory fingerprinted Bubblewrap with all
+namespaces unshared, including the network; a read-only host root; a private
+`/tmp`; and host writes limited to the fresh detached worktree and Cargo target
+directory. There is no unsandboxed fallback. Seccomp and enforced cgroup quotas
+remain residual distribution-hardening work.
 
 ### Source-tree mutation
 
@@ -62,7 +64,8 @@ Controls:
 
 The Cargo adapter materializes every variant in a fresh detached Git worktree
 at the recorded base commit. It never applies an atom to the user's worktree or
-index. Worktree removal failure is a fatal analysis result.
+index. Bubblewrap exposes the original repository only through the read-only
+host-root mount. Worktree removal failure is a fatal analysis result.
 
 ### Path and cleanup attacks
 

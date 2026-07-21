@@ -237,3 +237,29 @@ Evidence strength and limitation:
 - This is an evidence-backed refusal. No claim is made about either loop's
   individual optimization outcome because the supplied location did not
   uniquely identify one.
+
+## 2026-07-21T13:09:16Z — Adversarial Cargo build-script containment
+
+Command:
+
+```console
+python3 scripts/verify_build_causality.py
+```
+
+Observed results:
+
+- The generated base repository included a `build.rs` that attempted a direct
+  TCP connection to `1.1.1.1:80`, a write into the original repository, and a
+  write under `/tmp`.
+- Every build completed inside Bubblewrap. The network connection and original
+  repository write were denied, while the build script's successful `/tmp`
+  write remained inside the private tmpfs and did not appear on the host.
+- The resulting report retained Bubblewrap invocation/resolved binary digests,
+  version, and enabled isolation properties; semantic replay matched with the
+  same sandbox fingerprint.
+
+Evidence strength and limitation:
+
+- This validates the covered network and mount-isolation attempts on the
+  recorded Linux host. It is not a claim of immunity from kernel or compiler
+  vulnerabilities, and seccomp/cgroup resource enforcement remains separate.

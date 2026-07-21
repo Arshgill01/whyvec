@@ -10,8 +10,8 @@ mod git;
 
 pub use analyzer::{
     AnalysisError, BuildCausalityReport, BuildCausalityRequest, BuildCommand, BuildRunSummary,
-    BuildToolchainProvenance, CausalSetReport, ReplayResult, ReplaySpecification,
-    SearchEvaluationSummary, ToolIdentity, explain_build, replay_build,
+    BuildSandboxProvenance, BuildToolchainProvenance, CausalSetReport, ReplayResult,
+    ReplaySpecification, SearchEvaluationSummary, ToolIdentity, explain_build, replay_build,
 };
 pub use diagnostics::{
     DiagnosticRecord, DiagnosticSelectionError, DiagnosticSelector, SourceSpan, parse_cargo_json,

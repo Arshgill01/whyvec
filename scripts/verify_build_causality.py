@@ -37,6 +37,19 @@ def write_base(repository: Path) -> None:
         '[package]\nname = "causality-cli-fixture"\nversion = "0.1.0"\nedition = "2024"\n',
         encoding="utf-8",
     )
+    host_marker = repository / "sandbox-escape-marker"
+    private_tmp_marker = Path("/tmp") / f"whyvec-private-{repository.name}"
+    (repository / "build.rs").write_text(
+        "use std::net::{SocketAddr, TcpStream};\n"
+        "use std::time::Duration;\n"
+        "fn main() {\n"
+        f"  if std::fs::write({json.dumps(str(host_marker))}, b\"escape\").is_ok() {{ panic!(\"host root was writable\"); }}\n"
+        f"  std::fs::write({json.dumps(str(private_tmp_marker))}, b\"private\").unwrap();\n"
+        "  let remote: SocketAddr = \"1.1.1.1:80\".parse().unwrap();\n"
+        "  if TcpStream::connect_timeout(&remote, Duration::from_millis(100)).is_ok() { panic!(\"network was reachable\"); }\n"
+        "}\n",
+        encoding="utf-8",
+    )
     (source / "api.rs").write_text(
         "pub fn measure(value: i32) -> usize { value as usize }\n\n\n"
         "pub fn stable() -> usize { 1 }\n",
@@ -80,6 +93,14 @@ def write_candidate(repository: Path) -> None:
 
 
 def verify_report(report: dict[str, object], repository: Path) -> None:
+    sandbox = report.get("toolchain", {}).get("sandbox", {})
+    if sandbox.get("provider") != "bubblewrap":
+        raise RuntimeError(f"build sandbox provenance is missing: {sandbox}")
+    if not all(
+        sandbox.get(field) is True
+        for field in ("network_isolated", "host_root_read_only", "private_tmp")
+    ):
+        raise RuntimeError(f"build sandbox guarantees are incomplete: {sandbox}")
     if report.get("minimality") != "unique_minimal_in_declared_search":
         raise RuntimeError(f"unexpected minimality: {report.get('minimality')}")
     causal_sets = report.get("causal_sets")
@@ -288,6 +309,10 @@ def main() -> int:
         )
         if tampered.returncode == 0 or "artifact integrity check failed" not in tampered.stderr:
             raise RuntimeError("tampered retained artifact was not rejected")
+        if (repository / "sandbox-escape-marker").exists():
+            raise RuntimeError("sandboxed build script wrote into the source repository")
+        if (Path("/tmp") / f"whyvec-private-{repository.name}").exists():
+            raise RuntimeError("sandboxed build script's private /tmp write reached the host")
     print("build-causality CLI validation passed")
     return 0
 

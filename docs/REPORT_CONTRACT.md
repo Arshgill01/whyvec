@@ -40,6 +40,11 @@ input and command digest, replay limits, and a normalized semantic digest.
 `replay-build` verifies content before executing and rejects input, toolchain,
 or semantic drift rather than reporting a reproduced result.
 
+Build toolchain provenance includes the Bubblewrap invocation/resolved binary,
+digests and version plus asserted network, host-root, and temporary-filesystem
+isolation properties. The sandbox fingerprint participates in the command and
+semantic digests, so replay refuses a changed or missing containment provider.
+
 The development optimization report now carries the repository and source
 locations needed for local replay, bounded-search limits, and a normalized
 semantic digest. `replay-opt` verifies all declared artifacts before executing,

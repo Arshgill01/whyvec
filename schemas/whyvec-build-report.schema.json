@@ -125,13 +125,26 @@
     "toolchain": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rustup_toolchain", "cargo", "delegated_cargo", "rustc", "delegated_rustc"],
+      "required": ["rustup_toolchain", "sandbox", "cargo", "delegated_cargo", "rustc", "delegated_rustc"],
       "properties": {
         "rustup_toolchain": { "type": ["string", "null"] },
+        "sandbox": { "$ref": "#/$defs/sandbox" },
         "cargo": { "$ref": "#/$defs/tool" },
         "delegated_cargo": { "oneOf": [{ "$ref": "#/$defs/tool" }, { "type": "null" }] },
         "rustc": { "$ref": "#/$defs/tool" },
         "delegated_rustc": { "oneOf": [{ "$ref": "#/$defs/tool" }, { "type": "null" }] }
+      }
+    },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "tool", "network_isolated", "host_root_read_only", "private_tmp"],
+      "properties": {
+        "provider": { "const": "bubblewrap" },
+        "tool": { "$ref": "#/$defs/tool" },
+        "network_isolated": { "const": true },
+        "host_root_read_only": { "const": true },
+        "private_tmp": { "const": true }
       }
     },
     "replay": {

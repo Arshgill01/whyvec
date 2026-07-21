@@ -113,10 +113,20 @@ pub struct ToolIdentity {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct BuildToolchainProvenance {
     pub rustup_toolchain: Option<String>,
+    pub sandbox: BuildSandboxProvenance,
     pub cargo: ToolIdentity,
     pub delegated_cargo: Option<ToolIdentity>,
     pub rustc: ToolIdentity,
     pub delegated_rustc: Option<ToolIdentity>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct BuildSandboxProvenance {
+    pub provider: String,
+    pub tool: ToolIdentity,
+    pub network_isolated: bool,
+    pub host_root_read_only: bool,
+    pub private_tmp: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -382,6 +392,8 @@ pub fn explain_build(
         repository,
         atoms,
         command: command.clone(),
+        cargo_path: PathBuf::from(&toolchain.cargo.invocation_path),
+        sandbox_path: PathBuf::from(&toolchain.sandbox.tool.invocation_path),
         target_dir,
         worktree_root: temporary_root.join("worktrees"),
         artifact_root: artifact_root.clone(),
@@ -573,7 +585,7 @@ pub fn explain_build(
         caveats: vec![
             "A sufficient edit set changes the selected compiler observation; it does not prove the edit is semantically wrong.".to_owned(),
             "Tracked text files are refined to zero-context Git hunks; these are executable edit regions, not syntax-tree-level semantic units.".to_owned(),
-            "Cargo is forced offline, but build scripts are not yet operating-system sandboxed.".to_owned(),
+            "Cargo runs in a Bubblewrap mount, process, and network sandbox; the host root is read-only and only the fresh worktree, Cargo target directory, and private temporary filesystem are writable.".to_owned(),
         ],
     };
     if report.candidate.output_truncated
@@ -606,6 +618,8 @@ struct AnalysisSession {
     repository: GitRepository,
     atoms: Vec<ChangeAtom>,
     command: BuildCommand,
+    cargo_path: PathBuf,
+    sandbox_path: PathBuf,
     target_dir: PathBuf,
     worktree_root: PathBuf,
     artifact_root: PathBuf,
@@ -685,11 +699,33 @@ impl AnalysisSession {
         }
         apply_text_hunks(hunks, worktree)?;
 
-        let mut process_request = process_request(
-            &self.command.program,
-            self.command.adapter_arguments()?,
-            worktree,
-        );
+        let mut sandbox_arguments = vec![
+            OsString::from("--die-with-parent"),
+            OsString::from("--new-session"),
+            OsString::from("--unshare-all"),
+            OsString::from("--ro-bind"),
+            OsString::from("/"),
+            OsString::from("/"),
+            OsString::from("--dev"),
+            OsString::from("/dev"),
+            OsString::from("--proc"),
+            OsString::from("/proc"),
+            OsString::from("--tmpfs"),
+            OsString::from("/tmp"),
+            OsString::from("--bind"),
+            worktree.as_os_str().to_os_string(),
+            worktree.as_os_str().to_os_string(),
+            OsString::from("--bind"),
+            self.target_dir.as_os_str().to_os_string(),
+            self.target_dir.as_os_str().to_os_string(),
+            OsString::from("--chdir"),
+            worktree.as_os_str().to_os_string(),
+            OsString::from("--"),
+            self.cargo_path.as_os_str().to_os_string(),
+        ];
+        sandbox_arguments.extend(self.command.adapter_arguments()?);
+        let mut process_request =
+            process_request(&self.sandbox_path, sandbox_arguments, Path::new("/"));
         process_request.timeout = BUILD_TIMEOUT;
         process_request.output_limit = BUILD_OUTPUT_LIMIT;
         process_request.environment.extend([
@@ -1150,6 +1186,7 @@ fn capture_toolchain(
 ) -> Result<BuildToolchainProvenance, AnalysisError> {
     let cargo_path = resolve_program(&command.program)?;
     let rustc_path = resolve_program("rustc")?;
+    let sandbox_path = resolve_program("bwrap")?;
     let cargo = capture_tool(&cargo_path, &["-Vv"], current_dir)?;
     let rustc = capture_tool(&rustc_path, &["-vV"], current_dir)?;
     let delegated_cargo = rustup_which("cargo", current_dir)
@@ -1162,6 +1199,13 @@ fn capture_toolchain(
         .transpose()?;
     Ok(BuildToolchainProvenance {
         rustup_toolchain: rustup_active_toolchain(current_dir),
+        sandbox: BuildSandboxProvenance {
+            provider: "bubblewrap".to_owned(),
+            tool: capture_tool(&sandbox_path, &["--version"], current_dir)?,
+            network_isolated: true,
+            host_root_read_only: true,
+            private_tmp: true,
+        },
         cargo,
         delegated_cargo,
         rustc,

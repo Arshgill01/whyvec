@@ -201,15 +201,20 @@ causality.
   diagnostic evidence.
 - stdout and stderr are drained with retained-size bounds.
 - timeouts terminate the process group, not only its parent process.
+- Cargo and every transitive `build.rs` run inside fingerprinted Bubblewrap
+  mount, user, PID, IPC, UTS, cgroup, and network namespaces.
+- The host root is read-only; only the fresh detached worktree and shared Cargo
+  target directory are host-writable, and `/tmp` is a private tmpfs.
 - untracked symlinks resolving outside the repository are rejected.
 - unmerged paths and non-UTF-8 paths currently decline.
 - every temporary Git worktree is explicitly removed, including after build
   failures.
 
-Operating-system sandboxing of arbitrary `build.rs` processes is not yet
-implemented. Cargo offline mode does not prevent a build script from creating
-its own network connection. Run the adapter only on repositories whose build
-execution is trusted until the sandbox gate is executable.
+The current Cargo adapter requires Linux Bubblewrap with unprivileged namespace
+support. It refuses to start if `bwrap` cannot be resolved or fingerprinted;
+there is no unsandboxed fallback. Resource cgroup quotas and syscall filtering
+remain distribution-hardening work beyond the existing wall-clock, process
+group, and output bounds.
 
 ## Current refusal and limitation surface
 

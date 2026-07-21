@@ -113,6 +113,12 @@ Codex must demonstrate:
 - cleanup interruption and partial artifact finalization;
 - cache poisoning through omitted semantic inputs.
 
+The Cargo security fixture runs a `build.rs` that attempts a direct external
+TCP connection, a write into the original source repository, and a `/tmp`
+write. The build succeeds only when network and host-root access are denied;
+neither write may appear on the host, and the report must retain the Bubblewrap
+fingerprint and enabled isolation properties.
+
 ## Determinism protocol
 
 Run identical analyses in fresh artifact directories and compare normalized reports. Timestamps, durations, random identifiers, absolute ephemeral paths, and run-artifact references are excluded from semantic comparison; toolchain, outcome, search, finding, and obligation semantics must match, while every retained artifact must independently pass its recorded digest and size check.

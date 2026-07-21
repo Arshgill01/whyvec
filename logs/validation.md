@@ -357,3 +357,21 @@ Results:
   used `not_evaluated` pipeline fidelity, and reproduced through `replay-opt`.
 - Positive, already-vectorized, ambiguous, and no-success reports all validated
   against the updated Draft 2020-12 schema.
+
+## 2026-07-21T13:09:16Z — Cargo Bubblewrap containment validation
+
+Passed commands:
+
+```console
+cargo test -p whyvec-build --all-features
+python3 scripts/verify_build_causality.py
+```
+
+Results:
+
+- Eight build-adapter unit/integration tests passed under mandatory Bubblewrap.
+- The public CLI and semantic replay passed with the sandbox identity in the
+  build report schema and command digest.
+- An adversarial `build.rs` could not reach an external TCP endpoint or write
+  into the original repository. Its successful private `/tmp` write did not
+  reach the host filesystem.

@@ -27,3 +27,5 @@ The format follows Keep a Changelog principles, and releases use semantic versio
   checks plus normalized semantic outcome comparison.
 - Retained `identity.ambiguous` query reports and unresolved variant identity
   outcomes that stop without inventing a loop or treating uncertainty as a miss.
+- Mandatory fingerprinted Bubblewrap containment for Cargo experiments with an
+  isolated network, read-only host root, private `/tmp`, and no unsandboxed fallback.

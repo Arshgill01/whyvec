@@ -28,3 +28,14 @@
   with a typed decline and no optimizer outcome.
 - Added a manifest-backed two-loop/same-line fixture and semantic replay for its
   retained `identity.ambiguous` result, closing R4's final exit gate.
+
+## 2026-07-21T13:09:16Z — Mandatory Cargo OS containment
+
+- Routed every Cargo counterfactual through fingerprinted Bubblewrap with all
+  namespaces unshared, including network isolation.
+- Mounted the host root read-only, exposed only the fresh detached worktree and
+  shared Cargo target directory as host-writable, and provided a private
+  in-memory `/tmp`.
+- Added the sandbox binary identity and asserted isolation properties to build
+  toolchain provenance and replay command digests. Missing Bubblewrap has no
+  unsandboxed fallback.
