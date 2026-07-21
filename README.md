@@ -132,6 +132,7 @@ NEXT ACTION
 - [crates/whyvec-cli](crates/whyvec-cli) — `whyvec explain-build` command-line product surface.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.
 - [tools/whyvec-llvm-transform.cpp](tools/whyvec-llvm-transform.cpp) — pinned-LLVM typed IR intervention helper used by the optimization pack.
+- [tools/whyvec-llvm-loop-identity.cpp](tools/whyvec-llvm-loop-identity.cpp) — LLVM loop analysis and structural identity helper with ambiguity refusal.
 
 ## Current foundation
 

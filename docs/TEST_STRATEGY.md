@@ -35,6 +35,10 @@ Every supported analysis family includes:
 - target-dependent vectorization factor;
 - non-deterministic compiler plugin or wrapper, which policy declines.
 
+The LLVM identity helper is additionally tested with two distinct loops that
+share one function and debug line. It must return the match count and a typed
+ambiguity decline rather than choosing either loop.
+
 ### Obligation derivation tests
 
 Supported positive shapes cover:

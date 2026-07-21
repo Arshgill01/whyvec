@@ -254,3 +254,22 @@ Results:
   both vectorized. Fidelity remains `equivalent_confirmed`, because LLVM's
   printable pipeline is documented as best-effort rather than an exact
   serialization of every extension callback.
+
+## 2026-07-21T12:23:22Z — LLVM loop identity validation
+
+Passed command:
+
+```console
+python3 scripts/verify_llvm_loop_identity.py
+```
+
+Results:
+
+- LLVM dominator and loop analysis uniquely matched `add_vectors_` at the
+  selected debug line and produced a high-confidence structural fingerprint.
+- The same fingerprint, source location, loop depth, and block count were
+  observed after the typed parameter-level `noalias` intervention.
+- A missing debug line returned `identity.loop_absent`.
+- An adversarial IR fixture containing two distinct loops at the same function
+  and debug line returned `identity.loop_ambiguous` with two matches; neither
+  loop was selected by proximity.

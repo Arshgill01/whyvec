@@ -175,6 +175,14 @@ A loop identity combines:
 
 Matching returns a confidence level and supporting signals. Low-confidence matches decline comparison.
 
+The LLVM pack's first executable identity boundary resolves an exact IR
+function, constructs dominator and loop analyses over pre-optimization IR,
+requires exactly one loop whose start debug location matches the selected
+source line, and fingerprints the loop's ordered blocks, instruction opcodes,
+operand counts, result types, and debug locations. Typed function-argument
+attributes do not alter this fingerprint. Zero matches decline
+`identity.loop_absent`; multiple matches decline `identity.loop_ambiguous`.
+
 ### Variant generator
 
 The generator copies baseline pre-optimization IR and applies a typed assumption delta. The current family adds parameter-level `noalias` to one selected pointer parameter without changing source text, flags, target, or pass pipeline.
