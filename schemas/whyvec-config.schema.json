@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whyvec.dev/schemas/whyvec-config.schema.json",
+  "title": "WhyVec configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clang", "llvm_opt", "allowed_major_versions"],
+      "properties": {
+        "clang": {
+          "type": "string",
+          "minLength": 1
+        },
+        "llvm_opt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_major_versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "required_binary_digests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network": {
+          "enum": ["deny", "inherit"]
+        },
+        "allow_wrappers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_compiler_plugins": {
+          "type": "boolean"
+        },
+        "environment_allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "max_processes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_memory_mib": {
+          "type": "integer",
+          "minimum": 64
+        },
+        "max_output_mib": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "process_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "search": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "enum": ["singletons", "bounded_subsets", "exhaustive_subsets"]
+        },
+        "max_cardinality": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "confirmation_runs": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minimum_confidence": {
+          "enum": ["high", "medium"]
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retain_ir": {
+          "type": "boolean"
+        },
+        "retain_source_excerpt": {
+          "type": "boolean"
+        },
+        "relativize_paths_on_export": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

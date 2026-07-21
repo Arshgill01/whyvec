@@ -1,0 +1,23 @@
+{
+  "profile_id": "clang-21-x86_64-v3",
+  "clang_version": "21.1.8",
+  "llvm_version": "21.1.8",
+  "target_triple": "x86_64-unknown-linux-gnu",
+  "cpu": "x86-64-v3",
+  "optimization": "O3",
+  "required_flags": [
+    "-O3",
+    "-march=x86-64-v3",
+    "-gline-tables-only",
+    "-gcolumn-info",
+    "-fsave-optimization-record",
+    "-Rpass=loop-vectorize",
+    "-Rpass-missed=loop-vectorize",
+    "-Rpass-analysis=loop-vectorize"
+  ],
+  "binary_digests": {
+    "clang": null,
+    "opt": null
+  },
+  "digest_policy": "Distribution images must replace null digests with the packaged binary digests before release."
+}

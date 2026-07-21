@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whyvec.dev/schemas/fixture-manifest.schema.json",
+  "title": "WhyVec compiler fixture manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "toolchain_profile", "cases"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$"
+    },
+    "toolchain_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "selector", "expected_baseline"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]+$"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^cases/.+\\.c$"
+        },
+        "selector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["function", "line"],
+          "properties": {
+            "function": { "type": "string", "minLength": 1 },
+            "line": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "expected_baseline": {
+          "enum": ["missed", "vectorized"]
+        },
+        "expected_successful_singletons": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "preferred_explanation_singleton": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_obligation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_obligation_status": {
+          "enum": ["derived", "declined"]
+        },
+        "expected_decline": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+        }
+      }
+    }
+  }
+}

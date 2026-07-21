@@ -1,0 +1,43 @@
+{
+  "$schema": "../schemas/fixture-manifest.schema.json",
+  "schema_version": "1.0.0",
+  "toolchain_profile": "clang-21-x86_64-v3",
+  "cases": [
+    {
+      "id": "bound-alias",
+      "source": "cases/bound-alias/kernel.c",
+      "selector": {
+        "function": "add_vectors_",
+        "line": 5
+      },
+      "expected_baseline": "missed",
+      "expected_successful_singletons": [
+        "parameter.count.noalias",
+        "parameter.output.noalias"
+      ],
+      "preferred_explanation_singleton": "parameter.count.noalias",
+      "expected_obligation": "bound_object_disjoint_from_modified_region"
+    },
+    {
+      "id": "already-vectorized",
+      "source": "cases/already-vectorized/kernel.c",
+      "selector": {
+        "function": "transform",
+        "line": 4
+      },
+      "expected_baseline": "vectorized",
+      "expected_decline": "baseline.already_vectorized"
+    },
+    {
+      "id": "volatile-bound-refusal",
+      "source": "cases/refusal/volatile_bound.c",
+      "selector": {
+        "function": "update_until",
+        "line": 3
+      },
+      "expected_baseline": "missed",
+      "expected_obligation_status": "declined",
+      "expected_decline": "obligation.volatile_bound"
+    }
+  ]
+}
