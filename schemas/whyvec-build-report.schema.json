@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whyvec.dev/schemas/whyvec-build-report.schema.json",
+  "title": "WhyVec build-causality report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "analysis_id",
+    "query_kind",
+    "adapter",
+    "evidence_strength",
+    "repository",
+    "base_commit",
+    "command",
+    "target_diagnostic",
+    "atoms",
+    "baseline",
+    "candidate",
+    "evaluations",
+    "minimality",
+    "stop_reason",
+    "declared_subsets",
+    "causal_sets",
+    "artifact_path",
+    "caveats"
+  ],
+  "properties": {
+    "schema_version": { "const": "2.0.0-dev" },
+    "analysis_id": { "type": "string", "pattern": "^wv_[a-f0-9]{24}$" },
+    "query_kind": { "const": "build_causality" },
+    "adapter": { "const": "cargo_rustc" },
+    "evidence_strength": { "const": "counterfactual_observation" },
+    "repository": { "type": "string", "minLength": 1 },
+    "base_commit": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+    "command": { "$ref": "#/$defs/command" },
+    "target_diagnostic": { "$ref": "#/$defs/diagnostic" },
+    "atoms": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/atom" }
+    },
+    "baseline": { "$ref": "#/$defs/run" },
+    "candidate": { "$ref": "#/$defs/run" },
+    "evaluations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evaluation" }
+    },
+    "minimality": {
+      "enum": [
+        "no_successful_set_found",
+        "smallest_set_found",
+        "minimal_in_declared_search",
+        "unique_minimal_in_declared_search",
+        "unknown_minimality"
+      ]
+    },
+    "stop_reason": {
+      "enum": [
+        "declared_space_exhausted",
+        "first_successful_cardinality_completed",
+        "evaluation_budget_exhausted"
+      ]
+    },
+    "declared_subsets": { "type": "integer", "minimum": 1 },
+    "causal_sets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/causal_set" }
+    },
+    "artifact_path": { "type": "string", "minLength": 1 },
+    "caveats": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["program", "arguments"],
+      "properties": {
+        "program": { "type": "string", "minLength": 1 },
+        "arguments": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "column", "label", "source_excerpt"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "label": { "type": ["string", "null"] },
+        "source_excerpt": { "type": ["string", "null"] }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "adapter",
+        "code",
+        "level",
+        "message",
+        "target",
+        "primary_span",
+        "rendered"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^rustc:[^:]+:[a-f0-9]{20}$" },
+        "adapter": { "const": "rustc" },
+        "code": { "type": ["string", "null"] },
+        "level": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" },
+        "target": { "type": ["string", "null"] },
+        "primary_span": {
+          "oneOf": [
+            { "$ref": "#/$defs/span" },
+            { "type": "null" }
+          ]
+        },
+        "rendered": { "type": ["string", "null"] }
+      }
+    },
+    "atom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "display", "paths"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^file\\.[a-f0-9]{16}$" },
+        "display": { "type": "string", "minLength": 1 },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subset",
+        "exit_code",
+        "timed_out",
+        "output_truncated",
+        "diagnostics"
+      ],
+      "properties": {
+        "subset": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^file\\.[a-f0-9]{16}$" }
+        },
+        "exit_code": { "type": ["integer", "null"] },
+        "timed_out": { "type": "boolean" },
+        "output_truncated": { "type": "boolean" },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/diagnostic" }
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subset",
+        "verdict",
+        "unresolved_reason",
+        "exit_code",
+        "timed_out",
+        "output_truncated"
+      ],
+      "properties": {
+        "subset": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^file\\.[a-f0-9]{16}$" }
+        },
+        "verdict": { "enum": ["observed", "not_observed", "unresolved"] },
+        "unresolved_reason": {
+          "type": ["string", "null"]
+        },
+        "exit_code": { "type": ["integer", "null"] },
+        "timed_out": { "type": "boolean" },
+        "output_truncated": { "type": "boolean" }
+      }
+    },
+    "causal_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sufficient_atoms",
+        "sufficient_files",
+        "removal_subset",
+        "target_removed_from_full_patch",
+        "diagnostics_suppressed_with_target"
+      ],
+      "properties": {
+        "sufficient_atoms": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^file\\.[a-f0-9]{16}$" }
+        },
+        "sufficient_files": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "removal_subset": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^file\\.[a-f0-9]{16}$" }
+        },
+        "target_removed_from_full_patch": { "type": "boolean" },
+        "diagnostics_suppressed_with_target": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/diagnostic" }
+        }
+      }
+    }
+  }
+}

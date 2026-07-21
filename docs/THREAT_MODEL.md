@@ -42,6 +42,12 @@ Controls:
 - disable network access in isolated execution;
 - expose every rejected command component in a redacted policy report.
 
+Current build-causality status: the Cargo command is explicit, tokenized, run
+with an environment allowlist, bounded, and forced offline for dependency
+resolution. Arbitrary `build.rs` execution is **not yet OS-sandboxed** and can
+still use direct filesystem or socket APIs. The Cargo adapter therefore accepts
+only trusted build execution until a platform sandbox is active.
+
 ### Source-tree mutation
 
 Threat: compilers, plugins, build scripts, or agent commands modify user files.
@@ -53,6 +59,10 @@ Controls:
 - pre/post repository digest or Git status check;
 - output-path rewriting;
 - explicit source-edit authority only in the later Codex repair stage.
+
+The Cargo adapter materializes every variant in a fresh detached Git worktree
+at the recorded base commit. It never applies an atom to the user's worktree or
+index. Worktree removal failure is a fatal analysis result.
 
 ### Path and cleanup attacks
 

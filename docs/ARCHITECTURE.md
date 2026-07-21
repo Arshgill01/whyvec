@@ -41,6 +41,34 @@ WhyVec sits between an existing native-code repository, a pinned Clang/LLVM tool
 
 ## Component boundaries
 
+### Build-causality runtime
+
+The Cargo/rustc vertical is executable and consists of:
+
+```text
+Git base + working tree
+        │
+        ▼
+file-atom capture ──► detached worktree materializer
+        │                         │
+        │                         ▼
+        │                 Cargo JSON build oracle
+        │                         │
+        ▼                         ▼
+sufficient-set search ◄── stable diagnostic identity
+        │
+        ▼
+full-patch removal witness ──► co-suppressed diagnostics
+        │
+        ▼
+retained build-causality report
+```
+
+Every subset receives a fresh worktree at the same base commit. Build failures
+that omit the target diagnostic are unresolved rather than negative evidence.
+The implementation and exact safety boundary are specified in
+[BUILD_CAUSALITY.md](BUILD_CAUSALITY.md).
+
 ### CLI and application service
 
 Responsibilities:

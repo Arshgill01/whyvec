@@ -25,6 +25,7 @@ REQUIRED_PATHS = (
     "docs/EXPERIMENT_PROTOCOL.md",
     "docs/REPORT_CONTRACT.md",
     "docs/AGENT_CONTRACT.md",
+    "docs/BUILD_CAUSALITY.md",
     "docs/TEST_STRATEGY.md",
     "docs/THREAT_MODEL.md",
     "docs/RISK_REGISTER.md",
@@ -32,6 +33,7 @@ REQUIRED_PATHS = (
     "docs/decisions/0005-causal-compiler-debugger.md",
     "schemas/whyvec-config.schema.json",
     "schemas/whyvec-report.schema.json",
+    "schemas/whyvec-build-report.schema.json",
     "schemas/fixture-manifest.schema.json",
     "fixtures/manifest.json",
     "toolchains/clang-21/profile.json",
@@ -40,6 +42,11 @@ REQUIRED_PATHS = (
     "integrations/codex/whyvec/skills/whyvec-optimize/SKILL.md",
     "crates/whyvec-experiment/Cargo.toml",
     "crates/whyvec-experiment/src/lib.rs",
+    "crates/whyvec-build/Cargo.toml",
+    "crates/whyvec-build/src/lib.rs",
+    "crates/whyvec-cli/Cargo.toml",
+    "crates/whyvec-cli/src/main.rs",
+    "scripts/verify_build_causality.py",
 )
 
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")

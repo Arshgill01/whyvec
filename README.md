@@ -19,6 +19,25 @@ or only a surrogate.
 The full re-foundation and defect register live in
 [docs/REFOUNDATION_AUDIT.md](docs/REFOUNDATION_AUDIT.md).
 
+## Build causality
+
+The first executable cross-language-facing query targets failing Cargo changes:
+
+```console
+cargo run -p whyvec-cli -- explain-build \
+  --base HEAD \
+  --diagnostic E0308 \
+  --at src/lib.rs \
+  -- cargo check
+```
+
+WhyVec verifies that the base passes, reconstructs the working-tree change in
+isolated detached worktrees, identifies sufficient changed-file sets for the
+selected rustc diagnostic, and then removes each set from the full patch to
+measure which diagnostics disappear with it. See
+[Build causality](docs/BUILD_CAUSALITY.md) for the evidence model and refusal
+surface.
+
 ## Product contract
 
 WhyVec separates three kinds of reasoning that must never be conflated:
@@ -90,6 +109,7 @@ NEXT ACTION
 - [docs/SEMANTIC_MODEL.md](docs/SEMANTIC_MODEL.md) — evidence strength and alias semantics.
 - [docs/EXPERIMENT_PROTOCOL.md](docs/EXPERIMENT_PROTOCOL.md) — reproducible counterfactual procedure.
 - [docs/AGENT_CONTRACT.md](docs/AGENT_CONTRACT.md) — Codex/GPT-5.6 responsibilities and refusals.
+- [docs/BUILD_CAUSALITY.md](docs/BUILD_CAUSALITY.md) — patch atoms, rustc diagnostic identity, subset search, removal witnesses, and safety boundaries.
 - [docs/DECLINE_CODES.md](docs/DECLINE_CODES.md) — stable failure and refusal taxonomy.
 - [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md) — fixture and adversarial validation matrix.
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — untrusted repository and toolchain risks.
@@ -100,6 +120,8 @@ NEXT ACTION
 - [integrations/codex/whyvec](integrations/codex/whyvec) — installable Codex plugin and workflow skill.
 - [crates/whyvec-domain](crates/whyvec-domain) — compileable evidence and lifecycle invariants.
 - [crates/whyvec-experiment](crates/whyvec-experiment) — deterministic finite intervention search with a three-valued oracle and evidence-safe minimality.
+- [crates/whyvec-build](crates/whyvec-build) — isolated Git/Cargo build oracle, rustc diagnostic identity, and causal report generation.
+- [crates/whyvec-cli](crates/whyvec-cli) — `whyvec explain-build` command-line product surface.
 - [scripts](scripts) — repository and pinned-Clang fixture validation.
 
 ## Current foundation

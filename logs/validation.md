@@ -56,3 +56,53 @@ Results:
 - The Rust monolithic baseline and paired LLVM surrogate produced the declared outcomes; the result remains blocked from source-action evaluation by its `surrogate` fidelity.
 - Eleven shared-domain and experiment-search tests passed, including three-valued oracle, pipeline-fidelity, stable ordering, interacting sufficient sets, unresolved subsets, and resource-bound gates.
 - Formatting and strict Clippy checks passed.
+
+## 2026-07-21T09:46:42Z — Build-causality product validation
+
+Passed commands:
+
+```console
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 -c 'import json; from pathlib import Path; import jsonschema; schema=json.loads(Path("schemas/whyvec-build-report.schema.json").read_text()); jsonschema.Draft202012Validator.check_schema(schema)'
+```
+
+Results:
+
+- Sixteen Rust tests passed across the domain, experiment search, process runner, rustc diagnostic identity, Git/Cargo build oracle, and causal report path.
+- The public `whyvec explain-build` CLI passed against a generated multi-file Cargo repository.
+- The report validated against the Draft 2020-12 build-causality schema.
+- Process output bounds and process-group timeout behavior passed.
+- Existing Clang and rustc/LLVM optimization fixtures remained unchanged and passing.
+- Repository validation, formatting, and strict Clippy checks passed.
+
+## 2026-07-21T09:54:52Z — Build-causality hardening validation
+
+This entry supersedes only the earlier build-causality test-count statement; the earlier commands and results remain historical evidence.
+
+Passed commands:
+
+```console
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_build_causality.py
+python3 -c 'import json; from pathlib import Path; import jsonschema; schema=json.loads(Path("schemas/whyvec-build-report.schema.json").read_text()); jsonschema.Draft202012Validator.check_schema(schema)'
+git diff --check
+```
+
+Results:
+
+- Nineteen Rust tests passed: eight build-causality tests, six domain tests, and five experiment-search tests.
+- Strict Clippy and formatting passed without warning suppression for the new adapter paths.
+- Untracked atoms were verified immutable after source mutation.
+- Non-JSON Cargo message formats were rejected and supported JSON variants were accepted.
+- The CLI ambiguity refusal exposed stable identities; an exact-identity rerun produced the same causal projection and excluded retained `.whyvec/` state.
+- The real temporary-repository reports validated against the Draft 2020-12 schema.
+- Existing Clang and rustc/LLVM fixture verification and repository validation passed.

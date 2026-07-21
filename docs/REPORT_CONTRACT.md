@@ -10,6 +10,12 @@ requires a major-version report schema before the shared experiment runtime is
 considered complete. No generic query may be forced into the version 1 loop
 fields.
 
+The executable Cargo/rustc build vertical currently emits the deliberately
+separate [build report schema](../schemas/whyvec-build-report.schema.json). Its
+`2.0.0-dev` identifier makes the incompatibility explicit while diagnostic,
+atom, and artifact contracts are hardened. It does not silently redefine the
+version 1 optimization report.
+
 ## Compatibility
 
 The report uses semantic versioning in `schema_version`.

@@ -1,5 +1,20 @@
 # Product specification
 
+## Re-founded product boundary
+
+[ADR 0005](decisions/0005-causal-compiler-debugger.md) broadens the product from
+one vectorization family into a causal compiler debugger. The two top-level jobs
+are:
+
+1. explain which working-tree edit sets are sufficient to produce a selected
+   build diagnostic relative to a passing base;
+2. explain which typed compiler assumptions are sufficient to change a selected
+   optimization decision.
+
+The original specification below remains the contract for the LLVM
+alias/trip-count optimization pack. The executable Cargo/rustc build query is
+specified in [BUILD_CAUSALITY.md](BUILD_CAUSALITY.md).
+
 ## Product thesis
 
 Compiler optimization remarks answer what happened. WhyVec experimentally identifies a tested condition under which the compiler makes a different decision, then helps a repository-aware agent determine whether and how that condition can be enforced safely.

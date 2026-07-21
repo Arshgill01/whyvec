@@ -1,0 +1,19 @@
+[package]
+name = "whyvec-cli"
+description = "Command-line interface for causal compiler queries"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "whyvec"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true
+whyvec-build = { path = "../whyvec-build" }
+
+[lints]
+workspace = true

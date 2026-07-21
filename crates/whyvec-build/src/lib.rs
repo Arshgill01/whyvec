@@ -1,0 +1,29 @@
+//! Build-causality queries over isolated compiler runs.
+
+#![forbid(unsafe_code)]
+
+use std::fmt::Write as _;
+
+mod analyzer;
+mod diagnostics;
+mod git;
+mod process;
+
+pub use analyzer::{
+    AnalysisError, BuildCausalityReport, BuildCausalityRequest, BuildCommand, BuildRunSummary,
+    CausalSetReport, SearchEvaluationSummary, explain_build,
+};
+pub use diagnostics::{
+    DiagnosticRecord, DiagnosticSelectionError, DiagnosticSelector, SourceSpan, parse_cargo_json,
+    select_diagnostic,
+};
+pub use git::ChangeAtomSummary;
+
+fn hex_prefix(bytes: &[u8], length: usize) -> String {
+    bytes[..length]
+        .iter()
+        .fold(String::with_capacity(length * 2), |mut output, byte| {
+            write!(output, "{byte:02x}").expect("writing to String cannot fail");
+            output
+        })
+}

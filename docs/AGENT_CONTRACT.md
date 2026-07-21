@@ -6,6 +6,11 @@ The agent translates deterministic counterfactual evidence into a repository-awa
 
 ## Required workflow
 
+For a failing agent-authored working tree, run `whyvec explain-build` before
+editing symptoms individually. Use its sufficient edit sets, unresolved subsets,
+and removal witness to identify the semantic change that needs review. Do not
+describe a sufficient edit set as inherently incorrect.
+
 1. Run WhyVec against the user-selected source location.
 2. Read the machine report and confirm it is complete, supported, and free of confounds.
 3. Inspect the selected function, declarations, all resolvable callers, FFI boundaries, documentation, tests, and build configuration.
