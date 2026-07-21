@@ -213,7 +213,13 @@ def validate_fixture_manifest(errors: list[str]) -> None:
         if line > len(lines):
             errors.append(f"{prefix}.selector.line is outside the source file")
         elif not re.search(r"\b(?:for\s*\(|while\b)", lines[line - 1]):
-            errors.append(f"{prefix}.selector.line does not select a loop")
+            macro_ambiguity = (
+                case.get("language") == "cpp"
+                and case.get("expected_decline") == "identity.ambiguous"
+                and re.search(r"\b[A-Z_][A-Z0-9_]*\s*\(", lines[line - 1])
+            )
+            if not macro_ambiguity:
+                errors.append(f"{prefix}.selector.line does not select a loop")
 
         decline = case.get("expected_decline")
         if decline is not None and (

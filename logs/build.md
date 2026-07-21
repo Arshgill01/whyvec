@@ -51,3 +51,12 @@
   groups, with group/hunk membership and removal witnesses serialized in the
   build report and reproduced semantically.
 - Closed the remaining R5 grouping gate after the mandatory sandbox milestone.
+
+## 2026-07-21T13:30:07Z — First-class C++ optimization adapter coverage
+
+- Added language identity to every compiler fixture rather than inferring C,
+  C++, or Rust solely from the frontend profile.
+- Added positive C++ C-linkage and explicit-template-instance fixtures with
+  typed LLVM parameter intervention and independent monolithic witnesses.
+- Added a C++ macro-origin ambiguity fixture and public retained decline.
+- Corrected optimization source artifact naming/media type for C++ inputs.

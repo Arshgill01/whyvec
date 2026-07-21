@@ -402,3 +402,23 @@ Results:
 - Build and optimization schemas, security containment, tamper refusal,
   compiler fixtures, LLVM identity/delta isolation, and positive/refusal paths
   all remained passing.
+
+## 2026-07-21T13:30:07Z — C++ adapter fixture validation
+
+Passed commands:
+
+```console
+python3 scripts/validate_repository.py
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Results:
+
+- The manifest validated with explicit language identities for all eight
+  fixtures.
+- C++ C-linkage and template baselines plus typed singleton counterfactuals
+  matched their expected outcomes; both reports validated against the
+  optimization schema and retained `text/x-c++` source evidence.
+- The C++ macro case returned a retained `identity.ambiguous` report without a
+  selected loop or variant execution.

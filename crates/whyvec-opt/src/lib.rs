@@ -259,7 +259,12 @@ pub fn explain_optimization(
     fs::create_dir_all(&artifact_parent)?;
     fs::create_dir(&root)?;
     let store = ArtifactStore::new(&root);
-    let mut artifacts = vec![store.retain("inputs/source.c", &source_bytes, "text/x-c")?];
+    let (source_artifact, source_media_type) =
+        match source.extension().and_then(|value| value.to_str()) {
+            Some("cc" | "cpp" | "cxx") => ("inputs/source.cpp", "text/x-c++"),
+            _ => ("inputs/source.c", "text/x-c"),
+        };
+    let mut artifacts = vec![store.retain(source_artifact, &source_bytes, source_media_type)?];
     let toolchain = capture_toolchain(request, &repository)?;
     artifacts.push(store.retain(
         "inputs/toolchain.json",

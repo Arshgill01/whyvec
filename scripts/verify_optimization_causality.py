@@ -122,6 +122,14 @@ def main() -> int:
             ROOT / "fixtures/cases/already-vectorized", repository / "already-vectorized"
         )
         shutil.copytree(ROOT / "fixtures/cases/ambiguous-loop", repository / "ambiguous-loop")
+        shutil.copytree(ROOT / "fixtures/cases/cpp-bound-alias", repository / "cpp-bound-alias")
+        shutil.copytree(
+            ROOT / "fixtures/cases/cpp-template-bound", repository / "cpp-template-bound"
+        )
+        shutil.copytree(
+            ROOT / "fixtures/cases/cpp-macro-ambiguous",
+            repository / "cpp-macro-ambiguous",
+        )
         shutil.copytree(ROOT / "fixtures/cases/refusal", repository / "refusal")
         run(["git", "init", "--quiet"], repository)
 
@@ -188,6 +196,43 @@ def main() -> int:
         if replay.get("semantic_digest") != report.get("semantic_digest"):
             raise RuntimeError("optimization replay returned a different semantic digest")
 
+        cpp_report = invoke(
+            binary,
+            repository,
+            "cpp-bound-alias/kernel.cpp",
+            4,
+            "add_vectors_cpp",
+            ["output:0", "input:1", "count:2"],
+            transformer,
+            identity,
+        )
+        if cpp_report.get("finding", {}).get("sufficient_assumptions") != [
+            "parameter.count.noalias"
+        ]:
+            raise RuntimeError(f"unexpected C++ sufficient assumption: {cpp_report}")
+        if not any(
+            artifact.get("media_type") == "text/x-c++"
+            for artifact in cpp_report.get("artifacts", [])
+        ):
+            raise RuntimeError("C++ source artifact was mislabeled")
+        validate_artifacts(cpp_report)
+
+        template_report = invoke(
+            binary,
+            repository,
+            "cpp-template-bound/kernel.cpp",
+            3,
+            "_Z12template_addIiEvPT_PKS0_PKi",
+            ["output:0", "input:1", "count:2"],
+            transformer,
+            identity,
+        )
+        if template_report.get("finding", {}).get("sufficient_assumptions") != [
+            "parameter.count.noalias"
+        ]:
+            raise RuntimeError(f"C++ template instance did not reproduce: {template_report}")
+        validate_artifacts(template_report)
+
         declined = invoke(
             binary,
             repository,
@@ -229,6 +274,22 @@ def main() -> int:
         if ambiguous_replay.get("semantic_digest") != ambiguous.get("semantic_digest"):
             raise RuntimeError("ambiguous decline did not replay semantically")
 
+        macro_ambiguous = invoke(
+            binary,
+            repository,
+            "cpp-macro-ambiguous/kernel.cpp",
+            6,
+            "macro_loops",
+            ["output:0", "input:1", "count:2"],
+            transformer,
+            identity,
+        )
+        if macro_ambiguous.get("decline", {}).get("code") != "identity.ambiguous":
+            raise RuntimeError(f"macro-origin loops were not declined: {macro_ambiguous}")
+        if macro_ambiguous.get("subject") is not None:
+            raise RuntimeError("macro ambiguity fabricated a loop subject")
+        validate_artifacts(macro_ambiguous)
+
         no_success = invoke(
             binary,
             repository,
@@ -256,8 +317,11 @@ def main() -> int:
             raise RuntimeError("jsonschema is required") from error
         jsonschema.Draft202012Validator.check_schema(schema)
         jsonschema.validate(report, schema)
+        jsonschema.validate(cpp_report, schema)
+        jsonschema.validate(template_report, schema)
         jsonschema.validate(declined, schema)
         jsonschema.validate(ambiguous, schema)
+        jsonschema.validate(macro_ambiguous, schema)
         jsonschema.validate(no_success, schema)
 
         declined_path = Path(str(declined["artifact_path"]))

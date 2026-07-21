@@ -22,7 +22,7 @@ This is the living implementation plan. Phase documents contain detailed accepta
 | R3 | Immutable counterfactual experiment runtime | complete | Build and optimization adapters share deterministic three-valued search, bounded argv-only processes, create-new artifact retention, digest verification, read-only finalization, and semantic replay with tamper refusal |
 | R4 | LLVM optimization-causality pack | complete | Public `explain-opt`/`replay-opt` provide verified typed deltas, equivalent-confirmed pipeline replay, stable loop identity, retained ambiguity and no-success declines, deterministic finite search, confirmation runs, immutable evidence, and semantic reproduction |
 | R5 | Build-causality query | complete | Cargo/rustc stable diagnostic identity, parsed Rust syntax-item grouping with exact-hunk fallback, deterministic nested search, isolated Bubblewrap worktrees, cascade/removal witnesses, immutable reports, CLI, and semantic replay pass positive, interacting, ambiguity, tamper, and hostile-build fixtures |
-| R6 | C++, Rust, TypeScript, and GCC adapter expansion | queued | Depends on shared experiment runtime and adapter conformance suite |
+| R6 | C++, Rust, TypeScript, and GCC adapter expansion | active | C++ extern-linkage and explicit-template positive queries plus macro-origin ambiguity refusal pass through the public LLVM pack; Rust language profiling exists, while TypeScript build causality and GCC observation adapters remain |
 | R7 | Source-action, validation, and measurement | queued | Depends on family- and language-specific obligation models |
 | R8 | GPT-5.6/Codex repository engineering loop | queued | Depends on stable deterministic reports and validation gates |
 

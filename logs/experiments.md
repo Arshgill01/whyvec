@@ -289,3 +289,28 @@ Evidence strength and limitation:
 - This is a tested sufficient syntax-item edit group under the recorded Cargo
   build. Grouping prevents false hunk independence; it does not establish that
   every edit in the function is semantically necessary or correct.
+
+## 2026-07-21T13:30:07Z — C++ linkage, template, and macro experiments
+
+Commands:
+
+```console
+python3 scripts/verify_compiler_fixtures.py
+python3 scripts/verify_optimization_causality.py
+```
+
+Observed results:
+
+- The C-linkage `add_vectors_cpp` baseline missed; `count noalias` and
+  `output noalias` were observed sufficient singletons while `input noalias`
+  remained negative under the equivalent-confirmed Clang 21 pipeline.
+- The explicitly instantiated `template_add<int>` was selected by
+  `_Z12template_addIiEvPT_PKS0_PKi` and produced the same singleton outcomes.
+- Two `APPLY` macro expansions on one invocation line produced two identity
+  matches. Public `explain-opt` retained `identity.ambiguous`, no subject, and
+  no variants.
+
+Evidence strength and limitation:
+
+- These are C++ compiler counterfactual observations. They do not establish
+  `__restrict` validity, template-wide contracts, or safe changes at any caller.

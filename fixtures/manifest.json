@@ -9,6 +9,7 @@
     {
       "id": "bound-alias",
       "frontend": "clang",
+      "language": "c",
       "toolchain_profile": "clang-21-x86_64-v3",
       "source": "cases/bound-alias/kernel.c",
       "selector": {
@@ -35,6 +36,7 @@
     {
       "id": "already-vectorized",
       "frontend": "clang",
+      "language": "c",
       "toolchain_profile": "clang-21-x86_64-v3",
       "source": "cases/already-vectorized/kernel.c",
       "selector": {
@@ -45,8 +47,76 @@
       "expected_decline": "baseline.already_vectorized"
     },
     {
+      "id": "cpp-bound-alias",
+      "frontend": "clang",
+      "language": "cpp",
+      "toolchain_profile": "clang-21-x86_64-v3",
+      "source": "cases/cpp-bound-alias/kernel.cpp",
+      "selector": {
+        "function": "add_vectors_cpp",
+        "line": 4
+      },
+      "expected_baseline": "missed",
+      "pipeline_fidelity": "equivalent_confirmed",
+      "ir_parameters": {
+        "output": 0,
+        "input": 1,
+        "count": 2
+      },
+      "monolithic_counterfactuals": {
+        "parameter.count.noalias": "cases/cpp-bound-alias/count_noalias.cpp"
+      },
+      "expected_successful_singletons": [
+        "parameter.count.noalias",
+        "parameter.output.noalias"
+      ],
+      "preferred_explanation_singleton": "parameter.count.noalias",
+      "expected_obligation": "cpp_bound_object_disjoint_from_modified_region"
+    },
+    {
+      "id": "cpp-template-bound",
+      "frontend": "clang",
+      "language": "cpp",
+      "toolchain_profile": "clang-21-x86_64-v3",
+      "source": "cases/cpp-template-bound/kernel.cpp",
+      "selector": {
+        "function": "_Z12template_addIiEvPT_PKS0_PKi",
+        "line": 3
+      },
+      "expected_baseline": "missed",
+      "pipeline_fidelity": "equivalent_confirmed",
+      "ir_parameters": {
+        "output": 0,
+        "input": 1,
+        "count": 2
+      },
+      "monolithic_counterfactuals": {
+        "parameter.count.noalias": "cases/cpp-template-bound/count_noalias.cpp"
+      },
+      "expected_successful_singletons": [
+        "parameter.count.noalias",
+        "parameter.output.noalias"
+      ],
+      "preferred_explanation_singleton": "parameter.count.noalias",
+      "expected_obligation": "cpp_template_instance_bound_disjoint_from_modified_region"
+    },
+    {
+      "id": "cpp-macro-ambiguous",
+      "frontend": "clang",
+      "language": "cpp",
+      "toolchain_profile": "clang-21-x86_64-v3",
+      "source": "cases/cpp-macro-ambiguous/kernel.cpp",
+      "selector": {
+        "function": "macro_loops",
+        "line": 6
+      },
+      "expected_baseline": "missed",
+      "expected_decline": "identity.ambiguous"
+    },
+    {
       "id": "ambiguous-loop",
       "frontend": "clang",
+      "language": "c",
       "toolchain_profile": "clang-21-x86_64-v3",
       "source": "cases/ambiguous-loop/kernel.c",
       "selector": {
@@ -59,6 +129,7 @@
     {
       "id": "volatile-bound-refusal",
       "frontend": "clang",
+      "language": "c",
       "toolchain_profile": "clang-21-x86_64-v3",
       "source": "cases/refusal/volatile_bound.c",
       "selector": {
@@ -72,6 +143,7 @@
     {
       "id": "rust-bound-alias",
       "frontend": "rustc",
+      "language": "rust",
       "toolchain_profile": "rustc-1.96.1-llvm-22-x86_64-v3",
       "source": "cases/rust-bound-alias/kernel.rs",
       "selector": {

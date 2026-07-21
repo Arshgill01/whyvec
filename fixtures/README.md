@@ -5,6 +5,9 @@ Fixtures are executable semantic cases, not illustrative snippets. Each case def
 ## Case classes
 
 - `bound-alias` — baseline misses and a bound-parameter noalias counterfactual vectorizes.
+- `cpp-bound-alias` — a C++ translation unit with C linkage exercises the same typed LLVM family without inheriting C source-contract claims.
+- `cpp-template-bound` — an explicit C++ template instance is selected by its exact mangled LLVM identity and exercises positive counterfactual search.
+- `cpp-macro-ambiguous` — two macro-origin loops share one invocation line and must decline identity selection.
 - `rust-bound-alias` — rustc emits the same missed decision for a raw-pointer FFI-shaped loop; the paired LLVM surrogate establishes cross-frontend experiment feasibility without authorizing a Rust repair.
 - `already-vectorized` — LLVM runtime versions a conventional input/output alias case; WhyVec must decline further search.
 - `ambiguous-loop` — two loops share one function/debug line; the integrated query must retain an identity decline without selecting either loop.

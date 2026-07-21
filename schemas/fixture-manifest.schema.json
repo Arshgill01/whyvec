@@ -35,6 +35,7 @@
       "required": [
         "id",
         "frontend",
+        "language",
         "toolchain_profile",
         "source",
         "selector",
@@ -47,6 +48,9 @@
         },
         "frontend": {
           "enum": ["clang", "rustc"]
+        },
+        "language": {
+          "enum": ["c", "cpp", "rust", "typescript"]
         },
         "toolchain_profile": {
           "type": "string",

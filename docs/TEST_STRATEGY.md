@@ -44,6 +44,13 @@ must have no subject, split-pipeline baseline, experiments, or finding; must
 retain the helper streams and `identity.ambiguous`; and must reproduce through
 `replay-opt` without upgrading `not_evaluated` pipeline fidelity.
 
+C++ coverage includes a stable C-linkage function, an explicitly instantiated
+template selected by exact mangled IR name, and two macro-expanded loops on one
+invocation line. The first two must reproduce the typed positive result through
+public `explain-opt`; the macro case must retain ambiguity without selecting by
+column proximity. C++ artifacts use their own media type, and none of these
+compiler observations authorize a C++ source contract.
+
 ### Obligation derivation tests
 
 Supported positive shapes cover:

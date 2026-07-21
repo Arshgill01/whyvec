@@ -31,3 +31,5 @@ The format follows Keep a Changelog principles, and releases use semantic versio
   isolated network, read-only host root, private `/tmp`, and no unsandboxed fallback.
 - Parsed Rust syntax-item intervention groups that keep dependent separated
   hunks together while retaining exact patches and explicit text fallbacks.
+- First-class C++ optimization fixtures for C linkage, explicit template
+  instantiation, and macro-origin loop ambiguity through the public query.
